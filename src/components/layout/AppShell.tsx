@@ -2,13 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import {
-  ShieldCheck,
-  Database,
-  Sparkles,
-  Activity,
-  Globe,
-} from 'lucide-react';
+import { ShieldCheck, Database, Activity, Globe } from 'lucide-react';
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
 
 export interface AppShellProps {
@@ -16,19 +10,20 @@ export interface AppShellProps {
   locale: SupportedLocale;
   onLocaleChange: (nextLocale: SupportedLocale) => void;
   dict: AppDictionary;
-  activeTab?: 'audit' | 'vault' | 'router' | 'system';
-  onTabChange?: (tab: 'audit' | 'vault' | 'router' | 'system') => void;
+  activeTab?: 'overview' | 'vault';
+  onTabChange?: (tab: 'overview' | 'vault') => void;
 }
 
 /**
  * Clean, High-Readability Mobile-First Liquid Glass Application Shell.
+ * No redundant manual model selection tabs—focused strictly on user value.
  */
 export function AppShell({
   children,
   locale,
   onLocaleChange,
   dict,
-  activeTab = 'audit',
+  activeTab = 'overview',
   onTabChange,
 }: AppShellProps) {
   return (
@@ -36,45 +31,45 @@ export function AppShell({
       {/* Sticky Floating Frosted Top Navigation Bar */}
       <header className="sticky top-0 z-40 px-4 pt-4 pb-3 md:px-8">
         <div className="max-w-5xl mx-auto liquid-glass-pill px-5 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-500 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0">
               <ShieldCheck className="w-5 h-5 text-slate-950 stroke-[2.3]" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2.5">
-                <span className="font-bold tracking-tight text-base md:text-lg text-white">
+                <span className="font-bold tracking-tight text-base md:text-lg text-white whitespace-nowrap">
                   {dict.meta.appName}
                 </span>
-                <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-400/15 text-cyan-300 border border-cyan-400/30">
+                <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-400/15 text-cyan-300 border border-cyan-400/30 whitespace-nowrap">
                   V2.0
                 </span>
               </div>
-              <p className="text-xs text-slate-300 hidden sm:block">
+              <p className="text-xs text-slate-300 hidden lg:block truncate">
                 {dict.meta.tagline}
               </p>
             </div>
           </div>
 
-          {/* Desktop Focused Tab Switcher */}
+          {/* Desktop Focused Navigation Pills (Single-line whitespace-nowrap) */}
           <nav
             aria-label="Primary Workspace Navigation"
-            className="hidden md:flex items-center gap-1.5 bg-slate-950/60 p-1.5 rounded-full border border-white/15"
+            className="hidden md:flex items-center gap-2 bg-slate-950/60 p-1.5 rounded-full border border-white/15 shrink-0"
           >
             <button
               type="button"
-              onClick={() => onTabChange?.('audit')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === 'audit'
+              onClick={() => onTabChange?.('overview')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTab === 'overview'
                   ? 'bg-cyan-400 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-200 hover:text-white hover:bg-white/5'
               }`}
             >
-              {dict.nav.auditHub}
+              {dict.nav.overview}
             </button>
             <button
               type="button"
               onClick={() => onTabChange?.('vault')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 activeTab === 'vault'
                   ? 'bg-cyan-400 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-200 hover:text-white hover:bg-white/5'
@@ -82,23 +77,12 @@ export function AppShell({
             >
               {dict.nav.knowledgeVault}
             </button>
-            <button
-              type="button"
-              onClick={() => onTabChange?.('router')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === 'router'
-                  ? 'bg-cyan-400 text-slate-950 font-semibold shadow-sm'
-                  : 'text-slate-200 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {dict.nav.aiRouter}
-            </button>
             <Link
               href="/system"
-              className="px-4 py-2 rounded-full text-sm font-medium text-emerald-300 hover:bg-emerald-400/15 transition-colors flex items-center gap-2"
+              className="px-4 py-2 rounded-full text-sm font-medium text-emerald-300 hover:bg-emerald-400/15 whitespace-nowrap transition-colors flex items-center gap-2"
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              {dict.nav.systemCenter}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span>{dict.nav.systemCenter}</span>
             </Link>
           </nav>
 
@@ -137,7 +121,7 @@ export function AppShell({
         </div>
       </header>
 
-      {/* Main Content Container with Generous Breathing Room */}
+      {/* Main Content Container */}
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 pt-6 pb-12 md:px-8">
         {children}
       </main>
@@ -150,49 +134,42 @@ export function AppShell({
         <div className="liquid-glass-pill px-4 py-2.5 flex items-center justify-around">
           <button
             type="button"
-            onClick={() => onTabChange?.('audit')}
-            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-2xl transition-colors ${
-              activeTab === 'audit'
+            onClick={() => onTabChange?.('overview')}
+            className={`flex flex-col items-center gap-1 px-4 py-1 rounded-2xl transition-colors ${
+              activeTab === 'overview'
                 ? 'text-cyan-300 font-semibold'
                 : 'text-slate-300 hover:text-white'
             }`}
           >
             <ShieldCheck className="w-5 h-5" />
-            <span className="text-xs">{dict.nav.auditHub}</span>
+            <span className="text-xs whitespace-nowrap">
+              {dict.nav.overview}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => onTabChange?.('vault')}
-            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-2xl transition-colors ${
+            className={`flex flex-col items-center gap-1 px-4 py-1 rounded-2xl transition-colors ${
               activeTab === 'vault'
                 ? 'text-cyan-300 font-semibold'
                 : 'text-slate-300 hover:text-white'
             }`}
           >
             <Database className="w-5 h-5" />
-            <span className="text-xs">{dict.nav.knowledgeVault}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onTabChange?.('router')}
-            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-2xl transition-colors ${
-              activeTab === 'router'
-                ? 'text-cyan-300 font-semibold'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-5 h-5" />
-            <span className="text-xs">{dict.nav.aiRouter}</span>
+            <span className="text-xs whitespace-nowrap">
+              {dict.nav.knowledgeVault}
+            </span>
           </button>
 
           <Link
             href="/system"
-            className="flex flex-col items-center gap-1 px-3 py-1 rounded-2xl text-emerald-300 hover:text-emerald-200 transition-colors"
+            className="flex flex-col items-center gap-1 px-4 py-1 rounded-2xl text-emerald-300 hover:text-emerald-200 transition-colors"
           >
             <Activity className="w-5 h-5" />
-            <span className="text-xs">{dict.nav.systemCenter}</span>
+            <span className="text-xs whitespace-nowrap">
+              {dict.nav.systemCenter}
+            </span>
           </Link>
         </div>
       </nav>

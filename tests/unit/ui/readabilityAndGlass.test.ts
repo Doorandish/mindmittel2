@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('Liquid Glass GPU Artifact Prevention & Readability Standards', () => {
+describe('Liquid Glass GPU Artifact Prevention, Overflow Protection & Readability Standards', () => {
   const rootDir = path.resolve(__dirname, '../../../');
 
   it('removes before:-inset-px pseudo-element overlays in GlassCard that cause Chrome GPU compositing lines', () => {
@@ -27,6 +27,15 @@ describe('Liquid Glass GPU Artifact Prevention & Readability Standards', () => {
 
     expect(appShellSource).not.toContain('blur-3xl');
     expect(systemPageSource).not.toContain('blur-3xl');
+  });
+
+  it('enforces break-all / overflow-hidden on long file paths and API contracts in /system so text never overflows its container', () => {
+    const systemPageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/system/page.tsx'),
+      'utf-8'
+    );
+
+    expect(systemPageSource).toContain('break-all');
   });
 
   it('loads Inter and JetBrains_Mono fonts in RootLayout for high-contrast enterprise legibility', () => {

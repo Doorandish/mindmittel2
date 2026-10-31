@@ -129,7 +129,7 @@ export default function SystemObservabilityPage() {
           <button
             type="button"
             onClick={() => setActiveView('topology')}
-            className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold transition-colors ${
+            className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-colors ${
               activeView === 'topology'
                 ? 'bg-cyan-400 text-slate-950'
                 : 'text-slate-200 hover:text-white'
@@ -140,7 +140,7 @@ export default function SystemObservabilityPage() {
           <button
             type="button"
             onClick={() => setActiveView('logs')}
-            className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold transition-colors flex items-center gap-2 ${
+            className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-colors flex items-center gap-2 ${
               activeView === 'logs'
                 ? 'bg-cyan-400 text-slate-950'
                 : 'text-slate-200 hover:text-white'
@@ -178,12 +178,12 @@ export default function SystemObservabilityPage() {
       </div>
 
       {modelTestResult && (
-        <div className="px-5 py-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-sm text-emerald-100 flex items-center justify-between">
-          <span className="font-mono">{modelTestResult}</span>
+        <div className="px-5 py-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-sm text-emerald-100 flex items-center justify-between gap-4">
+          <span className="font-mono break-words">{modelTestResult}</span>
           <button
             type="button"
             onClick={() => setModelTestResult(null)}
-            className="text-emerald-300 underline ml-4 font-semibold"
+            className="text-emerald-300 underline font-semibold shrink-0"
           >
             Dismiss
           </button>
@@ -242,9 +242,9 @@ export default function SystemObservabilityPage() {
               {ARCHITECTURE_EDGES.map((edge, idx) => (
                 <div
                   key={idx}
-                  className="text-xs font-mono text-slate-200 bg-slate-950/60 px-3 py-2 rounded-xl border border-white/10 flex items-center justify-between"
+                  className="text-xs font-mono text-slate-200 bg-slate-950/60 px-3 py-2 rounded-xl border border-white/10 flex flex-wrap items-center justify-between gap-2"
                 >
-                  <span>
+                  <span className="break-all">
                     {edge.from} → {edge.to}
                   </span>
                   <span className="text-cyan-300">{edge.protocol}</span>
@@ -253,8 +253,8 @@ export default function SystemObservabilityPage() {
             </div>
           </GlassCard>
 
-          {/* Right 7 Columns: High-Readability Technical Deep-Dive */}
-          <GlassCard className="lg:col-span-7 p-6 md:p-8 space-y-6">
+          {/* Right 7 Columns: High-Readability Technical Deep-Dive (Overflow-Safe) */}
+          <GlassCard className="lg:col-span-7 p-6 md:p-8 space-y-6 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-4">
               <div>
                 <span className="text-xs font-mono uppercase text-cyan-300 font-semibold">
@@ -296,45 +296,49 @@ export default function SystemObservabilityPage() {
                   <Layers className="w-4 h-4 text-cyan-400" />
                   <span>Architectural Pattern</span>
                 </h3>
-                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-100 font-mono text-xs md:text-sm">
+                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-100 font-mono text-xs md:text-sm break-words">
                   {selectedNode.technical.architecturePattern}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-indigo-400" />
+                    <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
                     <span>Technology Stack</span>
                   </h3>
-                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200">
+                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 break-words">
                     {selectedNode.technical.stack.map((item) => (
                       <li key={item}>• {item}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                    <FileCode2 className="w-4 h-4 text-emerald-400" />
+                    <FileCode2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>Source File References</span>
                   </h3>
-                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-cyan-300 font-mono text-xs md:text-sm">
+                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-cyan-300 font-mono text-xs md:text-sm break-all overflow-hidden">
                     {selectedNode.technical.sourceFiles.map((file) => (
-                      <li key={file}>{file}</li>
+                      <li key={file} className="break-all">
+                        {file}
+                      </li>
                     ))}
                   </ul>
                 </div>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                  <Database className="w-4 h-4 text-cyan-400" />
+                  <Database className="w-4 h-4 text-cyan-400 shrink-0" />
                   <span>API Contracts & Signatures</span>
                 </h3>
-                <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-100 font-mono text-xs md:text-sm">
+                <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-100 font-mono text-xs md:text-sm break-all overflow-hidden">
                   {selectedNode.technical.apiContracts.map((contract) => (
-                    <li key={contract}>{contract}</li>
+                    <li key={contract} className="break-words">
+                      {contract}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -343,17 +347,17 @@ export default function SystemObservabilityPage() {
                 <h3 className="font-semibold text-white mb-2">
                   Data Execution Pipeline
                 </h3>
-                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 leading-relaxed">
+                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 leading-relaxed break-words">
                   {selectedNode.technical.dataPipeline}
                 </p>
               </div>
 
               <div>
                 <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-400" />
+                  <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
                   <span>Error Boundaries, Self-Healing & Fallbacks</span>
                 </h3>
-                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 leading-relaxed">
+                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 leading-relaxed break-words">
                   {selectedNode.technical.errorHandlingAndFallbacks}
                 </p>
               </div>
@@ -370,7 +374,7 @@ export default function SystemObservabilityPage() {
                   selectedNode.technical.envVars.map((envVar) => (
                     <span
                       key={envVar}
-                      className="px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-200 font-mono text-xs"
+                      className="px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-200 font-mono text-xs break-all"
                     >
                       {envVar}
                     </span>
@@ -459,22 +463,24 @@ export default function SystemObservabilityPage() {
                     key={entry.id}
                     className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                   >
-                    <div className="flex items-start sm:items-center gap-3">
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
                       <span className="text-slate-300 shrink-0">
                         {entry.timestamp.slice(11, 19)}
                       </span>
                       <span
-                        className={`px-2 py-0.5 rounded text-xs uppercase font-bold border ${badgeColor}`}
+                        className={`px-2 py-0.5 rounded text-xs uppercase font-bold border shrink-0 ${badgeColor}`}
                       >
                         {entry.level}
                       </span>
                       <span className="text-indigo-300 font-semibold shrink-0">
                         [{entry.module}]
                       </span>
-                      <span className="text-white">{entry.message}</span>
+                      <span className="text-white break-words">
+                        {entry.message}
+                      </span>
                     </div>
                     {entry.meta && (
-                      <span className="text-xs text-slate-300 truncate max-w-md">
+                      <span className="text-xs text-slate-300 break-all max-w-md">
                         {JSON.stringify(entry.meta)}
                       </span>
                     )}

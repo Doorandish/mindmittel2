@@ -5,13 +5,13 @@ import Link from 'next/link';
 import {
   ShieldCheck,
   Sparkles,
-  Database,
   Search,
   Layers,
   Cpu,
   ArrowUpRight,
-  CheckCircle2,
   SlidersHorizontal,
+  Scale,
+  CheckCircle2,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { GlassCard } from '@/components/glass/GlassCard';
@@ -20,17 +20,15 @@ import {
   DEFAULT_LOCALE,
   type SupportedLocale,
 } from '@/i18n/dictionaries';
+import { inferProfileFromQuery } from '@/core/ai/modelRanking';
 
 export default function HomePage() {
   const [locale, setLocale] = useState<SupportedLocale>(DEFAULT_LOCALE);
-  const [activeTab, setActiveTab] = useState<
-    'audit' | 'vault' | 'router' | 'system'
-  >('audit');
-  const [selectedProfile, setSelectedProfile] = useState<'fast' | 'reasoning'>(
-    'fast'
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'vault'>('overview');
+  const [sampleQuery, setSampleQuery] = useState<string>('');
 
   const dict = getDictionary(locale);
+  const inferredProfile = inferProfileFromQuery(sampleQuery);
 
   return (
     <AppShell
@@ -40,12 +38,13 @@ export default function HomePage() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
     >
-      {/* TAB 1: AUDIT HUB (Clean Executive Overview & KPIs) */}
-      {activeTab === 'audit' && (
-        <div className="space-y-8">
-          <section className="liquid-glass-panel p-7 md:p-10">
+      {/* VIEW 1: PURPOSE-DRIVEN EXECUTIVE LANDING PAGE */}
+      {activeTab === 'overview' && (
+        <div className="space-y-10">
+          {/* Hero Value Proposition */}
+          <section className="liquid-glass-panel p-7 md:p-11">
             <div className="max-w-3xl space-y-5">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-200 text-xs md:text-sm font-medium">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-200 text-xs md:text-sm font-semibold">
                 <Sparkles className="w-4 h-4 text-cyan-300" />
                 <span>{dict.hero.badge}</span>
               </div>
@@ -62,7 +61,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('vault')}
-                  className="px-6 py-3 rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-semibold text-sm md:text-base shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all flex items-center gap-2"
+                  className="px-6 py-3.5 rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 font-semibold text-sm md:text-base shadow-lg shadow-cyan-500/20 hover:brightness-110 transition-all flex items-center gap-2"
                 >
                   <span>{dict.hero.primaryCta}</span>
                   <ArrowUpRight className="w-4 h-4" />
@@ -70,7 +69,7 @@ export default function HomePage() {
 
                 <Link
                   href="/system"
-                  className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/15 border border-white/25 text-white font-medium text-sm md:text-base transition-colors"
+                  className="px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/25 text-white font-medium text-sm md:text-base transition-colors"
                 >
                   {dict.hero.secondaryCta}
                 </Link>
@@ -78,79 +77,111 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Seam-Free High-Contrast KPI Row */}
+          {/* Why MindMittel V2 Exists — The Core Problem Solved */}
+          <GlassCard accentGlow="cyan" className="p-7 md:p-9 space-y-3">
+            <span className="text-xs font-mono uppercase tracking-wider text-cyan-300 font-semibold">
+              {dict.problemSection.eyebrow}
+            </span>
+            <h2 className="text-2xl md:text-3xl font-bold text-white">
+              {dict.problemSection.title}
+            </h2>
+            <p className="text-base text-slate-200 leading-relaxed">
+              {dict.problemSection.description}
+            </p>
+          </GlassCard>
+
+          {/* 3 Value Pillars: Capabilities that Deliver Real Value */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <GlassCard accentGlow="cyan" className="p-6 space-y-2">
-              <div className="flex items-center justify-between text-slate-200 text-sm font-medium">
-                <span>{dict.metrics.governanceScore}</span>
-                <ShieldCheck className="w-5 h-5 text-cyan-400" />
+            <GlassCard accentGlow="cyan" className="p-6 space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center">
+                <Scale className="w-5 h-5 text-cyan-300" />
               </div>
-              <div className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-                94.8%
-              </div>
-              <p className="text-sm text-emerald-300 font-medium pt-1">
-                {dict.metrics.governanceDelta}
+              <h3 className="text-lg font-bold text-white leading-snug">
+                {dict.pillars.pillar1Title}
+              </h3>
+              <p className="text-sm text-slate-200 leading-relaxed">
+                {dict.pillars.pillar1Desc}
               </p>
             </GlassCard>
 
-            <GlassCard
-              accentGlow="indigo"
-              interactive
-              className="p-6 space-y-2"
-            >
-              <button
-                type="button"
-                onClick={() => setActiveTab('vault')}
-                className="w-full text-left space-y-2"
-              >
-                <div className="flex items-center justify-between text-slate-200 text-sm font-medium">
-                  <span>{dict.metrics.indexedChunks}</span>
-                  <Database className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div className="text-2xl md:text-3xl font-bold text-white tracking-tight font-mono">
-                  mindmittel_v2
-                </div>
-                <p className="text-sm text-slate-300 pt-1">
-                  {dict.metrics.indexedSub} →
-                </p>
-              </button>
+            <GlassCard accentGlow="indigo" className="p-6 space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-400/15 border border-indigo-400/30 flex items-center justify-center">
+                <Layers className="w-5 h-5 text-indigo-300" />
+              </div>
+              <h3 className="text-lg font-bold text-white leading-snug">
+                {dict.pillars.pillar2Title}
+              </h3>
+              <p className="text-sm text-slate-200 leading-relaxed">
+                {dict.pillars.pillar2Desc}
+              </p>
             </GlassCard>
 
-            <GlassCard
-              accentGlow="emerald"
-              interactive
-              className="p-6 space-y-2"
-            >
-              <button
-                type="button"
-                onClick={() => setActiveTab('router')}
-                className="w-full text-left space-y-2"
-              >
-                <div className="flex items-center justify-between text-slate-200 text-sm font-medium">
-                  <span>{dict.metrics.activeModel}</span>
-                  <Cpu className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                  {selectedProfile === 'fast'
-                    ? 'Gemini Flash'
-                    : 'Gemini Pro'}
-                </div>
-                <p className="text-sm text-cyan-300 pt-1">
-                  {dict.metrics.modelRoutingMode} →
-                </p>
-              </button>
+            <GlassCard accentGlow="emerald" className="p-6 space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center">
+                <Cpu className="w-5 h-5 text-emerald-300" />
+              </div>
+              <h3 className="text-lg font-bold text-white leading-snug">
+                {dict.pillars.pillar3Title}
+              </h3>
+              <p className="text-sm text-slate-200 leading-relaxed">
+                {dict.pillars.pillar3Desc}
+              </p>
             </GlassCard>
           </section>
+
+          {/* How It Works in 3 Steps */}
+          <GlassCard className="p-7 md:p-9 space-y-6">
+            <h2 className="text-xl md:text-2xl font-bold text-white">
+              {dict.workflowSection.title}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-5 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+                <div className="text-xs font-mono text-cyan-300 font-semibold">
+                  STEP 01
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  {dict.workflowSection.step1Title}
+                </h3>
+                <p className="text-sm text-slate-200 leading-relaxed">
+                  {dict.workflowSection.step1Desc}
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+                <div className="text-xs font-mono text-indigo-300 font-semibold">
+                  STEP 02
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  {dict.workflowSection.step2Title}
+                </h3>
+                <p className="text-sm text-slate-200 leading-relaxed">
+                  {dict.workflowSection.step2Desc}
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-slate-950/60 border border-white/10 space-y-2">
+                <div className="text-xs font-mono text-emerald-300 font-semibold">
+                  STEP 03
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  {dict.workflowSection.step3Title}
+                </h3>
+                <p className="text-sm text-slate-200 leading-relaxed">
+                  {dict.workflowSection.step3Desc}
+                </p>
+              </div>
+            </div>
+          </GlassCard>
         </div>
       )}
 
-      {/* TAB 2: PARENT-CHILD RAG KNOWLEDGE VAULT (Dedicated Uncluttered View) */}
+      {/* VIEW 2: AUDIT & PARENT-CHILD RAG KNOWLEDGE VAULT */}
       {activeTab === 'vault' && (
         <div className="space-y-6">
           <GlassCard className="p-6 md:p-8 space-y-6">
             <div className="space-y-2">
               <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2.5">
-                <Layers className="w-6 h-6 text-cyan-400" />
+                <ShieldCheck className="w-6 h-6 text-cyan-400" />
                 <span>{dict.ragSection.title}</span>
               </h2>
               <p className="text-sm md:text-base text-slate-200 leading-relaxed max-w-3xl">
@@ -158,19 +189,34 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* High-Contrast Search Input & Metadata Filter Pills */}
-            <div className="space-y-4">
+            {/* Interactive Query Input with Autonomous Model Routing Indicator */}
+            <div className="space-y-3">
               <div className="relative">
                 <Search className="w-5 h-5 text-slate-300 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  readOnly
+                  value={sampleQuery}
+                  onChange={(e) => setSampleQuery(e.target.value)}
                   placeholder={dict.ragSection.searchPlaceholder}
                   className="w-full pl-12 pr-5 py-3.5 text-sm md:text-base liquid-glass-input"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 text-xs md:text-sm">
+              {/* Autonomous Model Routing Status Pill (Zero user intervention required) */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs text-slate-200">
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{dict.ragSection.autoRoutingNotice}</span>
+                </span>
+                <span className="font-mono text-cyan-300 font-semibold">
+                  Auto-Selected Tier:{' '}
+                  {inferredProfile === 'reasoning'
+                    ? 'Gemini Pro (Deep Audit)'
+                    : 'Gemini Flash (Rapid Lookup)'}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 text-xs md:text-sm pt-1">
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-white/20 text-slate-100 font-medium">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
                   {dict.ragSection.filterDepartment}
@@ -241,82 +287,6 @@ export default function HomePage() {
                   </span>
                 </div>
               </div>
-            </div>
-          </GlassCard>
-        </div>
-      )}
-
-      {/* TAB 3: DYNAMIC GEMINI MODEL ROUTER (Dedicated Uncluttered View) */}
-      {activeTab === 'router' && (
-        <div className="space-y-6">
-          <GlassCard className="p-6 md:p-8 space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2.5">
-                <Sparkles className="w-6 h-6 text-emerald-400" />
-                <span>{dict.aiSelectorSection.title}</span>
-              </h2>
-              <p className="text-sm md:text-base text-slate-200 leading-relaxed max-w-3xl">
-                {dict.aiSelectorSection.subtitle}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <button
-                type="button"
-                onClick={() => setSelectedProfile('fast')}
-                className={`w-full text-left p-6 rounded-2xl border transition-colors ${
-                  selectedProfile === 'fast'
-                    ? 'bg-cyan-400/15 border-cyan-400 shadow-sm'
-                    : 'bg-slate-950/60 border-white/15 hover:bg-slate-900'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-base md:text-lg font-bold text-white">
-                    {dict.aiSelectorSection.fastProfileLabel}
-                  </span>
-                  {selectedProfile === 'fast' && (
-                    <CheckCircle2 className="w-5 h-5 text-cyan-400" />
-                  )}
-                </div>
-                <p className="text-sm text-slate-200 mt-2 leading-relaxed">
-                  {dict.aiSelectorSection.fastProfileDesc}
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedProfile('reasoning')}
-                className={`w-full text-left p-6 rounded-2xl border transition-colors ${
-                  selectedProfile === 'reasoning'
-                    ? 'bg-indigo-400/15 border-indigo-400 shadow-sm'
-                    : 'bg-slate-950/60 border-white/15 hover:bg-slate-900'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-base md:text-lg font-bold text-white">
-                    {dict.aiSelectorSection.reasoningProfileLabel}
-                  </span>
-                  {selectedProfile === 'reasoning' && (
-                    <CheckCircle2 className="w-5 h-5 text-indigo-400" />
-                  )}
-                </div>
-                <p className="text-sm text-slate-200 mt-2 leading-relaxed">
-                  {dict.aiSelectorSection.reasoningProfileDesc}
-                </p>
-              </button>
-            </div>
-
-            <div className="pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-4 text-sm text-emerald-300 font-medium">
-              <span className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                {dict.aiSelectorSection.statusReady}
-              </span>
-              <Link
-                href="/system"
-                className="text-cyan-300 hover:underline font-semibold"
-              >
-                {dict.aiSelectorSection.evaluateButton} →
-              </Link>
             </div>
           </GlassCard>
         </div>

@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   rankGeminiModels,
   parseModelMetadata,
+  inferProfileFromQuery,
   type RawGeminiModelInfo,
 } from '@/core/ai/modelRanking';
 
-describe('Dynamic Gemini Model Ranking (Functional Core)', () => {
+describe('Dynamic Gemini Model Ranking & Autonomous Query Intent Classifier (Functional Core)', () => {
   const sampleModels: RawGeminiModelInfo[] = [
     {
       name: 'models/text-embedding-004',
@@ -113,6 +114,15 @@ describe('Dynamic Gemini Model Ranking (Functional Core)', () => {
     ];
     const ranked = rankGeminiModels(futureModels, 'fast');
     expect(ranked[0].modelId).toBe('gemini-4.0-flash');
+  });
+
+  it('autonomously infers "fast" vs "reasoning" profile from user request complexity without manual user selection', () => {
+    expect(inferProfileFromQuery('What is the petty cash limit?')).toBe('fast');
+    expect(
+      inferProfileFromQuery(
+        'Conduct a comprehensive governance audit comparing our Q4 board minutes against ISO 37000 and identify policy contradictions.'
+      )
+    ).toBe('reasoning');
   });
 
   it('throws a clear error when no compatible text generation models are available', () => {

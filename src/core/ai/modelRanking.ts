@@ -37,6 +37,22 @@ const EXCLUDED_MODEL_PATTERNS = [
   /gemma/i,
 ];
 
+const REASONING_INTENT_KEYWORDS =
+  /\b(audit|contradiction|compare|compliance|iso[- ]?37000|coso|dcgk|risk|escalation|charter|board|conflict|violat|prüf|widerspruch|vorstand|risiko)\b/i;
+
+/**
+ * Autonomously determines whether a user request requires deep multi-document
+ * governance reasoning ('reasoning' -> Pro priority) or rapid retrieval ('fast' -> Flash priority).
+ * Eliminates the need for manual user model selection.
+ */
+export function inferProfileFromQuery(query: string): ModelSelectionProfile {
+  const trimmed = query.trim();
+  if (trimmed.length > 110 || REASONING_INTENT_KEYWORDS.test(trimmed)) {
+    return 'reasoning';
+  }
+  return 'fast';
+}
+
 /**
  * Pure function that inspects a raw Gemini model descriptor and extracts
  * normalized version, family, and stability metadata without hardcoding model versions.
@@ -47,7 +63,6 @@ export function parseModelMetadata(
   const modelId = raw.name.replace(/^models\//, '');
   const lower = modelId.toLowerCase();
 
-  // Extract major.minor version dynamically (e.g., gemini-2.5-flash -> 2.5, gemini-3.0-pro -> 3.0)
   const versionMatch = lower.match(/gemini-(\d+(?:\.\d+)?)/);
   const version = versionMatch ? parseFloat(versionMatch[1]) : 1.0;
 
@@ -103,8 +118,6 @@ export function isTextGenerationCandidate(raw: RawGeminiModelInfo): boolean {
 
 /**
  * Computes a deterministic numerical score for a candidate model given a target profile.
- * - 'fast': Prioritizes cost-efficiency & low latency (Flash > Pro > Flash-Lite)
- * - 'reasoning': Prioritizes deep governance audit reasoning (Pro > Flash > Flash-Lite)
  */
 export function scoreModelForProfile(
   meta: Omit<RankedGeminiModel, 'score'>,
@@ -118,7 +131,6 @@ export function scoreModelForProfile(
     else if (meta.family === 'flash-lite') familyWeight = 150;
     else familyWeight = 50;
   } else {
-    // 'reasoning' profile
     if (meta.family === 'pro') familyWeight = 300;
     else if (meta.family === 'flash') familyWeight = 200;
     else if (meta.family === 'flash-lite') familyWeight = 100;
@@ -130,10 +142,8 @@ export function scoreModelForProfile(
   else if (meta.stability === 'preview') stabilityWeight = 15;
   else stabilityWeight = 5;
 
-  // Version multiplier ensures newer generations within the preferred family win automatically
   const versionWeight = meta.version * 50;
 
-  // Prefer canonical base aliases (e.g., gemini-2.5-flash over dated snapshots) when tied
   const isCanonicalBase = /^gemini-\d+(\.\d+)?-(flash|pro|flash-lite)$/.test(
     meta.modelId
   );
