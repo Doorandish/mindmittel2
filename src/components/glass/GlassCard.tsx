@@ -11,15 +11,14 @@ const accentBorderStyles: Record<
   NonNullable<GlassCardProps['accentGlow']>,
   string
 > = {
-  cyan: 'border-t-2 border-t-cyan-400/60',
-  indigo: 'border-t-2 border-t-indigo-400/60',
-  emerald: 'border-t-2 border-t-emerald-400/60',
+  cyan: 'border-t-4 border-t-blue-600',
+  indigo: 'border-t-4 border-t-indigo-600',
+  emerald: 'border-t-4 border-t-emerald-600',
   none: '',
 };
 
 /**
- * Reusable Apple-inspired Liquid Glass surface with seam-free GPU compositing,
- * high-contrast borders, and crisp enterprise typography.
+ * Clean, High-Contrast Enterprise Card surface inspired by MindMittel V1.
  */
 export function GlassCard({
   children,
@@ -28,7 +27,7 @@ export function GlassCard({
   accentGlow = 'none',
 }: GlassCardProps) {
   const interactiveClasses = interactive
-    ? 'cursor-pointer hover:border-white/30'
+    ? 'cursor-pointer hover:border-blue-400'
     : '';
 
   return (

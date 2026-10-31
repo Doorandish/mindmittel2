@@ -100,24 +100,24 @@ export default function SystemObservabilityPage() {
 
   return (
     <div className="min-h-screen px-4 py-6 md:px-8 max-w-6xl mx-auto space-y-8">
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Clean Enterprise Light Theme) */}
       <header className="liquid-glass-pill px-5 py-3.5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <Link
             href="/"
-            className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors"
-            aria-label="Back to Dashboard"
+            className="p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 transition-colors"
+            aria-label="Back to Landing Page"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-400" />
-              <h1 className="text-base md:text-lg font-bold text-white">
+              <Activity className="w-5 h-5 text-blue-600" />
+              <h1 className="text-base md:text-lg font-extrabold text-slate-900">
                 MindMittel V2 — System Architecture & Live Telemetry
               </h1>
             </div>
-            <p className="text-xs md:text-sm text-slate-300">
+            <p className="text-xs md:text-sm text-slate-600">
               Inspect technical architecture specifications or monitor real-time
               SSE server logs.
             </p>
@@ -125,14 +125,14 @@ export default function SystemObservabilityPage() {
         </div>
 
         {/* Clean View Switcher */}
-        <div className="flex items-center gap-2 bg-slate-950/70 p-1.5 rounded-full border border-white/15">
+        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-full border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveView('topology')}
             className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-colors ${
               activeView === 'topology'
-                ? 'bg-cyan-400 text-slate-950'
-                : 'text-slate-200 hover:text-white'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             Architecture Topology
@@ -142,26 +142,26 @@ export default function SystemObservabilityPage() {
             onClick={() => setActiveView('logs')}
             className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-colors flex items-center gap-2 ${
               activeView === 'logs'
-                ? 'bg-cyan-400 text-slate-950'
-                : 'text-slate-200 hover:text-white'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-700 hover:text-slate-900'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Live SSE Logs ({logs.length})</span>
           </button>
         </div>
       </header>
 
       {/* Action Bar for Live Gemini Model Probes */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 border border-white/15 rounded-2xl px-5 py-3.5">
-        <span className="text-sm text-slate-200 font-medium">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-slate-200 shadow-sm rounded-2xl px-6 py-4">
+        <span className="text-sm text-slate-700 font-semibold">
           Runtime Gemini Model Evaluation Probe:
         </span>
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => triggerDynamicModelEvaluation('fast')}
-            className="px-4 py-2 rounded-full text-xs md:text-sm font-semibold bg-cyan-400/15 hover:bg-cyan-400/25 text-cyan-200 border border-cyan-400/40 transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-full text-xs md:text-sm font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors flex items-center gap-2"
           >
             <Zap className="w-4 h-4" />
             <span>Probe Fast Profile</span>
@@ -169,7 +169,7 @@ export default function SystemObservabilityPage() {
           <button
             type="button"
             onClick={() => triggerDynamicModelEvaluation('reasoning')}
-            className="px-4 py-2 rounded-full text-xs md:text-sm font-semibold bg-indigo-400/15 hover:bg-indigo-400/25 text-indigo-200 border border-indigo-400/40 transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-full text-xs md:text-sm font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors flex items-center gap-2"
           >
             <Cpu className="w-4 h-4" />
             <span>Probe Reasoning Profile</span>
@@ -178,12 +178,14 @@ export default function SystemObservabilityPage() {
       </div>
 
       {modelTestResult && (
-        <div className="px-5 py-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-sm text-emerald-100 flex items-center justify-between gap-4">
-          <span className="font-mono break-words">{modelTestResult}</span>
+        <div className="px-5 py-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-sm text-emerald-900 flex items-center justify-between gap-4">
+          <span className="font-mono break-words font-semibold">
+            {modelTestResult}
+          </span>
           <button
             type="button"
             onClick={() => setModelTestResult(null)}
-            className="text-emerald-300 underline font-semibold shrink-0"
+            className="text-emerald-700 underline font-bold shrink-0"
           >
             Dismiss
           </button>
@@ -196,11 +198,11 @@ export default function SystemObservabilityPage() {
           {/* Left 5 Columns: Node Selector */}
           <GlassCard className="lg:col-span-5 p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
-                <GitBranch className="w-5 h-5 text-cyan-400" />
+              <h2 className="text-base md:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                <GitBranch className="w-5 h-5 text-blue-600" />
                 <span>System Nodes</span>
               </h2>
-              <span className="text-xs text-emerald-300 font-semibold">
+              <span className="text-xs text-emerald-700 font-bold">
                 ● {ARCHITECTURE_NODES.length} Healthy
               </span>
             </div>
@@ -215,19 +217,19 @@ export default function SystemObservabilityPage() {
                     onClick={() => setSelectedNode(node)}
                     className={`w-full text-left p-4 rounded-2xl border transition-colors ${
                       isSelected
-                        ? 'bg-cyan-400/15 border-cyan-400 shadow-sm'
-                        : 'bg-slate-950/60 border-white/15 hover:bg-slate-900'
+                        ? 'bg-blue-50/80 border-blue-600 shadow-sm'
+                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-white/10 text-cyan-300 font-semibold">
+                      <span className="text-xs font-mono uppercase tracking-wider px-2.5 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">
                         {node.category}
                       </span>
-                      <span className="text-xs text-emerald-300 font-medium">
+                      <span className="text-xs text-emerald-700 font-semibold">
                         ● {node.status}
                       </span>
                     </div>
-                    <div className="text-base font-bold text-white mt-2">
+                    <div className="text-base font-bold text-slate-900 mt-2">
                       {node.title}
                     </div>
                   </button>
@@ -235,19 +237,21 @@ export default function SystemObservabilityPage() {
               })}
             </div>
 
-            <div className="pt-4 border-t border-white/15 space-y-2">
-              <div className="text-xs md:text-sm font-semibold text-slate-200">
+            <div className="pt-4 border-t border-slate-200 space-y-2">
+              <div className="text-xs md:text-sm font-bold text-slate-700">
                 Active Data Channels
               </div>
               {ARCHITECTURE_EDGES.map((edge, idx) => (
                 <div
                   key={idx}
-                  className="text-xs font-mono text-slate-200 bg-slate-950/60 px-3 py-2 rounded-xl border border-white/10 flex flex-wrap items-center justify-between gap-2"
+                  className="text-xs font-mono text-slate-700 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2"
                 >
                   <span className="break-all">
                     {edge.from} → {edge.to}
                   </span>
-                  <span className="text-cyan-300">{edge.protocol}</span>
+                  <span className="text-blue-700 font-semibold">
+                    {edge.protocol}
+                  </span>
                 </div>
               ))}
             </div>
@@ -255,12 +259,12 @@ export default function SystemObservabilityPage() {
 
           {/* Right 7 Columns: High-Readability Technical Deep-Dive (Overflow-Safe) */}
           <GlassCard className="lg:col-span-7 p-6 md:p-8 space-y-6 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
               <div>
-                <span className="text-xs font-mono uppercase text-cyan-300 font-semibold">
+                <span className="text-xs font-mono uppercase text-blue-600 font-bold">
                   Technical Deep-Dive Specification
                 </span>
-                <h2 className="text-xl md:text-2xl font-bold text-white mt-1">
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 mt-1">
                   {selectedNode.title}
                 </h2>
               </div>
@@ -269,21 +273,21 @@ export default function SystemObservabilityPage() {
                 <button
                   type="button"
                   onClick={() => emitDiagnosticLog('info')}
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 transition-colors"
                 >
                   + Emit INFO
                 </button>
                 <button
                   type="button"
                   onClick={() => emitDiagnosticLog('warn')}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-xs font-semibold text-amber-200 transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-xs font-bold text-amber-900 transition-colors"
                 >
                   + Emit WARN
                 </button>
                 <button
                   type="button"
                   onClick={() => emitDiagnosticLog('error')}
-                  className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-xs font-semibold text-rose-200 transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 text-xs font-bold text-rose-900 transition-colors"
                 >
                   + Emit ERROR
                 </button>
@@ -292,22 +296,22 @@ export default function SystemObservabilityPage() {
 
             <div className="space-y-5 text-sm">
               <div>
-                <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-cyan-400" />
+                <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-blue-600" />
                   <span>Architectural Pattern</span>
                 </h3>
-                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-100 font-mono text-xs md:text-sm break-words">
+                <p className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-mono text-xs md:text-sm break-words">
                   {selectedNode.technical.architecturePattern}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-indigo-600 shrink-0" />
                     <span>Technology Stack</span>
                   </h3>
-                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 break-words">
+                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 break-words">
                     {selectedNode.technical.stack.map((item) => (
                       <li key={item}>• {item}</li>
                     ))}
@@ -315,11 +319,11 @@ export default function SystemObservabilityPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                    <FileCode2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                    <FileCode2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>Source File References</span>
                   </h3>
-                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-cyan-300 font-mono text-xs md:text-sm break-all overflow-hidden">
+                  <ul className="space-y-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-blue-700 font-mono text-xs md:text-sm break-all overflow-hidden">
                     {selectedNode.technical.sourceFiles.map((file) => (
                       <li key={file} className="break-all">
                         {file}
@@ -330,11 +334,11 @@ export default function SystemObservabilityPage() {
               </div>
 
               <div className="min-w-0">
-                <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                  <Database className="w-4 h-4 text-cyan-400 shrink-0" />
+                <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-blue-600 shrink-0" />
                   <span>API Contracts & Signatures</span>
                 </h3>
-                <ul className="space-y-1.5 p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-100 font-mono text-xs md:text-sm break-all overflow-hidden">
+                <ul className="space-y-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-mono text-xs md:text-sm break-all overflow-hidden">
                   {selectedNode.technical.apiContracts.map((contract) => (
                     <li key={contract} className="break-words">
                       {contract}
@@ -344,37 +348,37 @@ export default function SystemObservabilityPage() {
               </div>
 
               <div>
-                <h3 className="font-semibold text-white mb-2">
+                <h3 className="font-bold text-slate-900 mb-2">
                   Data Execution Pipeline
                 </h3>
-                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 leading-relaxed break-words">
+                <p className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 leading-relaxed break-words">
                   {selectedNode.technical.dataPipeline}
                 </p>
               </div>
 
               <div>
-                <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>Error Boundaries, Self-Healing & Fallbacks</span>
                 </h3>
-                <p className="p-4 rounded-xl bg-slate-950/70 border border-white/15 text-slate-200 leading-relaxed break-words">
+                <p className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 leading-relaxed break-words">
                   {selectedNode.technical.errorHandlingAndFallbacks}
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                <span className="text-slate-300 font-medium">
+                <span className="text-slate-700 font-bold">
                   Environment Variables:
                 </span>
                 {selectedNode.technical.envVars.length === 0 ? (
-                  <span className="px-3 py-1 rounded-lg bg-white/10 text-slate-200 font-mono text-xs">
+                  <span className="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-xs">
                     None (Pure Core Module)
                   </span>
                 ) : (
                   selectedNode.technical.envVars.map((envVar) => (
                     <span
                       key={envVar}
-                      className="px-3 py-1 rounded-full bg-cyan-400/15 border border-cyan-400/30 text-cyan-200 font-mono text-xs break-all"
+                      className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-mono text-xs font-bold break-all"
                     >
                       {envVar}
                     </span>
@@ -391,11 +395,11 @@ export default function SystemObservabilityPage() {
         <GlassCard className="p-6 md:p-8 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <Terminal className="w-5 h-5 text-emerald-400" />
-              <h2 className="text-lg md:text-xl font-bold text-white">
+              <Terminal className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg md:text-xl font-extrabold text-slate-900">
                 Live SSE System Log Stream
               </h2>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-400/15 text-emerald-300 border border-emerald-400/30">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <Radio className="w-3.5 h-3.5 animate-pulse" />
                 {isStreamPaused ? 'Paused' : 'Streaming Live'}
               </span>
@@ -408,7 +412,7 @@ export default function SystemObservabilityPage() {
                 onChange={(e) =>
                   setLevelFilter(e.target.value as 'all' | LogLevel)
                 }
-                className="px-3.5 py-2 rounded-xl bg-slate-950 border border-white/20 text-white"
+                className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-medium"
               >
                 <option value="all">All Levels</option>
                 <option value="info">INFO only</option>
@@ -421,22 +425,22 @@ export default function SystemObservabilityPage() {
                 placeholder="Filter by module or message..."
                 value={moduleFilter}
                 onChange={(e) => setModuleFilter(e.target.value)}
-                className="px-3.5 py-2 rounded-xl bg-slate-950 border border-white/20 text-white placeholder-slate-400"
+                className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400"
               />
 
               <button
                 type="button"
                 onClick={() => setIsStreamPaused((prev) => !prev)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-semibold flex items-center gap-1.5"
               >
                 {isStreamPaused ? (
                   <>
-                    <Play className="w-4 h-4 text-emerald-400" />
+                    <Play className="w-4 h-4 text-emerald-600" />
                     <span>Resume</span>
                   </>
                 ) : (
                   <>
-                    <Pause className="w-4 h-4 text-amber-300" />
+                    <Pause className="w-4 h-4 text-amber-600" />
                     <span>Pause</span>
                   </>
                 )}
@@ -444,9 +448,9 @@ export default function SystemObservabilityPage() {
             </div>
           </div>
 
-          <div className="h-[420px] overflow-y-auto rounded-2xl bg-slate-950/90 border border-white/15 p-4 font-mono text-xs md:text-sm space-y-2.5">
+          <div className="h-[420px] overflow-y-auto rounded-2xl bg-slate-950 border border-slate-800 p-4 font-mono text-xs md:text-sm space-y-2.5 text-slate-100">
             {filteredLogs.length === 0 ? (
-              <div className="text-slate-300 py-12 text-center">
+              <div className="text-slate-400 py-12 text-center">
                 No log entries match the active filter.
               </div>
             ) : (
@@ -461,10 +465,10 @@ export default function SystemObservabilityPage() {
                 return (
                   <div
                     key={entry.id}
-                    className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                    className="p-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                   >
                     <div className="flex items-start sm:items-center gap-3 min-w-0">
-                      <span className="text-slate-300 shrink-0">
+                      <span className="text-slate-400 shrink-0">
                         {entry.timestamp.slice(11, 19)}
                       </span>
                       <span
@@ -472,7 +476,7 @@ export default function SystemObservabilityPage() {
                       >
                         {entry.level}
                       </span>
-                      <span className="text-indigo-300 font-semibold shrink-0">
+                      <span className="text-blue-300 font-semibold shrink-0">
                         [{entry.module}]
                       </span>
                       <span className="text-white break-words">

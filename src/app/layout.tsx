@@ -15,16 +15,16 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'MindMittel V2 — AI Governance & Leadership Audit Engine',
+  title: 'MindMittel V2 — Knowledge & AI Governance Engine',
   description:
-    'Enterprise AI Governance & Leadership Audit Platform with Parent-Child Vector RAG, MongoDB Atlas Vector Search, and Dynamic Google Gemini Routing.',
+    'Enterprise AI Governance & Leadership Audit Platform with Parent-Child Vector RAG, MongoDB Atlas Vector Search, and Autonomous Google Gemini Routing.',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#070b19',
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({
@@ -33,11 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`dark ${inter.variable} ${jetbrainsMono.variable}`}
-    >
-      <body className="min-h-screen font-sans antialiased text-slate-100">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen font-sans antialiased text-slate-900 bg-slate-50">
         {children}
       </body>
     </html>

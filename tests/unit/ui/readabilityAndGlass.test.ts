@@ -2,31 +2,37 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('Liquid Glass GPU Artifact Prevention, Overflow Protection & Readability Standards', () => {
+describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Protection', () => {
   const rootDir = path.resolve(__dirname, '../../../');
 
-  it('removes before:-inset-px pseudo-element overlays in GlassCard that cause Chrome GPU compositing lines', () => {
-    const glassCardSource = fs.readFileSync(
-      path.join(rootDir, 'src/components/glass/GlassCard.tsx'),
+  it('removes confusing regulatory jargon (ISO 37000, COSO, DCGK) and video demo buttons from dictionaries and UI', () => {
+    const dictSource = fs.readFileSync(
+      path.join(rootDir, 'src/i18n/dictionaries.ts'),
+      'utf-8'
+    );
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
       'utf-8'
     );
 
-    expect(glassCardSource).not.toContain('before:-inset-px');
-    expect(glassCardSource).not.toContain('before:bg-gradient-to-b');
+    expect(dictSource).not.toContain('ISO 37000');
+    expect(dictSource).not.toContain('COSO');
+    expect(dictSource).not.toContain('DCGK');
+    expect(dictSource).not.toContain('Watch 2-Min Overview');
+    expect(pageSource).not.toContain('Watch 2-Min Overview');
   });
 
-  it('removes overlapping blur-3xl background orbs in AppShell and System page to eliminate tile seams', () => {
-    const appShellSource = fs.readFileSync(
-      path.join(rootDir, 'src/components/layout/AppShell.tsx'),
-      'utf-8'
-    );
-    const systemPageSource = fs.readFileSync(
-      path.join(rootDir, 'src/app/system/page.tsx'),
+  it('includes all 5 V1-inspired landing page sections updated for V2 architecture (Hero Mockup, Problem vs Solution, 3 Steps, 4 Features, Dark CTA Banner & Footer)', () => {
+    const dictSource = fs.readFileSync(
+      path.join(rootDir, 'src/i18n/dictionaries.ts'),
       'utf-8'
     );
 
-    expect(appShellSource).not.toContain('blur-3xl');
-    expect(systemPageSource).not.toContain('blur-3xl');
+    expect(dictSource).toContain('Stop Guessing.');
+    expect(dictSource).toContain('Why Traditional Management Falls Short');
+    expect(dictSource).toContain('From Raw Data to Certified Audit in');
+    expect(dictSource).toContain('Built for Enterprise-Grade Governance');
+    expect(dictSource).toContain('Ready to Experience Real-Time');
   });
 
   it('enforces break-all / overflow-hidden on long file paths and API contracts in /system so text never overflows its container', () => {
