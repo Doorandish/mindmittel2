@@ -22,17 +22,17 @@ export interface TopologyEdge {
 
 export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
   {
-    id: 'liquid-glass-ui',
-    title: 'Liquid Glass Mobile-First UI & Bilingual Shell',
+    id: 'enterprise-light-ui',
+    title: 'Crisp Enterprise UI, Landing Page & 2-Phase Live Workspace',
     category: 'frontend',
     status: 'healthy',
     technical: {
       architecturePattern:
-        'Mobile-First App Shell with Atomic Liquid Glass Surfaces & Deterministic Dictionary i18n (EN/DE)',
+        'V1-Inspired High-Contrast Enterprise Shell + 2-Phase Interactive Governance Workspace (EN/DE)',
       stack: [
         'Next.js 15 (App Router)',
         'React 19',
-        'Tailwind CSS (backdrop-blur-2xl, specular inset shadows)',
+        'Tailwind CSS (Crisp Light Grid + High-Legibility Inter & JetBrains Mono)',
         'Lucide Icons',
       ],
       sourceFiles: [
@@ -43,82 +43,116 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'src/app/globals.css',
       ],
       apiContracts: [
-        'GET /api/health',
-        'GET /api/ai/models?profile=fast|reasoning',
+        'GET / POST / DELETE /api/brain/documents',
+        'POST /api/brain/audit',
         'GET /api/system/logs/stream (SSE)',
       ],
       dataPipeline:
-        'Client state selects locale (en default, de secondary) -> synchronous dictionary resolution -> renders responsive CSS grid and floating iOS bottom dock.',
+        'User switches between Landing Overview and 2-Phase Live Workspace -> Phase 1 injects knowledge into Company Brain -> Phase 2 submits management decisions for real-time AI audit.',
       errorHandlingAndFallbacks:
-        'getDictionary() falls back to English (en) if an unsupported locale key is passed; unit tests enforce 1:1 key parity between en and de.',
+        'getDictionary() falls back to English (en) if an unsupported locale is requested; strict unit tests enforce 1:1 EN/DE key parity and overflow-safe containers.',
       envVars: ['NEXT_PUBLIC_APP_URL'],
     },
   },
   {
     id: 'dynamic-gemini-router',
-    title: 'Dynamic Gemini API Model Selector',
+    title: 'Autonomous Gemini Model Selector & Embedding Engine',
     category: 'ai',
     status: 'healthy',
     technical: {
       architecturePattern:
-        'Functional Core / Imperative Shell with TTL Caching & Multi-Tier Failover',
+        'Functional Core / Imperative Shell with Autonomous Query Intent Classification & 768-d Embeddings',
       stack: [
         '@google/genai',
-        'Google Gemini REST API (/v1beta/models)',
-        'TypeScript Pure Scoring Engine',
+        'Google Gemini REST API (/v1beta/models & text-embedding-004)',
+        'TypeScript Pure Scoring & Intent Classifier',
       ],
       sourceFiles: [
         'src/core/ai/modelRanking.ts',
         'src/infrastructure/gemini/modelSelector.ts',
+        'src/infrastructure/gemini/embeddingService.ts',
         'src/app/api/ai/models/route.ts',
       ],
       apiContracts: [
-        'GET https://generativelanguage.googleapis.com/v1beta/models',
-        'Internal: geminiModelSelector.selectModel(profile: "fast" | "reasoning")',
-        'Internal: geminiModelSelector.executeWithFallback(profile, operation)',
+        'inferProfileFromQuery(query: string): "fast" | "reasoning"',
+        'geminiModelSelector.selectModel(profile)',
+        'generateGeminiEmbedding768(text: string): Promise<{ vector: number[]; modelUsed: string }>',
       ],
       dataPipeline:
-        'Fetches live model catalog from Gemini API -> filters for generateContent support -> excludes embedding/TTS/image models -> regex parses version numbers -> scores by profile (Flash vs Pro) & stability (stable > preview > exp) -> caches for 6h.',
+        '1) inferProfileFromQuery() analyzes decision complexity -> 2) selectModel() ranks live Gemini models -> 3) generateGeminiEmbedding768() produces 768-dimensional vectors.',
       errorHandlingAndFallbacks:
-        '1) If HTTP 429/503/404 occurs during inference, executeWithFallback automatically retries the next highest-ranked model. 2) If /v1beta/models network refresh fails, serves stale cached model catalog.',
+        'Automatic multi-model failover on HTTP 429/503; if GEMINI_API_KEY is absent or offline, generateGeminiEmbedding768 seamlessly falls back to the deterministic 768-d semantic vector engine.',
       envVars: ['GEMINI_API_KEY'],
     },
   },
   {
     id: 'parent-child-rag',
-    title: 'Parent-Child RAG Chunker & Metadata Normalizer',
+    title: 'Parent-Child RAG Chunker, Vector Math & Brain Repository',
     category: 'rag',
     status: 'healthy',
     technical: {
       architecturePattern:
-        'Hierarchical Parent-Child Document Slicing with Denormalized Metadata Pre-Filtering',
+        'Hierarchical Parent (2,000c) / Child (400c) Slicing + 768-d Cosine Similarity Retrieval',
       stack: [
         'Node.js Crypto (SHA-256 Content Checksums)',
-        'Deterministic Sliding Window Slicer',
+        '768-d Cosine Similarity Engine',
+        'Dual-Mode Brain Repository (MongoDB Atlas + In-Memory Mirror)',
       ],
       sourceFiles: [
         'src/core/rag/chunker.ts',
-        'tests/unit/core/rag/chunker.test.ts',
+        'src/core/rag/vectorMath.ts',
+        'src/infrastructure/rag/brainRepository.ts',
+        'src/app/api/brain/documents/route.ts',
       ],
       apiContracts: [
-        'createParentChildChunks(input: RawGovernanceDocumentInput, options?: ChunkingOptions)',
-        'normalizeMetadataTags(tags: string[]): string[]',
+        'ingestDocumentIntoBrain(params)',
+        'searchBrainByVectorSimilarity({ query, departmentFilter, topK })',
+        'computeCosineSimilarity(vecA, vecB)',
       ],
       dataPipeline:
-        'Raw Document -> normalizes department & tags to lowercase kebab-case -> slices 2,000-char Parent chunks (with SHA-256 IDs for external connector dedup e.g. Slack) -> slices 400-char Child chunks (50-char overlap) -> copies filter metadata onto each child.',
+        'Raw Policy -> slices 2,000-char Parent chunks & 400-char overlapping Child chunks -> embeds each Child in 768-d -> stores in raw_documents & vector_store -> deduplicates Parent context on query.',
       errorHandlingAndFallbacks:
-        'Empty or whitespace-only tags are stripped; duplicate tags are deduplicated; deterministic SHA-256 parentId prevents duplicate ingestion on connector retries.',
+        'Pre-seeded with 3 baseline corporate policies on boot; zero-downtime in-memory mirror guarantees instant vector search even while Atlas index builds in background.',
       envVars: [],
     },
   },
   {
+    id: 'executive-audit-engine',
+    title: 'Executive Decision Audit & Contradiction Synthesis Engine',
+    category: 'api',
+    status: 'healthy',
+    technical: {
+      architecturePattern:
+        'Hybrid LLM JSON Synthesis + Deterministic Policy Contradiction Evaluator',
+      stack: [
+        'Next.js Route Handler (/api/brain/audit)',
+        'Structured JSON Schema Output',
+        'Deterministic Heuristic Baseline',
+      ],
+      sourceFiles: [
+        'src/core/audit/decisionEvaluator.ts',
+        'src/app/api/brain/audit/route.ts',
+        'tests/unit/core/audit/vectorAndAuditEngine.test.ts',
+      ],
+      apiContracts: [
+        'POST /api/brain/audit -> ExecutiveAuditReport',
+        'evaluateDecisionAgainstPoliciesHeuristic(params)',
+      ],
+      dataPipeline:
+        'Decision Proposal -> 768-d vector retrieval of top Parent policies -> autonomous Gemini Pro/Flash synthesis -> outputs Verdict (CERTIFIED / CONDITIONAL / POLICY_CONFLICT), Alignment %, Pros/Cons, Citations, and 3-Step Roadmap.',
+      errorHandlingAndFallbacks:
+        'If live Gemini API call times out or is unconfigured, evaluateDecisionAgainstPoliciesHeuristic() deterministically evaluates policy conflicts and returns a complete certified audit report.',
+      envVars: ['GEMINI_API_KEY'],
+    },
+  },
+  {
     id: 'mongodb-atlas-vector',
-    title: 'MongoDB Atlas Cluster (mindmittel_v2 & Vector Search)',
+    title: 'MongoDB Atlas Cluster (mindmittel_v2 & Auto-Index Provisioner)',
     category: 'database',
     status: 'healthy',
     technical: {
       architecturePattern:
-        'Global Singleton Connection Pool + 768-d Cosine Vector Search Index + Cascade Deletion',
+        'Global Singleton Connection Pool + Automated createSearchIndex (768-d Cosine) + Cascade Delete',
       stack: [
         'MongoDB Node.js Driver v6',
         'MongoDB Atlas Vector Search (mindmittel_vector_index)',
@@ -127,16 +161,17 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       sourceFiles: [
         'src/infrastructure/db/mongo.ts',
         'src/infrastructure/db/schemas.ts',
+        'src/infrastructure/rag/brainRepository.ts',
       ],
       apiContracts: [
         'getMindMittelDb(): Promise<Db>',
-        'deleteParentDocumentCascade(parentId: string, orgId: string)',
+        'ensureAtlasVectorIndexProvisioned()',
         'Collections: users, raw_documents, vector_store, system_logs',
       ],
       dataPipeline:
-        'Child vector query ($vectorSearch on 768-d embedding with pre-filters on metadata.orgId, department, sourceType, tags, language, accessLevel) -> $lookup parentId in raw_documents -> returns full 2,000-char Parent context to Gemini.',
+        'On document ingestion, automatically checks and provisions mindmittel_vector_index via collection.createSearchIndex() with 768 dimensions and metadata filters.',
       errorHandlingAndFallbacks:
-        '5,000ms serverSelectionTimeoutMS prevents hung requests; deleteParentDocumentCascade guarantees zero orphaned child vectors when a parent document is removed.',
+        '5,000ms serverSelectionTimeoutMS prevents hung requests; cascading delete removes both Parent document and all linked Child vectors.',
       envVars: ['MONGODB_URI', 'MONGODB_DB_NAME'],
     },
   },
@@ -163,9 +198,9 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'GET /api/health (system component status)',
       ],
       dataPipeline:
-        'Module calls systemLogger.info/warn/error -> redactSensitiveMetadata() scrubs apiKey/password/token -> appends to 250-slot ring buffer -> pushes JSON frame over active SSE HTTP streams.',
+        'Every ingestion, vector search, and decision audit emits structured telemetry -> redactSensitiveMetadata() scrubs secrets -> streams live to /system console.',
       errorHandlingAndFallbacks:
-        'Automatic stream cleanup on client disconnect (AbortSignal); ring buffer evicts oldest item at capacity O(1) to prevent memory leaks on Render free tier.',
+        'Automatic stream cleanup on client disconnect (AbortSignal); ring buffer evicts oldest item at capacity O(1).',
       envVars: ['SYSTEM_DASHBOARD_TOKEN'],
     },
   },
@@ -173,24 +208,29 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
 
 export const ARCHITECTURE_EDGES: readonly TopologyEdge[] = [
   {
-    from: 'liquid-glass-ui',
-    to: 'dynamic-gemini-router',
-    protocol: 'REST /api/ai/models',
+    from: 'enterprise-light-ui',
+    to: 'parent-child-rag',
+    protocol: 'POST /api/brain/documents (Phase 1 Inject)',
   },
   {
-    from: 'liquid-glass-ui',
-    to: 'sse-observability-engine',
-    protocol: 'SSE text/event-stream',
+    from: 'enterprise-light-ui',
+    to: 'executive-audit-engine',
+    protocol: 'POST /api/brain/audit (Phase 2 Audit)',
+  },
+  {
+    from: 'executive-audit-engine',
+    to: 'dynamic-gemini-router',
+    protocol: 'Autonomous Flash/Pro Selection',
   },
   {
     from: 'parent-child-rag',
     to: 'mongodb-atlas-vector',
-    protocol: 'MongoDB Wire Protocol (mindmittel_v2)',
+    protocol: '768-d Vector Store & Auto-Index (mindmittel_v2)',
   },
   {
-    from: 'dynamic-gemini-router',
-    to: 'parent-child-rag',
-    protocol: 'Context Synthesis & Auto-Tagging',
+    from: 'enterprise-light-ui',
+    to: 'sse-observability-engine',
+    protocol: 'SSE text/event-stream',
   },
 ];
 

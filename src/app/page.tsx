@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
-  Search,
   Layers,
   Cpu,
   ArrowUpRight,
-  SlidersHorizontal,
   CheckCircle2,
   AlertTriangle,
   Database,
@@ -19,6 +17,12 @@ import {
   Lock,
   BrainCircuit,
   Activity,
+  PlusCircle,
+  Trash2,
+  Play,
+  Sparkles,
+  Check,
+  XCircle,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import {
@@ -27,18 +31,186 @@ import {
   type SupportedLocale,
 } from '@/i18n/dictionaries';
 import { inferProfileFromQuery } from '@/core/ai/modelRanking';
+import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
+
+interface StoredBrainDocumentSummary {
+  parentId: string;
+  title: string;
+  department: string;
+  sourceType: string;
+  tags: string[];
+  contentPreview: string;
+  childCount: number;
+}
+
+const QUICK_DECISION_PRESETS = [
+  {
+    labelEn: 'Test Conflict: Cancel Daily Scrum Standups',
+    labelDe: 'Konflikt-Test: Tägliche Scrum-Standups abschaffen',
+    proposalEn:
+      'We want to cancel all mandatory daily Scrum standup meetings in the engineering team to save time.',
+    proposalDe:
+      'Wir möchten die täglichen verpflichtenden Scrum-Standup-Meetings im Engineering-Team komplett abschaffen.',
+    dept: 'engineering',
+  },
+  {
+    labelEn: 'Test Conflict: €18,000 Unbudgeted Vendor Contract',
+    labelDe: 'Konflikt-Test: 18.000 € ungeplanter Lieferantenvertrag',
+    proposalEn:
+      'Approve an €18,000 unbudgeted software vendor contract immediately without CFO or Supervisory Board sign-off.',
+    proposalDe:
+      'Einen ungeplanten Software-Lieferantenvertrag über 18.000 € sofort ohne CFO- oder Vorstands-Genehmigung freigeben.',
+    dept: 'finance-legal',
+  },
+  {
+    labelEn: 'Test Aligned: €6,500 Budgeted Engineering Tool',
+    labelDe: 'Konform-Test: 6.500 € budgetiertes Engineering-Tool',
+    proposalEn:
+      'Approve a €6,500 budgeted vendor tool renewal within the standard department head threshold with signed GDPR DPA.',
+    proposalDe:
+      'Freigabe eines budgetierten Software-Vertrags über 6.500 € im Rahmen der Abteilungsleiter-Grenze inklusive DSGVO-Vertrag.',
+    dept: 'all',
+  },
+];
 
 export default function HomePage() {
   const [locale, setLocale] = useState<SupportedLocale>(DEFAULT_LOCALE);
   const [activeTab, setActiveTab] = useState<'overview' | 'vault'>('overview');
-  const [sampleQuery, setSampleQuery] = useState<string>('');
+
+  // Phase 1 State: Company Brain Documents & Injection Form
+  const [documents, setDocuments] = useState<StoredBrainDocumentSummary[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
+  const [docTitle, setDocTitle] = useState<string>('');
+  const [docDepartment, setDocDepartment] = useState<string>('Finance & Legal');
+  const [docSourceType, setDocSourceType] = useState<'upload' | 'slack'>(
+    'upload'
+  );
+  const [docTags, setDocTags] = useState<string>('policy, approval, budget');
+  const [docContent, setDocContent] = useState<string>('');
+  const [isIngesting, setIsIngesting] = useState<boolean>(false);
+  const [ingestFeedback, setIngestFeedback] = useState<string | null>(null);
+
+  // Phase 2 State: Decision Audit Proposal & Live Report
+  const [decisionProposal, setDecisionProposal] = useState<string>(
+    QUICK_DECISION_PRESETS[0].proposalEn
+  );
+  const [auditDepartmentFilter, setAuditDepartmentFilter] =
+    useState<string>('all');
+  const [isAuditing, setIsAuditing] = useState<boolean>(false);
+  const [auditReport, setAuditReport] = useState<ExecutiveAuditReport | null>(
+    null
+  );
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   const dict = getDictionary(locale);
-  const inferredProfile = inferProfileFromQuery(sampleQuery);
+  const inferredProfile = inferProfileFromQuery(decisionProposal);
+
+  async function fetchBrainDocuments() {
+    setIsLoadingDocs(true);
+    try {
+      const res = await fetch('/api/brain/documents');
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.documents)) {
+        setDocuments(data.documents);
+      }
+    } catch {
+      // Ignore network error on initial load
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchBrainDocuments();
+  }, []);
 
   function openLiveWorkspace() {
     setActiveTab('vault');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function handleInjectDocument(e: React.FormEvent) {
+    e.preventDefault();
+    if (!docTitle.trim() || !docContent.trim()) return;
+
+    setIsIngesting(true);
+    setIngestFeedback(null);
+
+    try {
+      const parsedTags = docTags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const res = await fetch('/api/brain/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: docTitle,
+          content: docContent,
+          department: docDepartment,
+          sourceType: docSourceType,
+          tags: parsedTags,
+          language: locale,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        setDocuments(data.documents ?? []);
+        setDocTitle('');
+        setDocContent('');
+        setIngestFeedback(
+          locale === 'de'
+            ? `✓ Gespeichert im Company Brain: ${data.ingestion.parentCount} Parent-Dokument & ${data.ingestion.childVectorCount} Child-Vektoren (768-d)`
+            : `✓ Injected into Company Brain: ${data.ingestion.parentCount} Parent chunk & ${data.ingestion.childVectorCount} Child vectors (768-d)`
+        );
+      }
+    } finally {
+      setIsIngesting(false);
+    }
+  }
+
+  async function handleDeleteDocument(parentId: string) {
+    const res = await fetch(
+      `/api/brain/documents?parentId=${encodeURIComponent(parentId)}`,
+      { method: 'DELETE' }
+    );
+    const data = await res.json();
+    if (data.ok) {
+      setDocuments(data.documents ?? []);
+    }
+  }
+
+  async function handleRunExecutiveAudit(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!decisionProposal.trim()) return;
+
+    setIsAuditing(true);
+    setAuditError(null);
+
+    try {
+      const res = await fetch('/api/brain/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          decisionProposal,
+          departmentFilter: auditDepartmentFilter,
+          locale,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok && data.report) {
+        setAuditReport(data.report);
+      } else {
+        setAuditError(data.error ?? 'Audit failed');
+      }
+    } catch (err) {
+      setAuditError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setIsAuditing(false);
+    }
   }
 
   return (
@@ -49,13 +221,12 @@ export default function HomePage() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
     >
-      {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated for V2 Architecture) */}
+      {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Synchronized with V2 Features) */}
       {activeTab === 'overview' && (
         <div className="space-y-24 pb-20">
           {/* SECTION 1: HERO WITH MACOS AUDIT ENGINE MOCKUP WINDOW */}
           <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-20">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              {/* Left 6 Columns: Headline & Direct CTA (No Video Button) */}
               <div className="lg:col-span-6 space-y-6">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
                   <span className="w-2 h-2 rounded-full bg-blue-600" />
@@ -83,7 +254,6 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                {/* Bottom Trust Badges */}
                 <div className="pt-6 border-t border-slate-200/80 flex flex-wrap items-center gap-6 text-xs sm:text-sm font-medium text-slate-600">
                   <span className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-blue-600" />
@@ -103,7 +273,6 @@ export default function HomePage() {
               {/* Right 6 Columns: V2 Interactive MacBook Window Graphic */}
               <div className="lg:col-span-6">
                 <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xl shadow-blue-950/10 overflow-hidden">
-                  {/* macOS Window Title Bar */}
                   <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200/80 flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-rose-400" />
@@ -115,9 +284,7 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  {/* Two-Column Phase Preview inside Mockup */}
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
-                    {/* Phase 1: Inject & Slice (V2 Parent-Child RAG) */}
                     <div className="space-y-3.5 pr-0 sm:pr-4">
                       <div className="text-[11px] font-mono font-bold tracking-wider text-blue-600 uppercase">
                         {dict.hero.mockupPhase1}
@@ -159,7 +326,6 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Phase 2: Autonomous Audit */}
                     <div className="space-y-4 pt-4 sm:pt-0 sm:pl-6 flex flex-col justify-between">
                       <div className="space-y-3.5">
                         <div className="text-[11px] font-mono font-bold tracking-wider text-emerald-600 uppercase">
@@ -227,7 +393,6 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Red-Tinted Problem Card */}
               <div className="p-8 sm:p-10 rounded-3xl bg-rose-50/60 border border-rose-200/80 space-y-7">
                 <div className="inline-flex items-center gap-2 text-xs font-mono font-extrabold tracking-wider text-rose-600 uppercase">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
@@ -279,7 +444,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Right Green-Tinted Solution Card */}
               <div className="p-8 sm:p-10 rounded-3xl bg-emerald-50/60 border border-emerald-200/80 space-y-7">
                 <div className="inline-flex items-center gap-2 text-xs font-mono font-extrabold tracking-wider text-emerald-700 uppercase">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
@@ -333,7 +497,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* SECTION 3: HOW IT WORKS IN 3 STEPS (With Updated V2 Interactive Mockup Cards) */}
+          {/* SECTION 3: HOW IT WORKS IN 3 STEPS */}
           <section
             id="how-it-works"
             className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24 space-y-12"
@@ -351,7 +515,6 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Step 1 */}
               <div className="space-y-5 flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -372,7 +535,6 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {/* V2 Step 1 Mockup Card */}
                 <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <div>
@@ -410,7 +572,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Step 2 */}
               <div className="space-y-5 flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -431,7 +592,6 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {/* V2 Step 2 Mockup Card */}
                 <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
                   <span className="text-xs text-slate-400 block">
                     Management Decision Query
@@ -450,7 +610,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Step 3 */}
               <div className="space-y-5 flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -471,7 +630,6 @@ export default function HomePage() {
                   </p>
                 </div>
 
-                {/* V2 Step 3 Mockup Card */}
                 <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-mono font-semibold text-slate-600">
@@ -495,7 +653,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* SECTION 4: 4 KEY ENTERPRISE FEATURES (2x2 Grid) */}
+          {/* SECTION 4: 4 KEY ENTERPRISE FEATURES */}
           <section
             id="features"
             className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24 space-y-12"
@@ -615,7 +773,6 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Enterprise Footer */}
           <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 border-t border-slate-200">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-sm text-slate-600">
               <div className="space-y-3">
@@ -703,120 +860,469 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* VIEW 2: INTERACTIVE AUDIT & PARENT-CHILD RAG WORKSPACE */}
+      {/* VIEW 2: OPERATIONAL 2-PHASE COMPANY BRAIN & EXECUTIVE AUDIT WORKSPACE */}
       {activeTab === 'vault' && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-          <div className="liquid-glass-panel p-7 md:p-10 space-y-6">
-            <div className="space-y-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+          {/* Top Workspace Banner */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 md:p-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4" />
-                <span>LIVE GOVERNANCE WORKSPACE</span>
+                <BrainCircuit className="w-4 h-4" />
+                <span>LIVE 2-PHASE GOVERNANCE ENGINE</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">
                 {dict.ragSection.title}
               </h1>
-              <p className="text-sm md:text-base text-slate-600 leading-relaxed max-w-3xl">
+              <p className="text-sm text-slate-600 max-w-2xl">
                 {dict.ragSection.subtitle}
               </p>
             </div>
 
-            {/* Interactive Query Input with Autonomous Model Routing Indicator */}
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={sampleQuery}
-                  onChange={(e) => setSampleQuery(e.target.value)}
-                  placeholder={dict.ragSection.searchPlaceholder}
-                  className="w-full pl-12 pr-5 py-4 text-sm md:text-base liquid-glass-input"
-                />
+            <div className="flex items-center gap-3 text-xs font-mono">
+              <span className="px-3.5 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold">
+                ● {documents.length} Active Parent Policies in Brain
+              </span>
+            </div>
+          </div>
+
+          {/* TWO-COLUMN OPERATIONAL WORKSPACE: PHASE 1 (LEFT) & PHASE 2 (RIGHT) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* LEFT 5 COLUMNS — PHASE 1: INJECT KNOWLEDGE INTO COMPANY BRAIN */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 md:p-7 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-mono font-bold text-blue-600 uppercase">
+                      PHASE 1 — INJECT KNOWLEDGE
+                    </span>
+                    <h2 className="text-lg md:text-xl font-extrabold text-slate-900 mt-0.5">
+                      {locale === 'de'
+                        ? 'Richtlinie ins Company Brain einspeisen'
+                        : 'Add Policy or Note to Company Brain'}
+                    </h2>
+                  </div>
+                  <PlusCircle className="w-6 h-6 text-blue-600" />
+                </div>
+
+                <form onSubmit={handleInjectDocument} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {locale === 'de'
+                        ? 'Dokumenttitel / Richtlinie'
+                        : 'Document / Policy Title'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={docTitle}
+                      onChange={(e) => setDocTitle(e.target.value)}
+                      placeholder={
+                        locale === 'de'
+                          ? 'z. B. Homeoffice & IT-Sicherheitsrichtlinie 2026'
+                          : 'e.g., Remote Work & Vendor Security Policy 2026'
+                      }
+                      className="w-full px-4 py-2.5 text-sm liquid-glass-input"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        {locale === 'de' ? 'Abteilung' : 'Department'}
+                      </label>
+                      <select
+                        value={docDepartment}
+                        onChange={(e) => setDocDepartment(e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm liquid-glass-input"
+                      >
+                        <option value="Finance & Legal">Finance & Legal</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="HR & Legal">HR & Legal</option>
+                        <option value="Executive Board">Executive Board</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        {locale === 'de' ? 'Quelle' : 'Source Connector'}
+                      </label>
+                      <select
+                        value={docSourceType}
+                        onChange={(e) =>
+                          setDocSourceType(
+                            e.target.value as 'upload' | 'slack'
+                          )
+                        }
+                        className="w-full px-3 py-2.5 text-sm liquid-glass-input"
+                      >
+                        <option value="upload">Official Policy Upload</option>
+                        <option value="slack">Slack #gov-council</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {locale === 'de'
+                        ? 'Themen-Tags (kommagetrennt)'
+                        : 'Metadata Tags (comma-separated)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={docTags}
+                      onChange={(e) => setDocTags(e.target.value)}
+                      className="w-full px-4 py-2 text-xs font-mono liquid-glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      {locale === 'de'
+                        ? 'Richtlinien-Inhalt (wird in Parent- & Child-Vektoren zerlegt)'
+                        : 'Policy Content (auto-sliced into Parent & 768-d Child Vectors)'}
+                    </label>
+                    <textarea
+                      rows={4}
+                      required
+                      value={docContent}
+                      onChange={(e) => setDocContent(e.target.value)}
+                      placeholder={
+                        locale === 'de'
+                          ? 'Geben Sie hier die verbindliche Unternehmensregel oder das Vorstandsprotokoll ein...'
+                          : 'Paste the corporate rule, board resolution, or department guideline here...'
+                      }
+                      className="w-full p-3.5 text-sm liquid-glass-input"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isIngesting}
+                    className="w-full py-3.5 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Database className="w-4 h-4" />
+                    <span>
+                      {isIngesting
+                        ? 'Slicing & Embedding (768-d)...'
+                        : locale === 'de'
+                        ? 'Ins Company Brain einspeisen'
+                        : 'Inject into Company Brain'}
+                    </span>
+                  </button>
+
+                  {ingestFeedback && (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-semibold text-emerald-800">
+                      {ingestFeedback}
+                    </div>
+                  )}
+                </form>
               </div>
 
-              {/* Autonomous Model Routing Status Pill */}
-              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-2xl bg-blue-50/80 border border-blue-200 text-xs md:text-sm text-slate-700">
-                <span className="flex items-center gap-2 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>{dict.ragSection.autoRoutingNotice}</span>
-                </span>
-                <span className="font-mono text-blue-700 font-bold">
-                  Auto-Selected Tier:{' '}
-                  {inferredProfile === 'reasoning'
-                    ? 'Gemini Pro (Deep Audit)'
-                    : 'Gemini Flash (Rapid Lookup)'}
-                </span>
-              </div>
+              {/* Stored Company Brain Documents List */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-blue-600" />
+                    <span>
+                      {locale === 'de'
+                        ? 'Aktive Dokumente im Company Brain'
+                        : 'Stored Company Brain Vault'}
+                    </span>
+                  </h3>
+                  <span className="text-xs font-mono text-slate-500">
+                    {isLoadingDocs ? 'Loading...' : `${documents.length} docs`}
+                  </span>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 text-xs md:text-sm pt-1">
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
-                  {dict.ragSection.filterDepartment}
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold">
-                  {dict.ragSection.filterSource}
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-semibold">
-                  {dict.ragSection.filterAccess}
-                </span>
+                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.parentId}
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[11px] font-mono font-bold text-blue-700">
+                            dept: {doc.department} · source: {doc.sourceType}
+                          </span>
+                          <h4 className="text-sm font-bold text-slate-900">
+                            {doc.title}
+                          </h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocument(doc.parentId)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Delete Parent & Cascade Child Vectors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                        {doc.contentPreview}
+                      </p>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] font-mono">
+                        <div className="flex flex-wrap gap-1">
+                          {doc.tags.map((t) => (
+                            <span
+                              key={t}
+                              className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600"
+                            >
+                              #{t}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">
+                          {doc.childCount} Child Vectors
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Spacious Parent-Child Document Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-                <div className="flex items-center justify-between text-xs text-blue-700 font-bold">
-                  <span className="font-mono">
-                    {dict.ragSection.parentLabel} · raw_documents
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full bg-blue-100 border border-blue-200">
-                    4 {dict.ragSection.childChunksLabel}
-                  </span>
+            {/* RIGHT 7 COLUMNS — PHASE 2: PROPOSE & AUDIT MANAGEMENT DECISIONS */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 md:p-8 space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-mono font-bold text-emerald-600 uppercase">
+                      PHASE 2 — DECISION AUDIT DASHBOARD
+                    </span>
+                    <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 mt-0.5">
+                      {locale === 'de'
+                        ? 'Management-Entscheidung gegen Company Brain prüfen'
+                        : 'Evaluate Management Decision Against Company Brain'}
+                    </h2>
+                  </div>
                 </div>
-                <h3 className="text-base md:text-lg font-bold text-slate-900">
-                  {dict.ragSection.sampleDoc1Title}
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {dict.ragSection.sampleDoc1Summary}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-2 text-xs text-slate-600 font-mono">
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    dept: legal
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    source: upload
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    tag: board-audit
-                  </span>
-                </div>
-              </div>
 
-              <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-                <div className="flex items-center justify-between text-xs text-indigo-700 font-bold">
-                  <span className="font-mono">
-                    {dict.ragSection.parentLabel} · raw_documents
+                {/* One-Click Preset Scenarios for Instant Testing */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-500 block">
+                    {locale === 'de'
+                      ? 'Schnelltest-Szenarien (1-Klick):'
+                      : 'Quick Audit Scenarios (1-Click Test):'}
                   </span>
-                  <span className="px-2.5 py-1 rounded-full bg-indigo-100 border border-indigo-200">
-                    3 {dict.ragSection.childChunksLabel}
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {QUICK_DECISION_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setDecisionProposal(
+                            locale === 'de'
+                              ? preset.proposalDe
+                              : preset.proposalEn
+                          );
+                          setAuditDepartmentFilter(preset.dept);
+                        }}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 text-slate-700 transition-colors"
+                      >
+                        {locale === 'de' ? preset.labelDe : preset.labelEn}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <h3 className="text-base md:text-lg font-bold text-slate-900">
-                  {dict.ragSection.sampleDoc2Title}
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {dict.ragSection.sampleDoc2Summary}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-2 text-xs text-slate-600 font-mono">
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    dept: executive
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    source: slack
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-200">
-                    tag: ai-governance
-                  </span>
-                </div>
+
+                <form onSubmit={handleRunExecutiveAudit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      {locale === 'de'
+                        ? 'Entscheidungsvorlage oder strategischer Vorschlag'
+                        : 'Proposed Management Decision or Policy Question'}
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={decisionProposal}
+                      onChange={(e) => setDecisionProposal(e.target.value)}
+                      placeholder={dict.ragSection.searchPlaceholder}
+                      className="w-full p-4 text-sm md:text-base liquid-glass-input"
+                    />
+                  </div>
+
+                  {/* Autonomous Model Routing & Department Filter Row */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 text-xs">
+                    <div className="flex items-center gap-2 font-semibold text-blue-900">
+                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span>
+                        Auto-Routed Model Tier:{' '}
+                        <strong className="font-mono">
+                          {inferredProfile === 'reasoning'
+                            ? 'Gemini Pro (Deep Audit)'
+                            : 'Gemini Flash (Fast Lookup)'}
+                        </strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-600 font-semibold">
+                        Scope:
+                      </span>
+                      <select
+                        value={auditDepartmentFilter}
+                        onChange={(e) =>
+                          setAuditDepartmentFilter(e.target.value)
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-800 font-semibold"
+                      >
+                        <option value="all">All Departments</option>
+                        <option value="finance-legal">Finance & Legal</option>
+                        <option value="engineering">Engineering</option>
+                        <option value="hr-legal">HR & Legal</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isAuditing}
+                    className="w-full py-4 px-6 rounded-2xl bg-slate-900 hover:bg-blue-600 disabled:bg-slate-400 text-white font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>
+                      {isAuditing
+                        ? 'Cross-Examining Company Brain Vectors...'
+                        : locale === 'de'
+                        ? 'Executive Audit jetzt ausführen'
+                        : 'Run Executive Governance Audit'}
+                    </span>
+                  </button>
+                </form>
+
+                {auditError && (
+                  <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-sm text-rose-800 font-semibold">
+                    {auditError}
+                  </div>
+                )}
+
+                {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
+                {auditReport && (
+                  <div className="pt-4 border-t border-slate-200 space-y-6">
+                    {/* Verdict Banner */}
+                    <div
+                      className={`p-5 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${
+                        auditReport.verdict === 'POLICY_CONFLICT'
+                          ? 'bg-rose-50 border-rose-300 text-rose-950'
+                          : auditReport.verdict === 'CONDITIONAL'
+                          ? 'bg-amber-50 border-amber-300 text-amber-950'
+                          : 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {auditReport.verdict === 'POLICY_CONFLICT' ? (
+                          <XCircle className="w-8 h-8 text-rose-600 shrink-0" />
+                        ) : auditReport.verdict === 'CONDITIONAL' ? (
+                          <AlertTriangle className="w-8 h-8 text-amber-600 shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
+                        )}
+                        <div>
+                          <div className="text-xs font-mono font-extrabold uppercase tracking-wider">
+                            AUDIT VERDICT: {auditReport.verdict}
+                          </div>
+                          <div className="text-base md:text-lg font-extrabold">
+                            {auditReport.executiveSummary}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right font-mono">
+                        <div className="text-2xl font-extrabold">
+                          {auditReport.alignmentScore}%
+                        </div>
+                        <div className="text-[11px] opacity-80">
+                          Policy Alignment
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Strategic Evaluation */}
+                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-mono text-slate-500">
+                        <span>I. STRATEGIC POLICY EVALUATION</span>
+                        <span>Model: {auditReport.selectedModelId}</span>
+                      </div>
+                      <p className="text-sm text-slate-800 leading-relaxed font-medium">
+                        {auditReport.strategicEvaluation}
+                      </p>
+                    </div>
+
+                    {/* Pros & Cons Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-2">
+                        <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
+                          Operational Advantages (Pros)
+                        </div>
+                        <ul className="space-y-1.5 text-xs text-slate-700">
+                          {auditReport.pros.map((pro, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                              <span>{pro}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200 space-y-2">
+                        <div className="text-xs font-mono font-bold text-rose-800 uppercase">
+                          Governance Risks & Conflicts (Cons)
+                        </div>
+                        <ul className="space-y-1.5 text-xs text-slate-700">
+                          {auditReport.cons.map((con, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                              <span>{con}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Actionable Roadmap */}
+                    <div className="p-5 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-2.5">
+                      <div className="text-xs font-mono font-bold text-blue-800 uppercase">
+                        II. RECOMMENDED GOVERNANCE ROADMAP
+                      </div>
+                      <ul className="space-y-2 text-xs md:text-sm text-slate-800 font-medium">
+                        {auditReport.roadmap.map((step, i) => (
+                          <li key={i}>{step}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Cited Parent Documents from Company Brain */}
+                    <div className="space-y-2.5">
+                      <div className="text-xs font-mono font-bold text-slate-500 uppercase">
+                        III. VERIFIED PARENT DOCUMENT CITATIONS (768-D VECTOR
+                        MATCHES)
+                      </div>
+                      <div className="space-y-2">
+                        {auditReport.citations.map((cit) => (
+                          <div
+                            key={cit.parentId}
+                            className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between font-bold text-slate-900">
+                              <span>{cit.title}</span>
+                              <span className="font-mono text-blue-600">
+                                dept: {cit.department} · match:{' '}
+                                {Math.round(cit.similarityScore * 100)}%
+                              </span>
+                            </div>
+                            <p className="text-slate-600 italic">
+                              &ldquo;{cit.matchedChildSnippet}&rdquo;
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
