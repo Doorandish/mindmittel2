@@ -93,7 +93,8 @@ export function AppShell({
                 onClick={() => onTabChange?.('overview')}
                 className="text-slate-700 hover:text-blue-600 font-semibold transition-colors flex items-center gap-1.5"
               >
-                ← {dict.nav.backToLanding}
+                <Home className="w-4 h-4 text-blue-600" />
+                <span>{dict.nav.backToLanding}</span>
               </button>
             )}
 

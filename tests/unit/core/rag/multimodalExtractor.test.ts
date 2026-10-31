@@ -3,6 +3,7 @@ import {
   classifyMultimodalInput,
   extractTextFromPlainBuffer,
 } from '@/core/rag/multimodalExtractor';
+import { dictionaries } from '@/i18n/dictionaries';
 import fs from 'fs';
 import path from 'path';
 
@@ -49,5 +50,23 @@ describe('Multimodal File & Audio Transcription Classifier & Workspace UX Rules'
     expect(pageSource).not.toContain('PHASE 1 — INJECT KNOWLEDGE');
     expect(pageSource).not.toContain('PHASE 2 — DECISION AUDIT DASHBOARD');
     expect(shellSource).toContain("activeTab === 'overview'");
+  });
+
+  it('uses "Home" in header navigation to return to landing page, stacks Indexed Brain Documents below full-width ingestion form, and renders a live step-by-step audit progress checklist', () => {
+    expect(dictionaries.en.nav.backToLanding).toBe('Home');
+    expect(dictionaries.de.nav.backToLanding).toBe('Home');
+
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    // Company Brain tab should NOT split into narrow lg:col-span-7 / lg:col-span-5 columns
+    expect(pageSource).not.toContain('lg:col-span-7');
+    expect(pageSource).not.toContain('lg:col-span-5');
+
+    // Audit Executive Decision tab should include live step-by-step execution checklist
+    expect(pageSource).toContain('AUDIT_PIPELINE_STEPS');
+    expect(pageSource).toContain('auditCompletedSteps');
   });
 });

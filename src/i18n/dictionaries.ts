@@ -139,7 +139,7 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
       features: 'Features',
       systemCenter: 'System & Logs',
       launchApp: 'Launch Live App',
-      backToLanding: 'Overview',
+      backToLanding: 'Home',
     },
     hero: {
       badge: 'Next-Gen AI Governance & Corporate Consulting',
@@ -284,7 +284,7 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
       features: 'Funktionen',
       systemCenter: 'System & Logs',
       launchApp: 'Live-App starten',
-      backToLanding: 'Überblick',
+      backToLanding: 'Home',
     },
     hero: {
       badge: 'KI-Governance & Unternehmensberatung der nächsten Generation',

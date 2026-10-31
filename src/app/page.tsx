@@ -26,6 +26,7 @@ import {
   Mic,
   Square,
   FileAudio,
+  Loader2,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import {
@@ -45,6 +46,29 @@ interface StoredBrainDocumentSummary {
   contentPreview: string;
   childCount: number;
 }
+
+const AUDIT_PIPELINE_STEPS = [
+  {
+    id: 'intent',
+    labelEn: 'Analyzing decision complexity & routing optimal Gemini model',
+    labelDe: 'Entscheidungskomplexität analysieren & optimales Gemini-Modell wählen',
+  },
+  {
+    id: 'embedding',
+    labelEn: 'Generating 768-dimensional semantic embedding vector',
+    labelDe: '768-dimensionalen semantischen Embedding-Vektor generieren',
+  },
+  {
+    id: 'vector-search',
+    labelEn: 'Searching Company Brain policies & Parent-Child vectors in MongoDB Atlas',
+    labelDe: 'Company Brain Richtlinien & Parent-Child-Vektoren in MongoDB Atlas durchsuchen',
+  },
+  {
+    id: 'synthesis',
+    labelEn: 'Cross-examining governance rules, risks & synthesizing executive verdict',
+    labelDe: 'Richtlinien-Abgleich, Risikoanalyse & Vorstands-Urteil erstellen',
+  },
+];
 
 const QUICK_DECISION_PRESETS = [
   {
@@ -112,6 +136,8 @@ export default function HomePage() {
   const [auditDepartmentFilter, setAuditDepartmentFilter] =
     useState<string>('all');
   const [isAuditing, setIsAuditing] = useState<boolean>(false);
+  const [auditCompletedSteps, setAuditCompletedSteps] = useState<number>(0);
+  const [showAuditChecklist, setShowAuditChecklist] = useState<boolean>(false);
   const [auditReport, setAuditReport] = useState<ExecutiveAuditReport | null>(
     null
   );
@@ -291,6 +317,15 @@ export default function HomePage() {
 
     setIsAuditing(true);
     setAuditError(null);
+    setAuditReport(null);
+    setShowAuditChecklist(true);
+    setAuditCompletedSteps(0);
+
+    const stepTimers = [
+      setTimeout(() => setAuditCompletedSteps(1), 220),
+      setTimeout(() => setAuditCompletedSteps(2), 550),
+      setTimeout(() => setAuditCompletedSteps(3), 900),
+    ];
 
     try {
       const res = await fetch('/api/brain/audit', {
@@ -304,12 +339,18 @@ export default function HomePage() {
       });
 
       const data = await res.json();
+      stepTimers.forEach((timer) => clearTimeout(timer));
+
+      // Sequentially check off any remaining steps so the user sees every task ticked
+      setAuditCompletedSteps(AUDIT_PIPELINE_STEPS.length);
+
       if (data.ok && data.report) {
         setAuditReport(data.report);
       } else {
         setAuditError(data.error ?? 'Audit failed');
       }
     } catch (err) {
+      stepTimers.forEach((timer) => clearTimeout(timer));
       setAuditError(err instanceof Error ? err.message : 'Network error');
     } finally {
       setIsAuditing(false);
@@ -954,7 +995,7 @@ export default function HomePage() {
 
       {/* VIEW 2: COMPACT ABOVE-THE-FOLD WORKSPACE WITH 2 DEDICATED TABS */}
       {activeTab === 'vault' && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
           {/* Compact Top Sub-Tab Switcher Bar (Fits Above the Fold) */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -999,9 +1040,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* SUB-TAB 1: EVALUATE DECISION (Compact Above-the-Fold Action Button) */}
+          {/* SUB-TAB 1: EVALUATE DECISION (Compact Above-the-Fold Action Button + Live Step-by-Step Progress Checklist) */}
           {workspaceSubTab === 'evaluate' && (
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-4">
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">
                   {locale === 'de'
@@ -1072,10 +1113,16 @@ export default function HomePage() {
                     disabled={isAuditing}
                     className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2"
                   >
-                    <Play className="w-4 h-4 fill-current" />
+                    {isAuditing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Play className="w-4 h-4 fill-current" />
+                    )}
                     <span>
                       {isAuditing
-                        ? 'Evaluating...'
+                        ? locale === 'de'
+                          ? 'Prüfung läuft...'
+                          : 'Evaluating Decision...'
                         : locale === 'de'
                         ? 'Entscheidung jetzt prüfen'
                         : 'Run Executive Audit'}
@@ -1083,6 +1130,72 @@ export default function HomePage() {
                   </button>
                 </div>
               </form>
+
+              {/* LIVE STEP-BY-STEP AUDIT PIPELINE PROGRESS CHECKLIST */}
+              {showAuditChecklist && (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-700 uppercase">
+                    <span>
+                      {locale === 'de'
+                        ? 'Live-Audit-Fortschritt (Pipeline-Aufgaben)'
+                        : 'Live Audit Execution Pipeline'}
+                    </span>
+                    <span className="text-blue-600">
+                      {auditCompletedSteps}/{AUDIT_PIPELINE_STEPS.length} Completed
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {AUDIT_PIPELINE_STEPS.map((step, index) => {
+                      const isDone = index < auditCompletedSteps;
+                      const isCurrent =
+                        isAuditing && index === auditCompletedSteps;
+
+                      return (
+                        <div
+                          key={step.id}
+                          className={`px-3.5 py-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
+                            isDone
+                              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-semibold'
+                              : isCurrent
+                              ? 'bg-blue-50 border-blue-300 text-blue-950 font-semibold'
+                              : 'bg-white border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {isDone ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            ) : isCurrent ? (
+                              <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                            ) : (
+                              <span className="w-4 h-4 rounded-full border border-slate-300 inline-block shrink-0" />
+                            )}
+                            <span className="truncate">
+                              {locale === 'de' ? step.labelDe : step.labelEn}
+                            </span>
+                          </div>
+
+                          <span
+                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              isDone
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : isCurrent
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-slate-100 text-slate-400'
+                            }`}
+                          >
+                            {isDone
+                              ? '✓ Done'
+                              : isCurrent
+                              ? 'Running...'
+                              : 'Queued'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {auditError && (
                 <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
@@ -1205,56 +1318,63 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* SUB-TAB 2: COMPANY BRAIN KNOWLEDGE MANAGEMENT (Multimodal Ingestion + Compact Summary List) */}
+          {/* SUB-TAB 2: COMPANY BRAIN KNOWLEDGE MANAGEMENT (Full-Width Ingestion Form on Top + Indexed List Below) */}
           {workspaceSubTab === 'brain' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Left 7 Columns: Compact Multimodal Knowledge Ingestion Form */}
-              <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                    {locale === 'de'
-                      ? 'Wissen ins Company Brain einspeisen'
-                      : 'Add Knowledge to Company Brain'}
-                  </h2>
+            <div className="space-y-6">
+              {/* Top Full-Width Card: Wide Multimodal Knowledge Ingestion Form */}
+              <div className="w-full bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                      {locale === 'de'
+                        ? 'Wissen ins Company Brain einspeisen'
+                        : 'Add Knowledge to Company Brain'}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                      {locale === 'de'
+                        ? 'Geben Sie Richtlinien als Text ein, laden Sie Dateien hoch (PDF, PPTX, Bild, Audio) oder nutzen Sie die Live-Sprachaufnahme.'
+                        : 'Enter corporate policies directly, upload files (PDF, PPTX, Image, Audio), or dictate via live microphone recording.'}
+                    </p>
+                  </div>
 
                   {/* Multimodal Input Mode Selector: Text | File Upload | Live Voice */}
-                  <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                  <div className="inline-flex flex-wrap items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs sm:text-sm font-bold gap-1">
                     <button
                       type="button"
                       onClick={() => setInputMode('text')}
-                      className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                      className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
                         inputMode === 'text'
                           ? 'bg-white text-blue-700 shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <FileText className="w-3.5 h-3.5" />
+                      <FileText className="w-4 h-4" />
                       <span>Text</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setInputMode('file')}
-                      className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                      className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
                         inputMode === 'file'
                           ? 'bg-white text-blue-700 shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Upload className="w-3.5 h-3.5" />
+                      <Upload className="w-4 h-4" />
                       <span>PDF / PPTX / Image / Audio</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setInputMode('voice')}
-                      className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                      className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
                         inputMode === 'voice'
                           ? 'bg-white text-rose-600 shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Mic className="w-3.5 h-3.5" />
+                      <Mic className="w-4 h-4" />
                       <span>Live Voice</span>
                     </button>
                   </div>
@@ -1262,9 +1382,9 @@ export default function HomePage() {
 
                 {/* Multimodal File Dropzone (PDF, Image, PPTX, Audio, TXT) */}
                 {inputMode === 'file' && (
-                  <div className="p-4 rounded-2xl bg-blue-50/50 border-2 border-dashed border-blue-300 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 text-xs text-slate-700">
-                      <FileAudio className="w-6 h-6 text-blue-600 shrink-0" />
+                  <div className="p-5 rounded-2xl bg-blue-50/50 border-2 border-dashed border-blue-300 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5 text-xs sm:text-sm text-slate-700">
+                      <FileAudio className="w-7 h-7 text-blue-600 shrink-0" />
                       <div>
                         <div className="font-bold text-slate-900">
                           Upload PDF, PowerPoint (.pptx), Image, Audio (.mp3/.wav), or Text
@@ -1275,7 +1395,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <label className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shrink-0 transition-colors">
+                    <label className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold cursor-pointer shrink-0 transition-colors shadow-sm">
                       <span>{isExtractingMedia ? 'Processing...' : 'Choose File'}</span>
                       <input
                         type="file"
@@ -1294,16 +1414,16 @@ export default function HomePage() {
 
                 {/* Live Microphone Voice Dictation Recorder */}
                 {inputMode === 'voice' && (
-                  <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 text-xs">
+                  <div className="p-5 rounded-2xl bg-rose-50/60 border border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5 text-xs sm:text-sm">
                       <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                        className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                           isRecording
                             ? 'bg-rose-600 text-white animate-pulse'
                             : 'bg-rose-100 text-rose-600'
                         }`}
                       >
-                        <Mic className="w-4 h-4" />
+                        <Mic className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="font-bold text-slate-900">
@@ -1321,18 +1441,18 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={startLiveVoiceRecording}
-                        className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shrink-0"
+                        className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shrink-0 shadow-sm"
                       >
-                        <Mic className="w-3.5 h-3.5" />
+                        <Mic className="w-4 h-4" />
                         <span>Start Recording</span>
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={stopLiveVoiceRecording}
-                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shrink-0"
+                        className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shrink-0 shadow-sm"
                       >
-                        <Square className="w-3.5 h-3.5 fill-current" />
+                        <Square className="w-4 h-4 fill-current" />
                         <span>Stop & Transcribe</span>
                       </button>
                     )}
@@ -1340,49 +1460,63 @@ export default function HomePage() {
                 )}
 
                 {extractionStatus && (
-                  <div className="px-3.5 py-2 rounded-xl bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-800">
+                  <div className="px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-xs sm:text-sm font-semibold text-blue-800">
                     {extractionStatus}
                   </div>
                 )}
 
-                <form onSubmit={handleInjectDocument} className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <input
-                      type="text"
-                      required
-                      value={docTitle}
-                      onChange={(e) => setDocTitle(e.target.value)}
-                      placeholder={
-                        locale === 'de'
-                          ? 'Dokumenttitel (z. B. IT-Richtlinie)'
-                          : 'Document Title (e.g. IT Security Policy)'
-                      }
-                      className="sm:col-span-1 px-3.5 py-2 text-xs sm:text-sm liquid-glass-input"
-                    />
+                <form onSubmit={handleInjectDocument} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                    <div className="md:col-span-5">
+                      <input
+                        type="text"
+                        required
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        placeholder={
+                          locale === 'de'
+                            ? 'Dokumenttitel (z. B. IT-Sicherheitsrichtlinie 2026)'
+                            : 'Document Title (e.g. IT Security Policy 2026)'
+                        }
+                        className="w-full px-4 py-2.5 text-sm liquid-glass-input"
+                      />
+                    </div>
 
-                    <select
-                      aria-label="Department"
-                      value={docDepartment}
-                      onChange={(e) => setDocDepartment(e.target.value)}
-                      className="px-3 py-2 text-xs sm:text-sm liquid-glass-input"
-                    >
-                      <option value="Finance & Legal">Dept: Finance & Legal</option>
-                      <option value="Engineering">Dept: Engineering</option>
-                      <option value="HR & Legal">Dept: HR & Legal</option>
-                      <option value="Executive Board">Dept: Executive Board</option>
-                    </select>
+                    <div className="md:col-span-4">
+                      <select
+                        aria-label="Department"
+                        value={docDepartment}
+                        onChange={(e) => setDocDepartment(e.target.value)}
+                        className="w-full px-4 py-2.5 text-sm liquid-glass-input"
+                      >
+                        <option value="Finance & Legal">
+                          Department: Finance & Legal
+                        </option>
+                        <option value="Engineering">
+                          Department: Engineering
+                        </option>
+                        <option value="HR & Legal">
+                          Department: HR & Legal
+                        </option>
+                        <option value="Executive Board">
+                          Department: Executive Board
+                        </option>
+                      </select>
+                    </div>
 
-                    <input
-                      type="text"
-                      value={docTags}
-                      onChange={(e) => setDocTags(e.target.value)}
-                      placeholder="Tags: policy, budget"
-                      className="px-3.5 py-2 text-xs font-mono liquid-glass-input"
-                    />
+                    <div className="md:col-span-3">
+                      <input
+                        type="text"
+                        value={docTags}
+                        onChange={(e) => setDocTags(e.target.value)}
+                        placeholder="Tags: policy, approval, budget"
+                        className="w-full px-4 py-2.5 text-xs sm:text-sm font-mono liquid-glass-input"
+                      />
+                    </div>
                   </div>
 
                   <textarea
-                    rows={3}
+                    rows={4}
                     required
                     value={docContent}
                     onChange={(e) => setDocContent(e.target.value)}
@@ -1391,24 +1525,24 @@ export default function HomePage() {
                         ? 'Richtlinien-Text (oder Ergebnis aus Datei-Upload / Sprachaufnahme)...'
                         : 'Policy text or transcribed content (auto-sliced into Parent & 768-d Child vectors)...'
                     }
-                    className="w-full p-3 text-xs sm:text-sm liquid-glass-input"
+                    className="w-full p-4 text-sm sm:text-base liquid-glass-input"
                   />
 
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     {ingestFeedback ? (
-                      <span className="text-xs font-bold text-emerald-700">
+                      <span className="text-xs sm:text-sm font-bold text-emerald-700">
                         {ingestFeedback}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-500">
-                        Auto-indexed in MongoDB Atlas (768-d vectors)
+                      <span className="text-xs text-slate-500">
+                        Auto-indexed in MongoDB Atlas (Parent 2,000c + 768-d Child vectors)
                       </span>
                     )}
 
                     <button
                       type="submit"
                       disabled={isIngesting || isExtractingMedia}
-                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-2 shrink-0"
+                      className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 shrink-0"
                     >
                       <Database className="w-4 h-4" />
                       <span>
@@ -1423,33 +1557,33 @@ export default function HomePage() {
                 </form>
               </div>
 
-              {/* Right 5 Columns: Compact One-Line Summary List of Stored Documents */}
-              <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-3">
+              {/* Bottom Full-Width Card (Stacked Below Input Form): Indexed Brain Documents */}
+              <div className="w-full bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-blue-600" />
                     <span>
                       {locale === 'de'
-                        ? 'Gespeicherte Richtlinien'
+                        ? 'Gespeicherte Richtlinien im Company Brain'
                         : 'Indexed Brain Documents'}
                     </span>
                   </h3>
-                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
-                    {documents.length}
+                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
+                    {documents.length} Indexed
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {documents.map((doc) => (
                     <div
                       key={doc.parentId}
-                      className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-between gap-2 hover:border-blue-300 transition-colors"
+                      className="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200/90 flex items-center justify-between gap-3 hover:border-blue-300 transition-colors"
                     >
                       <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                        <div className="text-sm font-bold text-slate-900 truncate">
                           {doc.title}
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500">
+                        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 mt-0.5">
                           <span>{doc.department}</span>
                           <span>·</span>
                           <span className="text-blue-600 font-semibold">
@@ -1461,7 +1595,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteDocument(doc.parentId)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
                         title="Delete Document"
                       >
                         <Trash2 className="w-4 h-4" />
