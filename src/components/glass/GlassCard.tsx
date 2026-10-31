@@ -7,18 +7,19 @@ export interface GlassCardProps {
   accentGlow?: 'cyan' | 'indigo' | 'emerald' | 'none';
 }
 
-const glowStyles: Record<NonNullable<GlassCardProps['accentGlow']>, string> = {
-  cyan: 'before:absolute before:-inset-px before:rounded-2xl before:bg-gradient-to-b before:from-cyan-400/20 before:to-transparent before:pointer-events-none',
-  indigo:
-    'before:absolute before:-inset-px before:rounded-2xl before:bg-gradient-to-b before:from-indigo-400/20 before:to-transparent before:pointer-events-none',
-  emerald:
-    'before:absolute before:-inset-px before:rounded-2xl before:bg-gradient-to-b before:from-emerald-400/20 before:to-transparent before:pointer-events-none',
+const accentBorderStyles: Record<
+  NonNullable<GlassCardProps['accentGlow']>,
+  string
+> = {
+  cyan: 'border-t-2 border-t-cyan-400/60',
+  indigo: 'border-t-2 border-t-indigo-400/60',
+  emerald: 'border-t-2 border-t-emerald-400/60',
   none: '',
 };
 
 /**
- * Reusable Apple-inspired Liquid Glass surface with frosted blur,
- * subtle top-edge specular reflection, and responsive touch feedback.
+ * Reusable Apple-inspired Liquid Glass surface with seam-free GPU compositing,
+ * high-contrast borders, and crisp enterprise typography.
  */
 export function GlassCard({
   children,
@@ -27,14 +28,14 @@ export function GlassCard({
   accentGlow = 'none',
 }: GlassCardProps) {
   const interactiveClasses = interactive
-    ? 'cursor-pointer active:scale-[0.99] hover:border-white/25'
+    ? 'cursor-pointer hover:border-white/30'
     : '';
 
   return (
     <div
-      className={`relative overflow-hidden liquid-glass-card ${glowStyles[accentGlow]} ${interactiveClasses} ${className}`}
+      className={`liquid-glass-card ${accentBorderStyles[accentGlow]} ${interactiveClasses} ${className}`}
     >
-      <div className="relative z-10">{children}</div>
+      {children}
     </div>
   );
 }
