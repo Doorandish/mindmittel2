@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -17,12 +17,15 @@ import {
   Lock,
   BrainCircuit,
   Activity,
-  PlusCircle,
   Trash2,
   Play,
   Sparkles,
   Check,
   XCircle,
+  Upload,
+  Mic,
+  Square,
+  FileAudio,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import {
@@ -45,8 +48,8 @@ interface StoredBrainDocumentSummary {
 
 const QUICK_DECISION_PRESETS = [
   {
-    labelEn: 'Test Conflict: Cancel Daily Scrum Standups',
-    labelDe: 'Konflikt-Test: Tägliche Scrum-Standups abschaffen',
+    labelEn: 'Conflict: Cancel Daily Standups',
+    labelDe: 'Konflikt: Tägliche Standups abschaffen',
     proposalEn:
       'We want to cancel all mandatory daily Scrum standup meetings in the engineering team to save time.',
     proposalDe:
@@ -54,8 +57,8 @@ const QUICK_DECISION_PRESETS = [
     dept: 'engineering',
   },
   {
-    labelEn: 'Test Conflict: €18,000 Unbudgeted Vendor Contract',
-    labelDe: 'Konflikt-Test: 18.000 € ungeplanter Lieferantenvertrag',
+    labelEn: 'Conflict: €18,000 Unbudgeted Contract',
+    labelDe: 'Konflikt: 18.000 € ungeplanter Vertrag',
     proposalEn:
       'Approve an €18,000 unbudgeted software vendor contract immediately without CFO or Supervisory Board sign-off.',
     proposalDe:
@@ -63,8 +66,8 @@ const QUICK_DECISION_PRESETS = [
     dept: 'finance-legal',
   },
   {
-    labelEn: 'Test Aligned: €6,500 Budgeted Engineering Tool',
-    labelDe: 'Konform-Test: 6.500 € budgetiertes Engineering-Tool',
+    labelEn: 'Aligned: €6,500 Budgeted Tool',
+    labelDe: 'Konform: 6.500 € budgetiertes Tool',
     proposalEn:
       'Approve a €6,500 budgeted vendor tool renewal within the standard department head threshold with signed GDPR DPA.',
     proposalDe:
@@ -77,9 +80,13 @@ export default function HomePage() {
   const [locale, setLocale] = useState<SupportedLocale>(DEFAULT_LOCALE);
   const [activeTab, setActiveTab] = useState<'overview' | 'vault'>('overview');
 
-  // Phase 1 State: Company Brain Documents & Injection Form
+  // Inside Workspace Sub-Tabs: 'evaluate' (Default) vs 'brain' (Knowledge Ingestion)
+  const [workspaceSubTab, setWorkspaceSubTab] = useState<'evaluate' | 'brain'>(
+    'evaluate'
+  );
+
+  // Company Brain Documents & Multimodal Ingestion State
   const [documents, setDocuments] = useState<StoredBrainDocumentSummary[]>([]);
-  const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
   const [docTitle, setDocTitle] = useState<string>('');
   const [docDepartment, setDocDepartment] = useState<string>('Finance & Legal');
   const [docSourceType, setDocSourceType] = useState<'upload' | 'slack'>(
@@ -90,7 +97,15 @@ export default function HomePage() {
   const [isIngesting, setIsIngesting] = useState<boolean>(false);
   const [ingestFeedback, setIngestFeedback] = useState<string | null>(null);
 
-  // Phase 2 State: Decision Audit Proposal & Live Report
+  // Multimodal File Upload & Live Voice Recording State
+  const [inputMode, setInputMode] = useState<'text' | 'file' | 'voice'>('text');
+  const [isExtractingMedia, setIsExtractingMedia] = useState<boolean>(false);
+  const [extractionStatus, setExtractionStatus] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
+
+  // Decision Audit State
   const [decisionProposal, setDecisionProposal] = useState<string>(
     QUICK_DECISION_PRESETS[0].proposalEn
   );
@@ -106,7 +121,6 @@ export default function HomePage() {
   const inferredProfile = inferProfileFromQuery(decisionProposal);
 
   async function fetchBrainDocuments() {
-    setIsLoadingDocs(true);
     try {
       const res = await fetch('/api/brain/documents');
       const data = await res.json();
@@ -115,8 +129,6 @@ export default function HomePage() {
       }
     } catch {
       // Ignore network error on initial load
-    } finally {
-      setIsLoadingDocs(false);
     }
   }
 
@@ -124,9 +136,99 @@ export default function HomePage() {
     fetchBrainDocuments();
   }, []);
 
-  function openLiveWorkspace() {
+  function openLiveWorkspace(initialSubTab: 'evaluate' | 'brain' = 'evaluate') {
+    setWorkspaceSubTab(initialSubTab);
     setActiveTab('vault');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function handleMultimodalFileUpload(
+    file: File,
+    sourceLabel = 'file'
+  ): Promise<void> {
+    setIsExtractingMedia(true);
+    setExtractionStatus(
+      locale === 'de'
+        ? `Verarbeite & transkribiere ${file.name}...`
+        : `Processing & transcribing ${file.name}...`
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/brain/extract', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.ok && data.extractedText) {
+        setDocContent(data.extractedText);
+        if (!docTitle.trim() && data.suggestedTitle) {
+          setDocTitle(data.suggestedTitle);
+        }
+        setExtractionStatus(
+          locale === 'de'
+            ? `✓ Erfolgreich in verarbeitbaren Text umgewandelt (${data.category.toUpperCase()})`
+            : `✓ Converted ${sourceLabel} into structured text (${data.category.toUpperCase()})`
+        );
+      } else {
+        setExtractionStatus(data.error ?? 'Extraction failed');
+      }
+    } catch (err) {
+      setExtractionStatus(
+        err instanceof Error ? err.message : 'Upload processing error'
+      );
+    } finally {
+      setIsExtractingMedia(false);
+    }
+  }
+
+  async function startLiveVoiceRecording() {
+    setExtractionStatus(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(recordedChunksRef.current, {
+          type: 'audio/webm',
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        const audioFile = new File(
+          [audioBlob],
+          `Voice_Note_${new Date().toISOString().slice(11, 19).replace(/:/g, '-')}.webm`,
+          { type: 'audio/webm' }
+        );
+        await handleMultimodalFileUpload(audioFile, 'live voice recording');
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      // Fallback if microphone permission is denied or unavailable
+      setExtractionStatus(
+        locale === 'de'
+          ? 'Mikrofonzugriff nicht verfügbar. Bitte laden Sie eine Audiodatei hoch.'
+          : 'Microphone access unavailable in this browser context. Please upload an audio file instead.'
+      );
+    }
+  }
+
+  function stopLiveVoiceRecording() {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
   }
 
   async function handleInjectDocument(e: React.FormEvent) {
@@ -160,10 +262,11 @@ export default function HomePage() {
         setDocuments(data.documents ?? []);
         setDocTitle('');
         setDocContent('');
+        setExtractionStatus(null);
         setIngestFeedback(
           locale === 'de'
-            ? `✓ Gespeichert im Company Brain: ${data.ingestion.parentCount} Parent-Dokument & ${data.ingestion.childVectorCount} Child-Vektoren (768-d)`
-            : `✓ Injected into Company Brain: ${data.ingestion.parentCount} Parent chunk & ${data.ingestion.childVectorCount} Child vectors (768-d)`
+            ? `✓ Gespeichert (${data.ingestion.childVectorCount} Vektoren)`
+            : `✓ Saved to Company Brain (${data.ingestion.childVectorCount} vectors)`
         );
       }
     } finally {
@@ -221,11 +324,11 @@ export default function HomePage() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
     >
-      {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Synchronized with V2 Features) */}
+      {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated with Multimodal & Tabbed Workspace Capabilities) */}
       {activeTab === 'overview' && (
         <div className="space-y-24 pb-20">
           {/* SECTION 1: HERO WITH MACOS AUDIT ENGINE MOCKUP WINDOW */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-20">
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-16">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-6 space-y-6">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
@@ -246,7 +349,7 @@ export default function HomePage() {
                 <div className="pt-2 flex flex-wrap items-center gap-4">
                   <button
                     type="button"
-                    onClick={openLiveWorkspace}
+                    onClick={() => openLiveWorkspace('evaluate')}
                     className="px-7 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2"
                   >
                     <span>{dict.hero.primaryCta}</span>
@@ -287,13 +390,13 @@ export default function HomePage() {
                   <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
                     <div className="space-y-3.5 pr-0 sm:pr-4">
                       <div className="text-[11px] font-mono font-bold tracking-wider text-blue-600 uppercase">
-                        {dict.hero.mockupPhase1}
+                        COMPANY BRAIN INGESTION
                       </div>
 
                       <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
                           <FileText className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{dict.hero.mockupDoc1Title}</span>
+                          <span>PDF / PPTX / Image OCR</span>
                         </div>
                         <p className="text-[11px] text-slate-500 leading-snug">
                           {dict.hero.mockupDoc1Sub}
@@ -302,11 +405,11 @@ export default function HomePage() {
 
                       <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-                          <Database className="w-3.5 h-3.5 text-rose-500" />
-                          <span>{dict.hero.mockupDoc2Title}</span>
+                          <Mic className="w-3.5 h-3.5 text-rose-500" />
+                          <span>Live Voice & Audio Transcription</span>
                         </div>
                         <p className="text-[11px] text-slate-500 leading-snug">
-                          {dict.hero.mockupDoc2Sub}
+                          Auto-transcribed & sliced into 768-d vectors ✓
                         </p>
                       </div>
 
@@ -329,7 +432,7 @@ export default function HomePage() {
                     <div className="space-y-4 pt-4 sm:pt-0 sm:pl-6 flex flex-col justify-between">
                       <div className="space-y-3.5">
                         <div className="text-[11px] font-mono font-bold tracking-wider text-emerald-600 uppercase">
-                          {dict.hero.mockupPhase2}
+                          INSTANT DECISION AUDIT
                         </div>
 
                         <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-1">
@@ -539,33 +642,24 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <div>
                       <span className="text-slate-400 block mb-1">
-                        Department
+                        Multimodal Input
                       </span>
                       <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 font-semibold text-slate-800">
-                        Finance & Legal
+                        Text · PDF · PPTX · Image
                       </div>
                     </div>
                     <div>
                       <span className="text-slate-400 block mb-1">
-                        Connector Source
+                        Audio & Voice
                       </span>
-                      <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 font-semibold text-slate-800">
-                        Upload / Slack
+                      <div className="px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 font-semibold text-blue-700">
+                        Live Mic & Transcription
                       </div>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block mb-1">
-                      Parent-Child Chunking Pipeline
-                    </span>
-                    <div className="px-3.5 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-700 flex items-center justify-between">
-                      <span>Parent (2,000c) → 4 Child Vectors</span>
-                      <span>768-d</span>
                     </div>
                   </div>
                   <div className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center justify-between">
                     <span className="font-medium">
-                      Board_Charter_2026.pdf
+                      Auto-Sliced into 768-d Vectors
                     </span>
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   </div>
@@ -599,9 +693,6 @@ export default function HomePage() {
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 italic leading-relaxed">
                     &ldquo;Approve €18,000 unbudgeted software vendor contract
                     without secondary board approval.&rdquo;
-                  </div>
-                  <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-medium text-amber-800">
-                    ⚡ Metadata Filter + 768-d Cosine Vector Match
                   </div>
                   <div className="px-3.5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-mono flex items-center justify-between">
                     <span>Auto-Selected: Gemini Pro</span>
@@ -641,9 +732,6 @@ export default function HomePage() {
                   </div>
                   <div className="px-3.5 py-2 rounded-xl bg-blue-50 text-blue-800 text-xs font-semibold">
                     › I. Strategic Policy Alignment
-                  </div>
-                  <div className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-900 text-xs font-semibold">
-                    › II. Citation: Board_Charter_2026 (§4.2)
                   </div>
                   <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-500 text-emerald-800 text-xs font-extrabold text-center">
                     ✓ {dict.hero.mockupCertifiedBadge}
@@ -691,17 +779,21 @@ export default function HomePage() {
               <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-                    <Layers className="w-6 h-6" />
+                    <Mic className="w-6 h-6" />
                   </div>
                   <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-mono font-bold uppercase">
-                    {dict.featuresSection.feat2Badge}
+                    MULTIMODAL & VOICE
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">
-                  {dict.featuresSection.feat2Title}
+                  {locale === 'de'
+                    ? 'Multimodale Datei- & Sprach-Erfassung'
+                    : 'Multimodal File & Live Voice Ingestion'}
                 </h3>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                  {dict.featuresSection.feat2Desc}
+                  {locale === 'de'
+                    ? 'Erfassen Sie Text, PDFs, Bilder, PowerPoint-Folien oder Live-Sprachaufnahmen. Gemini transkribiert und konvertiert alles automatisch in durchsuchbare 768-d Vektoren.'
+                    : 'Ingest plain text, PDFs, images, PowerPoint decks, audio files, or live microphone dictations—automatically transcribed and indexed into 768-d Company Brain vectors.'}
                 </p>
               </div>
 
@@ -763,7 +855,7 @@ export default function HomePage() {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={openLiveWorkspace}
+                  onClick={() => openLiveWorkspace('evaluate')}
                   className="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-base shadow-lg shadow-blue-600/30 transition-all inline-flex items-center gap-2"
                 >
                   <span>{dict.ctaBanner.buttonText}</span>
@@ -860,57 +952,401 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* VIEW 2: OPERATIONAL 2-PHASE COMPANY BRAIN & EXECUTIVE AUDIT WORKSPACE */}
+      {/* VIEW 2: COMPACT ABOVE-THE-FOLD WORKSPACE WITH 2 DEDICATED TABS */}
       {activeTab === 'vault' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-          {/* Top Workspace Banner */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 md:p-8 flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
-                <BrainCircuit className="w-4 h-4" />
-                <span>LIVE 2-PHASE GOVERNANCE ENGINE</span>
-              </div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">
-                {dict.ragSection.title}
-              </h1>
-              <p className="text-sm text-slate-600 max-w-2xl">
-                {dict.ragSection.subtitle}
-              </p>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+          {/* Compact Top Sub-Tab Switcher Bar (Fits Above the Fold) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setWorkspaceSubTab('evaluate')}
+                className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                  workspaceSubTab === 'evaluate'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>
+                  {locale === 'de'
+                    ? 'Entscheidung prüfen (Audit)'
+                    : 'Evaluate Decision'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWorkspaceSubTab('brain')}
+                className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                  workspaceSubTab === 'brain'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Database className="w-4 h-4" />
+                <span>
+                  {locale === 'de'
+                    ? `Company Brain verwalten (${documents.length})`
+                    : `Company Brain (${documents.length})`}
+                </span>
+              </button>
             </div>
 
-            <div className="flex items-center gap-3 text-xs font-mono">
-              <span className="px-3.5 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold">
-                ● {documents.length} Active Parent Policies in Brain
-              </span>
+            <div className="text-xs font-mono text-slate-500 hidden sm:flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>{documents.length} Active Policies Indexed</span>
             </div>
           </div>
 
-          {/* TWO-COLUMN OPERATIONAL WORKSPACE: PHASE 1 (LEFT) & PHASE 2 (RIGHT) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* LEFT 5 COLUMNS — PHASE 1: INJECT KNOWLEDGE INTO COMPANY BRAIN */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 md:p-7 space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-mono font-bold text-blue-600 uppercase">
-                      PHASE 1 — INJECT KNOWLEDGE
+          {/* SUB-TAB 1: EVALUATE DECISION (Compact Above-the-Fold Action Button) */}
+          {workspaceSubTab === 'evaluate' && (
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                  {locale === 'de'
+                    ? 'Management-Entscheidung gegen Company Brain prüfen'
+                    : 'Evaluate Management Decision Against Company Brain'}
+                </h1>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_DECISION_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setDecisionProposal(
+                          locale === 'de'
+                            ? preset.proposalDe
+                            : preset.proposalEn
+                        );
+                        setAuditDepartmentFilter(preset.dept);
+                      }}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 text-slate-700 transition-colors"
+                    >
+                      {locale === 'de' ? preset.labelDe : preset.labelEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <form onSubmit={handleRunExecutiveAudit} className="space-y-3">
+                <textarea
+                  rows={3}
+                  required
+                  value={decisionProposal}
+                  onChange={(e) => setDecisionProposal(e.target.value)}
+                  placeholder={dict.ragSection.searchPlaceholder}
+                  className="w-full p-3.5 text-sm sm:text-base liquid-glass-input"
+                />
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 font-semibold text-blue-900">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <span>
+                        Auto-Routed:{' '}
+                        <strong className="font-mono">
+                          {inferredProfile === 'reasoning'
+                            ? 'Gemini Pro'
+                            : 'Gemini Flash'}
+                        </strong>
+                      </span>
                     </span>
-                    <h2 className="text-lg md:text-xl font-extrabold text-slate-900 mt-0.5">
-                      {locale === 'de'
-                        ? 'Richtlinie ins Company Brain einspeisen'
-                        : 'Add Policy or Note to Company Brain'}
-                    </h2>
+
+                    <select
+                      aria-label="Department Scope"
+                      value={auditDepartmentFilter}
+                      onChange={(e) => setAuditDepartmentFilter(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-800 font-semibold"
+                    >
+                      <option value="all">Scope: All Departments</option>
+                      <option value="finance-legal">Finance & Legal</option>
+                      <option value="engineering">Engineering</option>
+                      <option value="hr-legal">HR & Legal</option>
+                    </select>
                   </div>
-                  <PlusCircle className="w-6 h-6 text-blue-600" />
+
+                  <button
+                    type="submit"
+                    disabled={isAuditing}
+                    className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>
+                      {isAuditing
+                        ? 'Evaluating...'
+                        : locale === 'de'
+                        ? 'Entscheidung jetzt prüfen'
+                        : 'Run Executive Audit'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+
+              {auditError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
+                  {auditError}
+                </div>
+              )}
+
+              {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
+              {auditReport && (
+                <div className="pt-4 border-t border-slate-200 space-y-4">
+                  <div
+                    className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${
+                      auditReport.verdict === 'POLICY_CONFLICT'
+                        ? 'bg-rose-50 border-rose-300 text-rose-950'
+                        : auditReport.verdict === 'CONDITIONAL'
+                        ? 'bg-amber-50 border-amber-300 text-amber-950'
+                        : 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {auditReport.verdict === 'POLICY_CONFLICT' ? (
+                        <XCircle className="w-7 h-7 text-rose-600 shrink-0" />
+                      ) : auditReport.verdict === 'CONDITIONAL' ? (
+                        <AlertTriangle className="w-7 h-7 text-amber-600 shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                      )}
+                      <div>
+                        <div className="text-[11px] font-mono font-extrabold uppercase tracking-wider">
+                          VERDICT: {auditReport.verdict} · MODEL:{' '}
+                          {auditReport.selectedModelId}
+                        </div>
+                        <div className="text-sm sm:text-base font-extrabold">
+                          {auditReport.executiveSummary}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right font-mono">
+                      <div className="text-xl font-extrabold">
+                        {auditReport.alignmentScore}%
+                      </div>
+                      <div className="text-[10px] opacity-80">Alignment</div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed">
+                    <strong className="block text-xs font-mono text-slate-500 uppercase mb-1">
+                      Strategic Policy Cross-Examination
+                    </strong>
+                    {auditReport.strategicEvaluation}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-1.5">
+                      <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
+                        Pros
+                      </div>
+                      <ul className="space-y-1 text-xs text-slate-700">
+                        {auditReport.pros.map((pro, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{pro}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200 space-y-1.5">
+                      <div className="text-xs font-mono font-bold text-rose-800 uppercase">
+                        Risks & Policy Conflicts
+                      </div>
+                      <ul className="space-y-1 text-xs text-slate-700">
+                        {auditReport.cons.map((con, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                            <span>{con}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-1.5">
+                      <div className="text-xs font-mono font-bold text-blue-800 uppercase">
+                        Recommended Actionable Roadmap
+                      </div>
+                      <ul className="space-y-1 text-xs text-slate-800 font-medium">
+                        {auditReport.roadmap.map((step, i) => (
+                          <li key={i}>{step}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                      <div className="text-xs font-mono font-bold text-slate-600 uppercase">
+                        Cited Company Brain Policies
+                      </div>
+                      <div className="space-y-1.5">
+                        {auditReport.citations.map((cit) => (
+                          <div
+                            key={cit.parentId}
+                            className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center justify-between gap-2"
+                          >
+                            <span className="font-bold text-slate-900 truncate">
+                              {cit.title}
+                            </span>
+                            <span className="font-mono text-[11px] text-blue-600 shrink-0">
+                              {cit.department} ·{' '}
+                              {Math.round(cit.similarityScore * 100)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SUB-TAB 2: COMPANY BRAIN KNOWLEDGE MANAGEMENT (Multimodal Ingestion + Compact Summary List) */}
+          {workspaceSubTab === 'brain' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left 7 Columns: Compact Multimodal Knowledge Ingestion Form */}
+              <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    {locale === 'de'
+                      ? 'Wissen ins Company Brain einspeisen'
+                      : 'Add Knowledge to Company Brain'}
+                  </h2>
+
+                  {/* Multimodal Input Mode Selector: Text | File Upload | Live Voice */}
+                  <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setInputMode('text')}
+                      className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                        inputMode === 'text'
+                          ? 'bg-white text-blue-700 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Text</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInputMode('file')}
+                      className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                        inputMode === 'file'
+                          ? 'bg-white text-blue-700 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>PDF / PPTX / Image / Audio</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInputMode('voice')}
+                      className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+                        inputMode === 'voice'
+                          ? 'bg-white text-rose-600 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      <span>Live Voice</span>
+                    </button>
+                  </div>
                 </div>
 
-                <form onSubmit={handleInjectDocument} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {locale === 'de'
-                        ? 'Dokumenttitel / Richtlinie'
-                        : 'Document / Policy Title'}
+                {/* Multimodal File Dropzone (PDF, Image, PPTX, Audio, TXT) */}
+                {inputMode === 'file' && (
+                  <div className="p-4 rounded-2xl bg-blue-50/50 border-2 border-dashed border-blue-300 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 text-xs text-slate-700">
+                      <FileAudio className="w-6 h-6 text-blue-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-900">
+                          Upload PDF, PowerPoint (.pptx), Image, Audio (.mp3/.wav), or Text
+                        </div>
+                        <div className="text-slate-500">
+                          Gemini Multimodal automatically extracts text or transcribes audio into the editor below.
+                        </div>
+                      </div>
+                    </div>
+
+                    <label className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shrink-0 transition-colors">
+                      <span>{isExtractingMedia ? 'Processing...' : 'Choose File'}</span>
+                      <input
+                        type="file"
+                        accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.webp,.ppt,.pptx,.mp3,.wav,.webm,.ogg,.m4a"
+                        className="hidden"
+                        onChange={(e) => {
+                          const selected = e.target.files?.[0];
+                          if (selected) {
+                            handleMultimodalFileUpload(selected);
+                          }
+                        }}
+                      />
                     </label>
+                  </div>
+                )}
+
+                {/* Live Microphone Voice Dictation Recorder */}
+                {inputMode === 'voice' && (
+                  <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-xs">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                          isRecording
+                            ? 'bg-rose-600 text-white animate-pulse'
+                            : 'bg-rose-100 text-rose-600'
+                        }`}
+                      >
+                        <Mic className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900">
+                          {isRecording
+                            ? 'Recording Live Voice Dictation...'
+                            : 'Record Policy or Meeting Note by Voice'}
+                        </div>
+                        <div className="text-slate-600">
+                          Audio is automatically transcribed into structured text for Company Brain indexing.
+                        </div>
+                      </div>
+                    </div>
+
+                    {!isRecording ? (
+                      <button
+                        type="button"
+                        onClick={startLiveVoiceRecording}
+                        className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shrink-0"
+                      >
+                        <Mic className="w-3.5 h-3.5" />
+                        <span>Start Recording</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={stopLiveVoiceRecording}
+                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shrink-0"
+                      >
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                        <span>Stop & Transcribe</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {extractionStatus && (
+                  <div className="px-3.5 py-2 rounded-xl bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-800">
+                    {extractionStatus}
+                  </div>
+                )}
+
+                <form onSubmit={handleInjectDocument} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <input
                       type="text"
                       required
@@ -918,414 +1354,124 @@ export default function HomePage() {
                       onChange={(e) => setDocTitle(e.target.value)}
                       placeholder={
                         locale === 'de'
-                          ? 'z. B. Homeoffice & IT-Sicherheitsrichtlinie 2026'
-                          : 'e.g., Remote Work & Vendor Security Policy 2026'
+                          ? 'Dokumenttitel (z. B. IT-Richtlinie)'
+                          : 'Document Title (e.g. IT Security Policy)'
                       }
-                      className="w-full px-4 py-2.5 text-sm liquid-glass-input"
+                      className="sm:col-span-1 px-3.5 py-2 text-xs sm:text-sm liquid-glass-input"
                     />
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        {locale === 'de' ? 'Abteilung' : 'Department'}
-                      </label>
-                      <select
-                        value={docDepartment}
-                        onChange={(e) => setDocDepartment(e.target.value)}
-                        className="w-full px-3 py-2.5 text-sm liquid-glass-input"
-                      >
-                        <option value="Finance & Legal">Finance & Legal</option>
-                        <option value="Engineering">Engineering</option>
-                        <option value="HR & Legal">HR & Legal</option>
-                        <option value="Executive Board">Executive Board</option>
-                      </select>
-                    </div>
+                    <select
+                      aria-label="Department"
+                      value={docDepartment}
+                      onChange={(e) => setDocDepartment(e.target.value)}
+                      className="px-3 py-2 text-xs sm:text-sm liquid-glass-input"
+                    >
+                      <option value="Finance & Legal">Dept: Finance & Legal</option>
+                      <option value="Engineering">Dept: Engineering</option>
+                      <option value="HR & Legal">Dept: HR & Legal</option>
+                      <option value="Executive Board">Dept: Executive Board</option>
+                    </select>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        {locale === 'de' ? 'Quelle' : 'Source Connector'}
-                      </label>
-                      <select
-                        value={docSourceType}
-                        onChange={(e) =>
-                          setDocSourceType(
-                            e.target.value as 'upload' | 'slack'
-                          )
-                        }
-                        className="w-full px-3 py-2.5 text-sm liquid-glass-input"
-                      >
-                        <option value="upload">Official Policy Upload</option>
-                        <option value="slack">Slack #gov-council</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {locale === 'de'
-                        ? 'Themen-Tags (kommagetrennt)'
-                        : 'Metadata Tags (comma-separated)'}
-                    </label>
                     <input
                       type="text"
                       value={docTags}
                       onChange={(e) => setDocTags(e.target.value)}
-                      className="w-full px-4 py-2 text-xs font-mono liquid-glass-input"
+                      placeholder="Tags: policy, budget"
+                      className="px-3.5 py-2 text-xs font-mono liquid-glass-input"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      {locale === 'de'
-                        ? 'Richtlinien-Inhalt (wird in Parent- & Child-Vektoren zerlegt)'
-                        : 'Policy Content (auto-sliced into Parent & 768-d Child Vectors)'}
-                    </label>
-                    <textarea
-                      rows={4}
-                      required
-                      value={docContent}
-                      onChange={(e) => setDocContent(e.target.value)}
-                      placeholder={
-                        locale === 'de'
-                          ? 'Geben Sie hier die verbindliche Unternehmensregel oder das Vorstandsprotokoll ein...'
-                          : 'Paste the corporate rule, board resolution, or department guideline here...'
-                      }
-                      className="w-full p-3.5 text-sm liquid-glass-input"
-                    />
+                  <textarea
+                    rows={3}
+                    required
+                    value={docContent}
+                    onChange={(e) => setDocContent(e.target.value)}
+                    placeholder={
+                      locale === 'de'
+                        ? 'Richtlinien-Text (oder Ergebnis aus Datei-Upload / Sprachaufnahme)...'
+                        : 'Policy text or transcribed content (auto-sliced into Parent & 768-d Child vectors)...'
+                    }
+                    className="w-full p-3 text-xs sm:text-sm liquid-glass-input"
+                  />
+
+                  <div className="flex items-center justify-between gap-3">
+                    {ingestFeedback ? (
+                      <span className="text-xs font-bold text-emerald-700">
+                        {ingestFeedback}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-500">
+                        Auto-indexed in MongoDB Atlas (768-d vectors)
+                      </span>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isIngesting || isExtractingMedia}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-2 shrink-0"
+                    >
+                      <Database className="w-4 h-4" />
+                      <span>
+                        {isIngesting
+                          ? 'Saving...'
+                          : locale === 'de'
+                          ? 'Ins Company Brain speichern'
+                          : 'Save to Company Brain'}
+                      </span>
+                    </button>
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={isIngesting}
-                    className="w-full py-3.5 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Database className="w-4 h-4" />
-                    <span>
-                      {isIngesting
-                        ? 'Slicing & Embedding (768-d)...'
-                        : locale === 'de'
-                        ? 'Ins Company Brain einspeisen'
-                        : 'Inject into Company Brain'}
-                    </span>
-                  </button>
-
-                  {ingestFeedback && (
-                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs font-semibold text-emerald-800">
-                      {ingestFeedback}
-                    </div>
-                  )}
                 </form>
               </div>
 
-              {/* Stored Company Brain Documents List */}
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-4">
+              {/* Right 5 Columns: Compact One-Line Summary List of Stored Documents */}
+              <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
                     <Layers className="w-4 h-4 text-blue-600" />
                     <span>
                       {locale === 'de'
-                        ? 'Aktive Dokumente im Company Brain'
-                        : 'Stored Company Brain Vault'}
+                        ? 'Gespeicherte Richtlinien'
+                        : 'Indexed Brain Documents'}
                     </span>
                   </h3>
-                  <span className="text-xs font-mono text-slate-500">
-                    {isLoadingDocs ? 'Loading...' : `${documents.length} docs`}
+                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                    {documents.length}
                   </span>
                 </div>
 
-                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {documents.map((doc) => (
                     <div
                       key={doc.parentId}
-                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2"
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/90 flex items-center justify-between gap-2 hover:border-blue-300 transition-colors"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-[11px] font-mono font-bold text-blue-700">
-                            dept: {doc.department} · source: {doc.sourceType}
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                          {doc.title}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500">
+                          <span>{doc.department}</span>
+                          <span>·</span>
+                          <span className="text-blue-600 font-semibold">
+                            {doc.childCount} vectors
                           </span>
-                          <h4 className="text-sm font-bold text-slate-900">
-                            {doc.title}
-                          </h4>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDocument(doc.parentId)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Delete Parent & Cascade Child Vectors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
 
-                      <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
-                        {doc.contentPreview}
-                      </p>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] font-mono">
-                        <div className="flex flex-wrap gap-1">
-                          {doc.tags.map((t) => (
-                            <span
-                              key={t}
-                              className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600"
-                            >
-                              #{t}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">
-                          {doc.childCount} Child Vectors
-                        </span>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDocument(doc.parentId)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                        title="Delete Document"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-
-            {/* RIGHT 7 COLUMNS — PHASE 2: PROPOSE & AUDIT MANAGEMENT DECISIONS */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 md:p-8 space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-mono font-bold text-emerald-600 uppercase">
-                      PHASE 2 — DECISION AUDIT DASHBOARD
-                    </span>
-                    <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 mt-0.5">
-                      {locale === 'de'
-                        ? 'Management-Entscheidung gegen Company Brain prüfen'
-                        : 'Evaluate Management Decision Against Company Brain'}
-                    </h2>
-                  </div>
-                </div>
-
-                {/* One-Click Preset Scenarios for Instant Testing */}
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-500 block">
-                    {locale === 'de'
-                      ? 'Schnelltest-Szenarien (1-Klick):'
-                      : 'Quick Audit Scenarios (1-Click Test):'}
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {QUICK_DECISION_PRESETS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setDecisionProposal(
-                            locale === 'de'
-                              ? preset.proposalDe
-                              : preset.proposalEn
-                          );
-                          setAuditDepartmentFilter(preset.dept);
-                        }}
-                        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 text-slate-700 transition-colors"
-                      >
-                        {locale === 'de' ? preset.labelDe : preset.labelEn}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <form onSubmit={handleRunExecutiveAudit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      {locale === 'de'
-                        ? 'Entscheidungsvorlage oder strategischer Vorschlag'
-                        : 'Proposed Management Decision or Policy Question'}
-                    </label>
-                    <textarea
-                      rows={3}
-                      required
-                      value={decisionProposal}
-                      onChange={(e) => setDecisionProposal(e.target.value)}
-                      placeholder={dict.ragSection.searchPlaceholder}
-                      className="w-full p-4 text-sm md:text-base liquid-glass-input"
-                    />
-                  </div>
-
-                  {/* Autonomous Model Routing & Department Filter Row */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 text-xs">
-                    <div className="flex items-center gap-2 font-semibold text-blue-900">
-                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span>
-                        Auto-Routed Model Tier:{' '}
-                        <strong className="font-mono">
-                          {inferredProfile === 'reasoning'
-                            ? 'Gemini Pro (Deep Audit)'
-                            : 'Gemini Flash (Fast Lookup)'}
-                        </strong>
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-600 font-semibold">
-                        Scope:
-                      </span>
-                      <select
-                        value={auditDepartmentFilter}
-                        onChange={(e) =>
-                          setAuditDepartmentFilter(e.target.value)
-                        }
-                        className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-800 font-semibold"
-                      >
-                        <option value="all">All Departments</option>
-                        <option value="finance-legal">Finance & Legal</option>
-                        <option value="engineering">Engineering</option>
-                        <option value="hr-legal">HR & Legal</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isAuditing}
-                    className="w-full py-4 px-6 rounded-2xl bg-slate-900 hover:bg-blue-600 disabled:bg-slate-400 text-white font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>
-                      {isAuditing
-                        ? 'Cross-Examining Company Brain Vectors...'
-                        : locale === 'de'
-                        ? 'Executive Audit jetzt ausführen'
-                        : 'Run Executive Governance Audit'}
-                    </span>
-                  </button>
-                </form>
-
-                {auditError && (
-                  <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-sm text-rose-800 font-semibold">
-                    {auditError}
-                  </div>
-                )}
-
-                {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
-                {auditReport && (
-                  <div className="pt-4 border-t border-slate-200 space-y-6">
-                    {/* Verdict Banner */}
-                    <div
-                      className={`p-5 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${
-                        auditReport.verdict === 'POLICY_CONFLICT'
-                          ? 'bg-rose-50 border-rose-300 text-rose-950'
-                          : auditReport.verdict === 'CONDITIONAL'
-                          ? 'bg-amber-50 border-amber-300 text-amber-950'
-                          : 'bg-emerald-50 border-emerald-400 text-emerald-950'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {auditReport.verdict === 'POLICY_CONFLICT' ? (
-                          <XCircle className="w-8 h-8 text-rose-600 shrink-0" />
-                        ) : auditReport.verdict === 'CONDITIONAL' ? (
-                          <AlertTriangle className="w-8 h-8 text-amber-600 shrink-0" />
-                        ) : (
-                          <CheckCircle2 className="w-8 h-8 text-emerald-600 shrink-0" />
-                        )}
-                        <div>
-                          <div className="text-xs font-mono font-extrabold uppercase tracking-wider">
-                            AUDIT VERDICT: {auditReport.verdict}
-                          </div>
-                          <div className="text-base md:text-lg font-extrabold">
-                            {auditReport.executiveSummary}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right font-mono">
-                        <div className="text-2xl font-extrabold">
-                          {auditReport.alignmentScore}%
-                        </div>
-                        <div className="text-[11px] opacity-80">
-                          Policy Alignment
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Strategic Evaluation */}
-                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-mono text-slate-500">
-                        <span>I. STRATEGIC POLICY EVALUATION</span>
-                        <span>Model: {auditReport.selectedModelId}</span>
-                      </div>
-                      <p className="text-sm text-slate-800 leading-relaxed font-medium">
-                        {auditReport.strategicEvaluation}
-                      </p>
-                    </div>
-
-                    {/* Pros & Cons Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-2">
-                        <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
-                          Operational Advantages (Pros)
-                        </div>
-                        <ul className="space-y-1.5 text-xs text-slate-700">
-                          {auditReport.pros.map((pro, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                              <span>{pro}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200 space-y-2">
-                        <div className="text-xs font-mono font-bold text-rose-800 uppercase">
-                          Governance Risks & Conflicts (Cons)
-                        </div>
-                        <ul className="space-y-1.5 text-xs text-slate-700">
-                          {auditReport.cons.map((con, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                              <span>{con}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* Actionable Roadmap */}
-                    <div className="p-5 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-2.5">
-                      <div className="text-xs font-mono font-bold text-blue-800 uppercase">
-                        II. RECOMMENDED GOVERNANCE ROADMAP
-                      </div>
-                      <ul className="space-y-2 text-xs md:text-sm text-slate-800 font-medium">
-                        {auditReport.roadmap.map((step, i) => (
-                          <li key={i}>{step}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Cited Parent Documents from Company Brain */}
-                    <div className="space-y-2.5">
-                      <div className="text-xs font-mono font-bold text-slate-500 uppercase">
-                        III. VERIFIED PARENT DOCUMENT CITATIONS (768-D VECTOR
-                        MATCHES)
-                      </div>
-                      <div className="space-y-2">
-                        {auditReport.citations.map((cit) => (
-                          <div
-                            key={cit.parentId}
-                            className="p-3.5 rounded-xl bg-white border border-slate-200 text-xs space-y-1"
-                          >
-                            <div className="flex items-center justify-between font-bold text-slate-900">
-                              <span>{cit.title}</span>
-                              <span className="font-mono text-blue-600">
-                                dept: {cit.department} · match:{' '}
-                                {Math.round(cit.similarityScore * 100)}%
-                              </span>
-                            </div>
-                            <p className="text-slate-600 italic">
-                              &ldquo;{cit.matchedChildSnippet}&rdquo;
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </AppShell>

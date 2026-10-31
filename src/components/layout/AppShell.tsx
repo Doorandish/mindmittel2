@@ -22,6 +22,7 @@ export interface AppShellProps {
 
 /**
  * MindMittel V1-Inspired Crisp White Enterprise Header & Mobile Bottom Bar.
+ * Hides the "Launch Live App" button when the user is already inside the workspace ('vault').
  */
 export function AppShell({
   children,
@@ -32,35 +33,35 @@ export function AppShell({
   onTabChange,
 }: AppShellProps) {
   return (
-    <div className="min-h-screen flex flex-col justify-between pb-24 md:pb-0 selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0 selection:bg-blue-600 selection:text-white">
       {/* Sticky Crisp White Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Left Brand Logo */}
           <button
             type="button"
             onClick={() => onTabChange?.('overview')}
             className="flex items-center gap-3 text-left group shrink-0"
           >
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/25 group-hover:bg-blue-700 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-700 transition-colors">
               <BrainCircuit className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-tight text-lg text-slate-900">
+                <span className="font-extrabold tracking-tight text-base text-slate-900">
                   {dict.meta.appName}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                   V2
                 </span>
               </div>
-              <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">
+              <p className="text-[9px] font-bold tracking-widest text-slate-500 uppercase">
                 {dict.meta.tagline}
               </p>
             </div>
           </button>
 
-          {/* Center Navigation Links (Matches V1 Screenshot) */}
+          {/* Center Navigation Links */}
           <nav
             aria-label="Primary Navigation"
             className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600"
@@ -105,7 +106,7 @@ export function AppShell({
             </Link>
           </nav>
 
-          {/* Right Language Toggle & Primary Blue CTA Button */}
+          {/* Right Language Toggle & Conditional Primary Blue CTA Button */}
           <div className="flex items-center gap-3 shrink-0">
             <div
               role="group"
@@ -136,14 +137,16 @@ export function AppShell({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => onTabChange?.('vault')}
-              className="px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 whitespace-nowrap"
-            >
-              <span>{dict.nav.launchApp}</span>
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
+            {activeTab === 'overview' && (
+              <button
+                type="button"
+                onClick={() => onTabChange?.('vault')}
+                className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <span>{dict.nav.launchApp}</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -154,36 +157,36 @@ export function AppShell({
       {/* Mobile Bottom Navigation Bar */}
       <nav
         aria-label="Mobile Bottom Navigation"
-        className="md:hidden fixed bottom-4 inset-x-4 z-50"
+        className="md:hidden fixed bottom-3 inset-x-4 z-50"
       >
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-full px-4 py-2.5 flex items-center justify-around">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-full px-4 py-2 flex items-center justify-around">
           <button
             type="button"
             onClick={() => onTabChange?.('overview')}
-            className={`flex flex-col items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold ${
+            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-full text-xs font-semibold ${
               activeTab === 'overview' ? 'text-blue-600' : 'text-slate-500'
             }`}
           >
-            <Home className="w-5 h-5" />
+            <Home className="w-4 h-4" />
             <span>{dict.nav.backToLanding}</span>
           </button>
 
           <button
             type="button"
             onClick={() => onTabChange?.('vault')}
-            className={`flex flex-col items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold ${
+            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-full text-xs font-semibold ${
               activeTab === 'vault' ? 'text-blue-600' : 'text-slate-500'
             }`}
           >
-            <Database className="w-5 h-5" />
-            <span>{dict.nav.launchApp}</span>
+            <Database className="w-4 h-4" />
+            <span>Workspace</span>
           </button>
 
           <Link
             href="/system"
-            className="flex flex-col items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold text-emerald-600"
+            className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-full text-xs font-semibold text-emerald-600"
           >
-            <Activity className="w-5 h-5" />
+            <Activity className="w-4 h-4" />
             <span>{dict.nav.systemCenter}</span>
           </Link>
         </div>
