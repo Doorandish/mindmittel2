@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+body {
+  background-color: #050814;
+  color: #f8fafc;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Apple macOS / iOS Liquid Glass Utility Classes */
+@layer components {
+  .liquid-glass-panel {
+    @apply bg-white/[0.07] backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.16] shadow-liquid-glass rounded-3xl transition-all duration-300;
+  }
+
+  .liquid-glass-card {
+    @apply bg-white/[0.06] hover:bg-white/[0.10] backdrop-blur-xl backdrop-saturate-150 border border-white/[0.14] shadow-liquid-glass rounded-2xl transition-all duration-200;
+  }
+
+  .liquid-glass-pill {
+    @apply bg-slate-900/65 backdrop-blur-2xl backdrop-saturate-200 border border-white/[0.18] shadow-liquid-pill rounded-full;
+  }
+
+  .liquid-glass-input {
+    @apply bg-white/[0.05] focus:bg-white/[0.09] backdrop-blur-xl border border-white/[0.15] focus:border-cyan-400/60 rounded-2xl text-slate-100 placeholder-slate-400 outline-none transition-all duration-200;
+  }
+}
