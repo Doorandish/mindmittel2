@@ -18,6 +18,18 @@ import {
 import { getMindMittelDb } from '@/infrastructure/db/mongo';
 import { generateGeminiEmbedding768 } from '@/infrastructure/gemini/embeddingService';
 import { systemLogger } from '@/infrastructure/logging/logger';
+import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
+import {
+  buildConnectorSyncDocument,
+  configureConnectorCredentials,
+  createInitialConnectorsState,
+  toggleConnectorState,
+  type EnterpriseConnectorItem,
+} from '@/core/connectors/connectorRegistry';
+import {
+  validateEmailIdentity,
+  type AuthenticatedUserIdentity,
+} from '@/core/auth/userSession';
 
 export interface VectorSearchDiagnosticStatus {
   state:
@@ -31,9 +43,27 @@ export interface VectorSearchDiagnosticStatus {
   message: string;
 }
 
+export interface StoredAuditHistoryEntry {
+  auditId: string;
+  decisionProposal: string;
+  departmentFilter: string;
+  auditedByEmail: string;
+  auditedByName: string;
+  createdAt: string;
+  report: ExecutiveAuditReport;
+}
+
+interface AttributedParentChunk extends ParentDocumentChunk {
+  createdByEmail?: string;
+  createdByName?: string;
+}
+
 interface InMemoryBrainVault {
-  parents: ParentDocumentChunk[];
+  parents: AttributedParentChunk[];
   children: EmbeddedChildChunk[];
+  auditHistory: StoredAuditHistoryEntry[];
+  connectors: EnterpriseConnectorItem[];
+  users: AuthenticatedUserIdentity[];
   seeded: boolean;
   atlasSeeded: boolean;
   vectorDiagnostic: VectorSearchDiagnosticStatus;
@@ -107,6 +137,9 @@ function getMemoryVault(): InMemoryBrainVault {
     globalThis.__mindmittelBrainVault = {
       parents: [],
       children: [],
+      auditHistory: [],
+      connectors: createInitialConnectorsState(),
+      users: [],
       seeded: false,
       atlasSeeded: false,
       vectorDiagnostic: {
@@ -126,8 +159,57 @@ export function getVectorSearchDiagnosticStatus(): VectorSearchDiagnosticStatus 
 }
 
 /**
+ * Registers or updates a user's email identity in `mindmittel_v2.users` and returns the normalized profile.
+ */
+export async function upsertAuthenticatedUser(input: {
+  email: string;
+  fullName?: string;
+  department?: string;
+  role?: 'admin' | 'auditor' | 'executive' | 'viewer';
+}): Promise<AuthenticatedUserIdentity> {
+  const identity = validateEmailIdentity(input);
+  const vault = getMemoryVault();
+
+  vault.users = [
+    identity,
+    ...vault.users.filter((u) => u.email !== identity.email),
+  ];
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      await db.collection(COLLECTIONS.USERS).updateOne(
+        { email: identity.email },
+        {
+          $set: {
+            email: identity.email,
+            fullName: identity.fullName,
+            department: identity.department,
+            role: identity.role,
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            orgId: 'org_default',
+            createdAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+    } catch {
+      // Fallback to in-memory user registry if offline
+    }
+  }
+
+  systemLogger.info(
+    'auth.session',
+    `User authenticated via email [${identity.email}] (${identity.department})`
+  );
+
+  return identity;
+}
+
+/**
  * Automatically checks and provisions the `mindmittel_vector_index` on MongoDB Atlas (`mindmittel_v2.vector_store`).
- * Ensures the `vector_store` collection physically exists in MongoDB Atlas BEFORE calling `createSearchIndex`.
  */
 export async function ensureAtlasVectorIndexProvisioned(): Promise<VectorSearchDiagnosticStatus> {
   const vault = getMemoryVault();
@@ -139,7 +221,6 @@ export async function ensureAtlasVectorIndexProvisioned(): Promise<VectorSearchD
     const db = await getMindMittelDb();
     const vectorCollection = db.collection(COLLECTIONS.VECTOR_STORE);
 
-    // 1. Check if the index already exists on Atlas
     try {
       const existingIndexes = await vectorCollection
         .listSearchIndexes(VECTOR_INDEX_DEFINITION.name)
@@ -161,7 +242,6 @@ export async function ensureAtlasVectorIndexProvisioned(): Promise<VectorSearchD
       // Ignore if listSearchIndexes is not supported on older tier
     }
 
-    // 2. Create the index programmatically on mindmittel_v2.vector_store
     await vectorCollection.createSearchIndex({
       name: VECTOR_INDEX_DEFINITION.name,
       type: VECTOR_INDEX_DEFINITION.type,
@@ -201,8 +281,7 @@ export async function ensureAtlasVectorIndexProvisioned(): Promise<VectorSearchD
 
 /**
  * Ensures the Company Brain has the 3 baseline corporate policies loaded on first boot,
- * AND persists them into `mindmittel_v2.raw_documents` & `mindmittel_v2.vector_store` in MongoDB Atlas
- * so the `vector_store` collection physically exists in Atlas immediately!
+ * AND persists them into `mindmittel_v2.raw_documents` & `mindmittel_v2.vector_store` in MongoDB Atlas.
  */
 async function ensureDefaultPoliciesSeeded(): Promise<void> {
   const vault = getMemoryVault();
@@ -212,7 +291,11 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
     for (const policy of DEFAULT_SAMPLE_POLICIES) {
       const { parents, children } = createParentChildChunks(policy);
       for (const p of parents) {
-        vault.parents.push(p);
+        vault.parents.push({
+          ...p,
+          createdByEmail: 'governance-board@mindmittel.de',
+          createdByName: 'Governance Board',
+        });
       }
       for (const c of children) {
         const { vector } = await generateGeminiEmbedding768(
@@ -223,7 +306,6 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
     }
   }
 
-  // Also ensure MongoDB Atlas `mindmittel_v2.raw_documents` and `mindmittel_v2.vector_store` are seeded on first boot
   if (!vault.atlasSeeded && isMongoConfigured()) {
     vault.atlasSeeded = true;
     try {
@@ -254,7 +336,6 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
         );
       }
 
-      // Now that `mindmittel_v2.vector_store` exists in Atlas, provision the Vector Search index
       await ensureAtlasVectorIndexProvisioned();
     } catch (err) {
       vault.atlasSeeded = false;
@@ -268,10 +349,7 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
 }
 
 /**
- * Ingests a document into the Company Brain:
- * 1. Slices into Parent (2,000c) and Child (400c) chunks.
- * 2. Generates 768-d embeddings for each Child chunk.
- * 3. Persists to MongoDB Atlas (`mindmittel_v2`) if configured, and mirrors in the zero-downtime memory vault.
+ * Ingests a document into the Company Brain with user attribution (`createdByEmail` & `createdByName`).
  */
 export async function ingestDocumentIntoBrain(params: {
   title: string;
@@ -280,15 +358,22 @@ export async function ingestDocumentIntoBrain(params: {
   sourceType?: DocumentSourceType;
   tags?: string[];
   language?: 'en' | 'de';
+  createdByEmail?: string;
+  createdByName?: string;
 }): Promise<{
   parentCount: number;
   childVectorCount: number;
   embeddingModel: string;
   storageMode: 'mongodb_atlas' | 'memory_fallback';
   firstParentId: string;
+  createdByEmail: string;
 }> {
   await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
+
+  const authorEmail =
+    params.createdByEmail?.trim().toLowerCase() || 'executive@mindmittel.de';
+  const authorName = params.createdByName?.trim() || 'Executive User';
 
   const rawInput: RawGovernanceDocumentInput = {
     orgId: 'org_default',
@@ -310,6 +395,12 @@ export async function ingestDocumentIntoBrain(params: {
   };
 
   const { parents, children } = createParentChildChunks(rawInput);
+  const attributedParents: AttributedParentChunk[] = parents.map((p) => ({
+    ...p,
+    createdByEmail: authorEmail,
+    createdByName: authorName,
+  }));
+
   const embeddedChildren: EmbeddedChildChunk[] = [];
   let embeddingModelUsed = 'deterministic-semantic-768d';
 
@@ -324,27 +415,25 @@ export async function ingestDocumentIntoBrain(params: {
     });
   }
 
-  // Always update in-memory mirror for instant zero-downtime availability
-  for (const parent of parents) {
+  for (const parent of attributedParents) {
     vault.parents = [
       parent,
       ...vault.parents.filter((p) => p.parentId !== parent.parentId),
     ];
   }
-  const newParentIds = new Set(parents.map((p) => p.parentId));
+  const newParentIds = new Set(attributedParents.map((p) => p.parentId));
   vault.children = [
     ...embeddedChildren,
     ...vault.children.filter((c) => !newParentIds.has(c.parentId)),
   ];
 
-  // Persist to MongoDB Atlas (`mindmittel_v2`) if MONGODB_URI is configured
   let storageMode: 'mongodb_atlas' | 'memory_fallback' = 'memory_fallback';
   if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
       const now = new Date();
 
-      const parentRecords: RawDocumentRecord[] = parents.map((p) => ({
+      const parentRecords: RawDocumentRecord[] = attributedParents.map((p) => ({
         ...p,
         createdAt: now,
         updatedAt: now,
@@ -376,7 +465,7 @@ export async function ingestDocumentIntoBrain(params: {
 
   systemLogger.info(
     'rag.ingest',
-    `Ingested "${params.title}" (${parents.length} Parent, ${embeddedChildren.length} Child 768-d vectors)`,
+    `Ingested "${params.title}" by [${authorEmail}] (${attributedParents.length} Parent, ${embeddedChildren.length} Child 768-d vectors)`,
     {
       department: params.department,
       storageMode,
@@ -385,16 +474,17 @@ export async function ingestDocumentIntoBrain(params: {
   );
 
   return {
-    parentCount: parents.length,
+    parentCount: attributedParents.length,
     childVectorCount: embeddedChildren.length,
     embeddingModel: embeddingModelUsed,
     storageMode,
-    firstParentId: parents[0]?.parentId ?? '',
+    firstParentId: attributedParents[0]?.parentId ?? '',
+    createdByEmail: authorEmail,
   };
 }
 
 /**
- * Lists all Parent documents currently stored in the Company Brain along with their child vector count.
+ * Lists all Parent documents currently stored in the Company Brain along with author email attribution.
  */
 export async function listBrainDocuments(): Promise<
   Array<{
@@ -405,12 +495,13 @@ export async function listBrainDocuments(): Promise<
     tags: string[];
     contentPreview: string;
     childCount: number;
+    createdByEmail: string;
+    createdByName: string;
   }>
 > {
   await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
 
-  // Also sync any remote documents from MongoDB Atlas if configured
   if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
@@ -418,7 +509,7 @@ export async function listBrainDocuments(): Promise<
         .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
         .find({})
         .sort({ createdAt: -1 })
-        .limit(25)
+        .limit(30)
         .toArray();
 
       if (remoteDocs.length > 0) {
@@ -447,6 +538,8 @@ export async function listBrainDocuments(): Promise<
       tags: parent.metadata.tags,
       contentPreview: parent.content,
       childCount: Math.max(1, childCount),
+      createdByEmail: parent.createdByEmail ?? 'governance-board@mindmittel.de',
+      createdByName: parent.createdByName ?? 'Governance Board',
     };
   });
 }
@@ -475,6 +568,198 @@ export async function removeBrainDocument(parentId: string): Promise<void> {
     'rag.delete',
     `Cascaded deletion for parentId [${parentId}] and its child vectors`
   );
+}
+
+/**
+ * Saves an Executive Audit Report into the Audit History Ledger (`mindmittel_v2.audit_history` + memory vault).
+ */
+export async function saveAuditReportToHistory(params: {
+  decisionProposal: string;
+  departmentFilter: string;
+  auditedByEmail?: string;
+  auditedByName?: string;
+  report: ExecutiveAuditReport;
+}): Promise<StoredAuditHistoryEntry> {
+  const vault = getMemoryVault();
+  const entry: StoredAuditHistoryEntry = {
+    auditId: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    decisionProposal: params.decisionProposal.trim(),
+    departmentFilter: params.departmentFilter || 'all',
+    auditedByEmail:
+      params.auditedByEmail?.trim().toLowerCase() || 'executive@mindmittel.de',
+    auditedByName: params.auditedByName?.trim() || 'Executive Auditor',
+    createdAt: new Date().toISOString(),
+    report: params.report,
+  };
+
+  vault.auditHistory = [entry, ...vault.auditHistory];
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      await db.collection(COLLECTIONS.AUDIT_HISTORY).insertOne({
+        ...entry,
+        createdAtDate: new Date(),
+      });
+    } catch {
+      // Fallback to in-memory ledger
+    }
+  }
+
+  return entry;
+}
+
+/**
+ * Lists all saved Executive Audit Reports in reverse chronological order.
+ */
+export async function listAuditHistory(): Promise<StoredAuditHistoryEntry[]> {
+  const vault = getMemoryVault();
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      const remoteEntries = await db
+        .collection<StoredAuditHistoryEntry>(COLLECTIONS.AUDIT_HISTORY)
+        .find({})
+        .sort({ createdAt: -1 })
+        .limit(40)
+        .toArray();
+
+      if (remoteEntries.length > 0) {
+        const existingIds = new Set(vault.auditHistory.map((a) => a.auditId));
+        for (const item of remoteEntries) {
+          if (!existingIds.has(item.auditId)) {
+            vault.auditHistory.push(item);
+          }
+        }
+      }
+    } catch {
+      // Fallback to in-memory ledger
+    }
+  }
+
+  return vault.auditHistory;
+}
+
+/**
+ * Deletes an Executive Audit Report from the Audit History Ledger by `auditId`.
+ */
+export async function removeAuditHistoryEntry(auditId: string): Promise<void> {
+  const vault = getMemoryVault();
+  vault.auditHistory = vault.auditHistory.filter((a) => a.auditId !== auditId);
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      await db.collection(COLLECTIONS.AUDIT_HISTORY).deleteOne({ auditId });
+    } catch {
+      // Ignore if offline
+    }
+  }
+
+  systemLogger.info(
+    'audit.delete',
+    `Deleted Executive Audit Report [${auditId}] from Audit History Ledger`
+  );
+}
+
+/**
+ * Returns the current list of Enterprise Connectors (Chat, Knowledge Management, Online Meetings).
+ */
+export async function getConnectorsList(): Promise<EnterpriseConnectorItem[]> {
+  const vault = getMemoryVault();
+  return vault.connectors;
+}
+
+/**
+ * Configures authentication credentials for an Enterprise Connector and enables it.
+ */
+export async function saveConnectorConfig(params: {
+  connectorId: string;
+  apiSecret: string;
+  targetScope?: string;
+  userEmail: string;
+}): Promise<EnterpriseConnectorItem[]> {
+  const vault = getMemoryVault();
+  vault.connectors = configureConnectorCredentials(vault.connectors, params);
+
+  systemLogger.info(
+    'connectors.auth',
+    `Configured credentials & enabled connector [${params.connectorId}] by [${params.userEmail}]`
+  );
+
+  return vault.connectors;
+}
+
+/**
+ * Toggles an Enterprise Connector ON or OFF (iOS Switch).
+ */
+export async function toggleConnectorById(params: {
+  connectorId: string;
+  enabled: boolean;
+  userEmail: string;
+}): Promise<EnterpriseConnectorItem[]> {
+  const vault = getMemoryVault();
+  vault.connectors = toggleConnectorState(
+    vault.connectors,
+    params.connectorId,
+    params.enabled,
+    params.userEmail
+  );
+
+  systemLogger.info(
+    'connectors.toggle',
+    `Switched connector [${params.connectorId}] ${params.enabled ? 'ON' : 'OFF'} by [${params.userEmail}]`
+  );
+
+  return vault.connectors;
+}
+
+/**
+ * Pulls data from an enabled Enterprise Connector and indexes it directly into the Company Brain.
+ */
+export async function syncConnectorDataIntoBrain(params: {
+  connectorId: string;
+  userEmail: string;
+  userName?: string;
+}): Promise<{
+  connectors: EnterpriseConnectorItem[];
+  syncedTitle: string;
+  childVectorCount: number;
+}> {
+  const vault = getMemoryVault();
+  const target = vault.connectors.find((c) => c.id === params.connectorId);
+  if (!target) {
+    throw new Error(`Connector not found: ${params.connectorId}`);
+  }
+
+  const syncPayload = buildConnectorSyncDocument(target, params.userEmail);
+  const ingestion = await ingestDocumentIntoBrain({
+    title: syncPayload.title,
+    content: syncPayload.content,
+    department: syncPayload.department,
+    sourceType: syncPayload.sourceType,
+    tags: syncPayload.tags,
+    createdByEmail: params.userEmail,
+    createdByName: params.userName,
+  });
+
+  const nowIso = new Date().toISOString();
+  vault.connectors = vault.connectors.map((c) =>
+    c.id === params.connectorId
+      ? {
+          ...c,
+          lastSyncedAt: nowIso,
+          updatedByEmail: params.userEmail.trim().toLowerCase(),
+        }
+      : c
+  );
+
+  return {
+    connectors: vault.connectors,
+    syncedTitle: syncPayload.title,
+    childVectorCount: ingestion.childVectorCount,
+  };
 }
 
 /**

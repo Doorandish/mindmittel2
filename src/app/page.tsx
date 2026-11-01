@@ -27,8 +27,15 @@ import {
   Square,
   FileAudio,
   Loader2,
+  History,
+  Plug,
+  UserCheck,
+  KeyRound,
+  RefreshCw,
+  Video,
+  BookOpen,
 } from 'lucide-react';
-import { AppShell } from '@/components/layout/AppShell';
+import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
 import {
   getDictionary,
   DEFAULT_LOCALE,
@@ -36,6 +43,8 @@ import {
 } from '@/i18n/dictionaries';
 import { inferProfileFromQuery } from '@/core/ai/modelRanking';
 import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
+import type { EnterpriseConnectorItem } from '@/core/connectors/connectorRegistry';
+import type { StoredAuditHistoryEntry } from '@/infrastructure/rag/brainRepository';
 
 interface StoredBrainDocumentSummary {
   parentId: string;
@@ -45,6 +54,8 @@ interface StoredBrainDocumentSummary {
   tags: string[];
   contentPreview: string;
   childCount: number;
+  createdByEmail?: string;
+  createdByName?: string;
 }
 
 const AUDIT_PIPELINE_STEPS = [
@@ -104,10 +115,24 @@ export default function HomePage() {
   const [locale, setLocale] = useState<SupportedLocale>(DEFAULT_LOCALE);
   const [activeTab, setActiveTab] = useState<'overview' | 'vault'>('overview');
 
-  // Inside Workspace Sub-Tabs: 'evaluate' (Default) vs 'brain' (Knowledge Ingestion)
-  const [workspaceSubTab, setWorkspaceSubTab] = useState<'evaluate' | 'brain'>(
-    'evaluate'
+  // Inside Workspace Sub-Tabs: 'evaluate' | 'brain' | 'history' | 'connectors'
+  const [workspaceSubTab, setWorkspaceSubTab] =
+    useState<WorkspaceSubTab>('evaluate');
+
+  // Email Authentication & Attribution State
+  const [userEmail, setUserEmail] = useState<string>('amir@mindmittel.de');
+  const [userFullName, setUserFullName] = useState<string>('Amir Doorandish');
+  const [userDepartment, setUserDepartment] =
+    useState<string>('Executive Board');
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authEmailInput, setAuthEmailInput] = useState<string>(
+    'amir@mindmittel.de'
   );
+  const [authNameInput, setAuthNameInput] =
+    useState<string>('Amir Doorandish');
+  const [authDeptInput, setAuthDeptInput] =
+    useState<string>('Executive Board');
+  const [authFeedback, setAuthFeedback] = useState<string | null>(null);
 
   // Company Brain Documents & Multimodal Ingestion State
   const [documents, setDocuments] = useState<StoredBrainDocumentSummary[]>([]);
@@ -129,7 +154,7 @@ export default function HomePage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
 
-  // Decision Audit State
+  // Decision Audit & History Ledger State
   const [decisionProposal, setDecisionProposal] = useState<string>(
     QUICK_DECISION_PRESETS[0].proposalEn
   );
@@ -141,7 +166,26 @@ export default function HomePage() {
   const [auditReport, setAuditReport] = useState<ExecutiveAuditReport | null>(
     null
   );
+  const [lastAuditedByEmail, setLastAuditedByEmail] =
+    useState<string>('amir@mindmittel.de');
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditHistory, setAuditHistory] = useState<StoredAuditHistoryEntry[]>(
+    []
+  );
+
+  // Enterprise Connectors Hub State (Chat, Knowledge Management, Online Meetings)
+  const [connectors, setConnectors] = useState<EnterpriseConnectorItem[]>([]);
+  const [activeConfigConnectorId, setActiveConfigConnectorId] = useState<
+    string | null
+  >(null);
+  const [connectorApiSecret, setConnectorApiSecret] = useState<string>('');
+  const [connectorTargetScope, setConnectorTargetScope] = useState<string>('');
+  const [connectorFeedback, setConnectorFeedback] = useState<string | null>(
+    null
+  );
+  const [syncingConnectorId, setSyncingConnectorId] = useState<string | null>(
+    null
+  );
 
   const dict = getDictionary(locale);
   const inferredProfile = inferProfileFromQuery(decisionProposal);
@@ -158,11 +202,101 @@ export default function HomePage() {
     }
   }
 
+  async function fetchAuditHistory() {
+    try {
+      const res = await fetch('/api/brain/audit');
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.history)) {
+        setAuditHistory(data.history);
+      }
+    } catch {
+      // Ignore network error on initial load
+    }
+  }
+
+  async function fetchConnectors() {
+    try {
+      const res = await fetch('/api/connectors');
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.connectors)) {
+        setConnectors(data.connectors);
+      }
+    } catch {
+      // Ignore network error on initial load
+    }
+  }
+
   useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('mindmittel_v2_user');
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          email?: string;
+          fullName?: string;
+          department?: string;
+        };
+        if (parsed.email) {
+          setUserEmail(parsed.email);
+          setAuthEmailInput(parsed.email);
+        }
+        if (parsed.fullName) {
+          setUserFullName(parsed.fullName);
+          setAuthNameInput(parsed.fullName);
+        }
+        if (parsed.department) {
+          setUserDepartment(parsed.department);
+          setAuthDeptInput(parsed.department);
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
     fetchBrainDocuments();
+    fetchAuditHistory();
+    fetchConnectors();
   }, []);
 
-  function openLiveWorkspace(initialSubTab: 'evaluate' | 'brain' = 'evaluate') {
+  async function handleEmailSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthFeedback(null);
+
+    try {
+      const res = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: authEmailInput,
+          fullName: authNameInput,
+          department: authDeptInput,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.user) {
+        setUserEmail(data.user.email);
+        setUserFullName(data.user.fullName);
+        setUserDepartment(data.user.department);
+        try {
+          window.localStorage.setItem(
+            'mindmittel_v2_user',
+            JSON.stringify(data.user)
+          );
+        } catch {
+          // Ignore storage error
+        }
+        setShowAuthModal(false);
+      } else {
+        setAuthFeedback(data.error ?? 'Invalid email');
+      }
+    } catch (err) {
+      setAuthFeedback(
+        err instanceof Error ? err.message : 'Authentication error'
+      );
+    }
+  }
+
+  function openLiveWorkspace(initialSubTab: WorkspaceSubTab = 'evaluate') {
     setWorkspaceSubTab(initialSubTab);
     setActiveTab('vault');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -280,6 +414,8 @@ export default function HomePage() {
           sourceType: docSourceType,
           tags: parsedTags,
           language: locale,
+          createdByEmail: userEmail,
+          createdByName: userFullName,
         }),
       });
 
@@ -291,8 +427,8 @@ export default function HomePage() {
         setExtractionStatus(null);
         setIngestFeedback(
           locale === 'de'
-            ? `✓ Gespeichert (${data.ingestion.childVectorCount} Vektoren)`
-            : `✓ Saved to Company Brain (${data.ingestion.childVectorCount} vectors)`
+            ? `✓ Gespeichert von ${userEmail} (${data.ingestion.childVectorCount} Vektoren)`
+            : `✓ Saved by ${userEmail} (${data.ingestion.childVectorCount} vectors)`
         );
       }
     } finally {
@@ -335,6 +471,8 @@ export default function HomePage() {
           decisionProposal,
           departmentFilter: auditDepartmentFilter,
           locale,
+          auditedByEmail: userEmail,
+          auditedByName: userFullName,
         }),
       });
 
@@ -346,6 +484,12 @@ export default function HomePage() {
 
       if (data.ok && data.report) {
         setAuditReport(data.report);
+        setLastAuditedByEmail(
+          data.entry?.auditedByEmail ?? userEmail
+        );
+        if (Array.isArray(data.history)) {
+          setAuditHistory(data.history);
+        }
       } else {
         setAuditError(data.error ?? 'Audit failed');
       }
@@ -357,6 +501,120 @@ export default function HomePage() {
     }
   }
 
+  async function handleDeleteAuditHistory(auditId: string) {
+    const res = await fetch(
+      `/api/brain/audit?auditId=${encodeURIComponent(auditId)}`,
+      { method: 'DELETE' }
+    );
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.history)) {
+      setAuditHistory(data.history);
+    }
+  }
+
+  async function handleToggleConnector(connector: EnterpriseConnectorItem) {
+    setConnectorFeedback(null);
+    const nextEnabled = !connector.enabled;
+
+    // If user tries to switch ON an unconfigured connector, open its credential form directly
+    if (nextEnabled && !connector.configured) {
+      setActiveConfigConnectorId(connector.id);
+      setConnectorTargetScope(connector.targetScope);
+      setConnectorFeedback(
+        locale === 'de'
+          ? `Bitte geben Sie zuerst den API-Schlüssel für ${connector.name} ein, um den Schalter zu aktivieren.`
+          : `Please enter authentication credentials for ${connector.name} below to switch it ON.`
+      );
+      return;
+    }
+
+    const res = await fetch('/api/connectors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'toggle',
+        connectorId: connector.id,
+        enabled: nextEnabled,
+        userEmail,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.connectors)) {
+      setConnectors(data.connectors);
+    } else if (data.error) {
+      setConnectorFeedback(data.error);
+    }
+  }
+
+  async function handleConfigureConnector(
+    e: React.FormEvent,
+    connectorId: string
+  ) {
+    e.preventDefault();
+    setConnectorFeedback(null);
+
+    const res = await fetch('/api/connectors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'configure',
+        connectorId,
+        apiSecret: connectorApiSecret,
+        targetScope: connectorTargetScope,
+        userEmail,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok && Array.isArray(data.connectors)) {
+      setConnectors(data.connectors);
+      setActiveConfigConnectorId(null);
+      setConnectorApiSecret('');
+      setConnectorFeedback(
+        locale === 'de'
+          ? '✓ Zugangsdaten gespeichert & Connector aktiviert'
+          : '✓ Credentials verified & connector switched ON'
+      );
+    } else {
+      setConnectorFeedback(data.error ?? 'Failed to configure connector');
+    }
+  }
+
+  async function handleSyncConnector(connectorId: string) {
+    setSyncingConnectorId(connectorId);
+    setConnectorFeedback(null);
+
+    try {
+      const res = await fetch('/api/connectors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sync',
+          connectorId,
+          userEmail,
+          userName: userFullName,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (Array.isArray(data.connectors)) {
+          setConnectors(data.connectors);
+        }
+        if (Array.isArray(data.documents)) {
+          setDocuments(data.documents);
+        }
+        setConnectorFeedback(
+          locale === 'de'
+            ? `✓ Synchronisiert: "${data.syncedTitle}" (${data.childVectorCount} Vektoren)`
+            : `✓ Synced into Company Brain: "${data.syncedTitle}" (${data.childVectorCount} vectors)`
+        );
+      } else {
+        setConnectorFeedback(data.error ?? 'Sync failed');
+      }
+    } finally {
+      setSyncingConnectorId(null);
+    }
+  }
+
   return (
     <AppShell
       locale={locale}
@@ -364,6 +622,10 @@ export default function HomePage() {
       dict={dict}
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      workspaceSubTab={workspaceSubTab}
+      onWorkspaceSubTabChange={setWorkspaceSubTab}
+      currentUserEmail={userEmail}
+      onOpenAuthModal={() => setShowAuthModal(true)}
     >
       {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated with Multimodal & Tabbed Workspace Capabilities) */}
       {activeTab === 'overview' && (
@@ -799,7 +1061,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
@@ -835,6 +1097,48 @@ export default function HomePage() {
                   {locale === 'de'
                     ? 'Erfassen Sie Text, PDFs, Bilder, PowerPoint-Folien oder Live-Sprachaufnahmen. Gemini transkribiert und konvertiert alles automatisch in durchsuchbare 768-d Vektoren.'
                     : 'Ingest plain text, PDFs, images, PowerPoint decks, audio files, or live microphone dictations—automatically transcribed and indexed into 768-d Company Brain vectors.'}
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600">
+                    <Plug className="w-6 h-6" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-[11px] font-mono font-bold uppercase">
+                    CONNECTORS HUB
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {locale === 'de'
+                    ? 'Enterprise Connectors (iOS-Schalter)'
+                    : 'iOS-Toggle Enterprise Connectors'}
+                </h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  {locale === 'de'
+                    ? 'Verbinden Sie Slack, MS Teams, Confluence, Notion, Google Drive, Zoom und Google Meet per API-Token und schalten Sie Datenquellen jederzeit ein oder aus.'
+                    : 'Connect corporate chat (Slack, Teams), knowledge bases (Confluence, Notion, Drive), and online meetings (Zoom, Meet) with credential-gated iOS toggle switches.'}
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600">
+                    <UserCheck className="w-6 h-6" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-[11px] font-mono font-bold uppercase">
+                    EMAIL AUTH & LEDGER
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {locale === 'de'
+                    ? 'E-Mail-Zuordnung & Audit-Archiv'
+                    : 'Email Attribution & Audit History'}
+                </h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  {locale === 'de'
+                    ? 'Jedes eingespeiste Dokument und jeder Audit-Bericht wird der E-Mail des Nutzers zugeordnet und im verwaltbaren Audit-Verlauf gespeichert.'
+                    : 'Track exactly which executive email added each policy or requested each decision audit, backed by a searchable and deletable Audit History Ledger.'}
                 </p>
               </div>
 
@@ -993,16 +1297,117 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* VIEW 2: COMPACT ABOVE-THE-FOLD WORKSPACE WITH 2 DEDICATED TABS */}
+      {/* EMAIL AUTHENTICATION & ATTRIBUTION MODAL */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    {locale === 'de'
+                      ? 'E-Mail-Authentifizierung'
+                      : 'Corporate Email Authentication'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {locale === 'de'
+                      ? 'Jeder Eintrag & jedes Audit wird Ihrer E-Mail zugeordnet.'
+                      : 'Every ingested document & audit report is attributed to your email.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className="text-xs font-bold text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEmailSignIn} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Corporate Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={authEmailInput}
+                  onChange={(e) => setAuthEmailInput(e.target.value)}
+                  placeholder="name@company.com"
+                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={authNameInput}
+                  onChange={(e) => setAuthNameInput(e.target.value)}
+                  placeholder="Amir Doorandish"
+                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Department / Role
+                </label>
+                <select
+                  value={authDeptInput}
+                  onChange={(e) => setAuthDeptInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
+                >
+                  <option value="Executive Board">Executive Board</option>
+                  <option value="Finance & Legal">Finance & Legal</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="HR & Legal">HR & Legal</option>
+                </select>
+              </div>
+
+              {authFeedback && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
+                  {authFeedback}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm"
+                >
+                  Save & Authenticate Email
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW 2: COMPACT ABOVE-THE-FOLD WORKSPACE WITH 4 DEDICATED TABS */}
       {activeTab === 'vault' && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-          {/* Compact Top Sub-Tab Switcher Bar (Fits Above the Fold) */}
+          {/* Compact Top Sub-Tab Switcher Bar + Active Email Attribution Pill */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="inline-flex flex-wrap items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
               <button
                 type="button"
                 onClick={() => setWorkspaceSubTab('evaluate')}
-                className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
                   workspaceSubTab === 'evaluate'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
@@ -1011,7 +1416,7 @@ export default function HomePage() {
                 <ShieldCheck className="w-4 h-4" />
                 <span>
                   {locale === 'de'
-                    ? 'Entscheidung prüfen (Audit)'
+                    ? 'Entscheidung prüfen'
                     : 'Evaluate Decision'}
                 </span>
               </button>
@@ -1019,25 +1424,58 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setWorkspaceSubTab('brain')}
-                className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
                   workspaceSubTab === 'brain'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Database className="w-4 h-4" />
+                <span>{`Company Brain (${documents.length})`}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWorkspaceSubTab('history')}
+                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                  workspaceSubTab === 'history'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <History className="w-4 h-4" />
+                <span>{`Audit History (${auditHistory.length})`}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWorkspaceSubTab('connectors')}
+                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
+                  workspaceSubTab === 'connectors'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Plug className="w-4 h-4" />
                 <span>
-                  {locale === 'de'
-                    ? `Company Brain verwalten (${documents.length})`
-                    : `Company Brain (${documents.length})`}
+                  {`Connectors (${connectors.filter((c) => c.enabled).length}/${connectors.length})`}
                 </span>
               </button>
             </div>
 
-            <div className="text-xs font-mono text-slate-500 hidden sm:flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>{documents.length} Active Policies Indexed</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(true)}
+              className="text-xs font-mono text-slate-700 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-xl flex items-center gap-2 transition-colors"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>
+                Signed in as: <strong>{userEmail}</strong>
+              </span>
+              <span className="text-blue-600 underline text-[11px]">
+                Change
+              </span>
+            </button>
           </div>
 
           {/* SUB-TAB 1: EVALUATE DECISION (Compact Above-the-Fold Action Button + Live Step-by-Step Progress Checklist) */}
@@ -1106,6 +1544,10 @@ export default function HomePage() {
                       <option value="engineering">Engineering</option>
                       <option value="hr-legal">HR & Legal</option>
                     </select>
+
+                    <span className="text-slate-500 font-mono hidden md:inline">
+                      Auditor: {userEmail}
+                    </span>
                   </div>
 
                   <button
@@ -1226,7 +1668,8 @@ export default function HomePage() {
                       <div>
                         <div className="text-[11px] font-mono font-extrabold uppercase tracking-wider">
                           VERDICT: {auditReport.verdict} · MODEL:{' '}
-                          {auditReport.selectedModelId}
+                          {auditReport.selectedModelId} · AUDITED BY:{' '}
+                          {lastAuditedByEmail}
                         </div>
                         <div className="text-sm sm:text-base font-extrabold">
                           {auditReport.executiveSummary}
@@ -1332,8 +1775,8 @@ export default function HomePage() {
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                       {locale === 'de'
-                        ? 'Geben Sie Richtlinien als Text ein, laden Sie Dateien hoch (PDF, PPTX, Bild, Audio) oder nutzen Sie die Live-Sprachaufnahme.'
-                        : 'Enter corporate policies directly, upload files (PDF, PPTX, Image, Audio), or dictate via live microphone recording.'}
+                        ? `Wird unter Ihrer E-Mail (${userEmail}) gespeichert & indexiert.`
+                        : `Attributed to your corporate email (${userEmail}) and indexed into 768-d vectors.`}
                     </p>
                   </div>
 
@@ -1535,7 +1978,7 @@ export default function HomePage() {
                       </span>
                     ) : (
                       <span className="text-xs text-slate-500">
-                        Auto-indexed in MongoDB Atlas (Parent 2,000c + 768-d Child vectors)
+                        Author attribution: <strong>{userEmail}</strong> · 768-d Atlas Vector Store
                       </span>
                     )}
 
@@ -1583,11 +2026,15 @@ export default function HomePage() {
                         <div className="text-sm font-bold text-slate-900 truncate">
                           {doc.title}
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500 mt-0.5">
                           <span>{doc.department}</span>
                           <span>·</span>
                           <span className="text-blue-600 font-semibold">
                             {doc.childCount} vectors
+                          </span>
+                          <span>·</span>
+                          <span className="text-slate-600">
+                            By: {doc.createdByEmail ?? 'governance-board@mindmittel.de'}
                           </span>
                         </div>
                       </div>
@@ -1604,6 +2051,347 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* SUB-TAB 3: AUDIT HISTORY LEDGER (With Email Attribution & Delete Action) */}
+          {workspaceSubTab === 'history' && (
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                    <History className="w-5 h-5 text-blue-600" />
+                    <span>
+                      {locale === 'de'
+                        ? 'Audit-Verlauf & Entscheidungs-Archiv'
+                        : 'Executive Audit History Ledger'}
+                    </span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                    {locale === 'de'
+                      ? 'Alle geprüften Entscheidungen inklusive E-Mail des Prüfers und Löschfunktion.'
+                      : 'Every evaluated management decision with auditor email attribution and one-click deletion.'}
+                  </p>
+                </div>
+
+                <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
+                  {auditHistory.length} Saved Reports
+                </span>
+              </div>
+
+              {auditHistory.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                  <p className="text-sm font-semibold text-slate-700">
+                    {locale === 'de'
+                      ? 'Noch keine Audit-Berichte vorhanden.'
+                      : 'No executive audit reports saved yet.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceSubTab('evaluate')}
+                    className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
+                  >
+                    Run Your First Decision Audit
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {auditHistory.map((item) => (
+                    <div
+                      key={item.auditId}
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-blue-300 transition-colors"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase ${
+                              item.report.verdict === 'POLICY_CONFLICT'
+                                ? 'bg-rose-100 text-rose-800'
+                                : item.report.verdict === 'CONDITIONAL'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {item.report.verdict} ({item.report.alignmentScore}%)
+                          </span>
+                          <span className="text-xs font-mono text-slate-500">
+                            Audited by: <strong>{item.auditedByEmail}</strong>
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            · {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="text-sm font-bold text-slate-900">
+                          &ldquo;{item.decisionProposal}&rdquo;
+                        </div>
+
+                        <p className="text-xs text-slate-600 line-clamp-2">
+                          {item.report.executiveSummary}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuditReport(item.report);
+                            setDecisionProposal(item.decisionProposal);
+                            setLastAuditedByEmail(item.auditedByEmail);
+                            setWorkspaceSubTab('evaluate');
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 border border-slate-200 text-xs font-bold text-blue-700 transition-colors"
+                        >
+                          View Report
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAuditHistory(item.auditId)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Delete Audit Report"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SUB-TAB 4: ENTERPRISE CONNECTORS HUB (iOS-Style Toggle Switches + Auth Credentials) */}
+          {workspaceSubTab === 'connectors' && (
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                    <Plug className="w-5 h-5 text-blue-600" />
+                    <span>
+                      {locale === 'de'
+                        ? 'Enterprise Connectors (Chat, Wissensmanagement & Online-Meetings)'
+                        : 'Enterprise Connectors Hub (Chat, Knowledge & Online Meetings)'}
+                    </span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                    {locale === 'de'
+                      ? 'Hinterlegen Sie API-Zugangsdaten und schalten Sie Plattformen per iOS-Schalter ein oder aus.'
+                      : 'Enter authentication credentials to grant MindMittel V2 access and toggle connectors ON or OFF at any time.'}
+                  </p>
+                </div>
+              </div>
+
+              {connectorFeedback && (
+                <div className="px-4 py-3 rounded-2xl bg-blue-50 border border-blue-200 text-xs sm:text-sm font-semibold text-blue-900">
+                  {connectorFeedback}
+                </div>
+              )}
+
+              {(
+                [
+                  {
+                    category: 'chat',
+                    titleEn: 'Corporate Chat Platforms',
+                    titleDe: 'Unternehmens-Chat-Plattformen',
+                    icon: MessageSquare,
+                  },
+                  {
+                    category: 'knowledge',
+                    titleEn: 'Knowledge Management & Docs',
+                    titleDe: 'Wissensmanagement & Dokumente',
+                    icon: BookOpen,
+                  },
+                  {
+                    category: 'meetings',
+                    titleEn: 'Online Meetings & Voice Conferencing',
+                    titleDe: 'Online-Meetings & Videokonferenzen',
+                    icon: Video,
+                  },
+                ] as const
+              ).map((group) => {
+                const IconComp = group.icon;
+                const items = connectors.filter(
+                  (c) => c.category === group.category
+                );
+
+                return (
+                  <div key={group.category} className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-mono font-extrabold uppercase tracking-wider text-slate-500">
+                      <IconComp className="w-4 h-4 text-blue-600" />
+                      <span>
+                        {locale === 'de' ? group.titleDe : group.titleEn}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {items.map((conn) => {
+                        const isConfigOpen =
+                          activeConfigConnectorId === conn.id;
+
+                        return (
+                          <div
+                            key={conn.id}
+                            className={`p-5 rounded-2xl border transition-all space-y-3.5 ${
+                              conn.enabled
+                                ? 'bg-emerald-50/30 border-emerald-300'
+                                : 'bg-slate-50 border-slate-200/90'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm sm:text-base font-extrabold text-slate-900">
+                                    {conn.name}
+                                  </span>
+                                  {conn.configured && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                      {conn.maskedCredential}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                  {locale === 'de'
+                                    ? conn.descriptionDe
+                                    : conn.descriptionEn}
+                                </p>
+                              </div>
+
+                              {/* iOS-Style Pill Toggle Switch */}
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={conn.enabled}
+                                aria-label={`Toggle ${conn.name}`}
+                                onClick={() => handleToggleConnector(conn)}
+                                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                  conn.enabled
+                                    ? 'bg-emerald-500'
+                                    : 'bg-slate-300'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                    conn.enabled
+                                      ? 'translate-x-5'
+                                      : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/70 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isConfigOpen) {
+                                    setActiveConfigConnectorId(null);
+                                  } else {
+                                    setActiveConfigConnectorId(conn.id);
+                                    setConnectorTargetScope(conn.targetScope);
+                                    setConnectorApiSecret('');
+                                  }
+                                }}
+                                className="font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1.5"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />
+                                <span>
+                                  {conn.configured
+                                    ? 'Update Credentials'
+                                    : 'Enter Auth Credentials'}
+                                </span>
+                              </button>
+
+                              {conn.enabled && (
+                                <button
+                                  type="button"
+                                  disabled={syncingConnectorId === conn.id}
+                                  onClick={() => handleSyncConnector(conn.id)}
+                                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                                >
+                                  <RefreshCw
+                                    className={`w-3.5 h-3.5 ${
+                                      syncingConnectorId === conn.id
+                                        ? 'animate-spin'
+                                        : ''
+                                    }`}
+                                  />
+                                  <span>
+                                    {syncingConnectorId === conn.id
+                                      ? 'Syncing...'
+                                      : 'Sync Now'}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Inline Credentials Configuration Drawer */}
+                            {isConfigOpen && (
+                              <form
+                                onSubmit={(e) =>
+                                  handleConfigureConnector(e, conn.id)
+                                }
+                                className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2.5"
+                              >
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    {locale === 'de'
+                                      ? conn.authFieldLabelDe
+                                      : conn.authFieldLabelEn}
+                                  </label>
+                                  <input
+                                    type="password"
+                                    required
+                                    value={connectorApiSecret}
+                                    onChange={(e) =>
+                                      setConnectorApiSecret(e.target.value)
+                                    }
+                                    placeholder="Paste API Token / OAuth Secret..."
+                                    className="w-full px-3 py-2 text-xs font-mono liquid-glass-input"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Target Channel / Space / Meeting Series
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={connectorTargetScope}
+                                    onChange={(e) =>
+                                      setConnectorTargetScope(e.target.value)
+                                    }
+                                    placeholder={conn.scopePlaceholder}
+                                    className="w-full px-3 py-2 text-xs liquid-glass-input"
+                                  />
+                                </div>
+
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setActiveConfigConnectorId(null)
+                                    }
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold"
+                                  >
+                                    Save & Switch ON
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

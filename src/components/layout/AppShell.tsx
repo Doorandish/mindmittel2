@@ -8,8 +8,14 @@ import {
   Activity,
   ArrowUpRight,
   Home,
+  ShieldCheck,
+  History,
+  Plug,
+  UserCheck,
 } from 'lucide-react';
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
+
+export type WorkspaceSubTab = 'evaluate' | 'brain' | 'history' | 'connectors';
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -18,11 +24,16 @@ export interface AppShellProps {
   dict: AppDictionary;
   activeTab?: 'overview' | 'vault';
   onTabChange?: (tab: 'overview' | 'vault') => void;
+  workspaceSubTab?: WorkspaceSubTab;
+  onWorkspaceSubTabChange?: (subTab: WorkspaceSubTab) => void;
+  currentUserEmail?: string;
+  onOpenAuthModal?: () => void;
 }
 
 /**
  * MindMittel V1-Inspired Crisp White Enterprise Header & Mobile Bottom Bar.
- * Hides the "Launch Live App" button when the user is already inside the workspace ('vault').
+ * Hides the "Launch Live App" button when the user is already inside the workspace ('vault')
+ * and exposes direct header navigation tabs (Home, Evaluate Decision, Company Brain, Audit History, Connectors).
  */
 export function AppShell({
   children,
@@ -31,7 +42,16 @@ export function AppShell({
   dict,
   activeTab = 'overview',
   onTabChange,
+  workspaceSubTab = 'evaluate',
+  onWorkspaceSubTabChange,
+  currentUserEmail,
+  onOpenAuthModal,
 }: AppShellProps) {
+  function navigateToWorkspaceSubTab(subTab: WorkspaceSubTab) {
+    onTabChange?.('vault');
+    onWorkspaceSubTabChange?.(subTab);
+  }
+
   return (
     <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0 selection:bg-blue-600 selection:text-white">
       {/* Sticky Crisp White Top Header */}
@@ -64,7 +84,7 @@ export function AppShell({
           {/* Center Navigation Links */}
           <nav
             aria-label="Primary Navigation"
-            className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600"
+            className="hidden md:flex items-center gap-5 text-xs lg:text-sm font-medium text-slate-600"
           >
             {activeTab === 'overview' ? (
               <>
@@ -88,14 +108,68 @@ export function AppShell({
                 </a>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => onTabChange?.('overview')}
-                className="text-slate-700 hover:text-blue-600 font-semibold transition-colors flex items-center gap-1.5"
-              >
-                <Home className="w-4 h-4 text-blue-600" />
-                <span>{dict.nav.backToLanding}</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => onTabChange?.('overview')}
+                  className="px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-blue-600 hover:bg-slate-50 font-semibold transition-colors flex items-center gap-1.5"
+                >
+                  <Home className="w-4 h-4 text-blue-600" />
+                  <span>{dict.nav.backToLanding}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateToWorkspaceSubTab('evaluate')}
+                  className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                    workspaceSubTab === 'evaluate'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Evaluate Decision</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateToWorkspaceSubTab('brain')}
+                  className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                    workspaceSubTab === 'brain'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Company Brain</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateToWorkspaceSubTab('history')}
+                  className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                    workspaceSubTab === 'history'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  <span>Audit History</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateToWorkspaceSubTab('connectors')}
+                  className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                    workspaceSubTab === 'connectors'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Plug className="w-4 h-4" />
+                  <span>Connectors</span>
+                </button>
+              </>
             )}
 
             <Link
@@ -107,8 +181,22 @@ export function AppShell({
             </Link>
           </nav>
 
-          {/* Right Language Toggle & Conditional Primary Blue CTA Button */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Right Language Toggle, Email Identity Pill & Conditional Primary Blue CTA Button */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {activeTab !== 'overview' && onOpenAuthModal && (
+              <button
+                type="button"
+                onClick={onOpenAuthModal}
+                className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 text-xs font-mono font-semibold text-slate-700 hover:text-blue-700 transition-colors flex items-center gap-1.5 max-w-[190px]"
+                title="Active Email Identity (Click to change)"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">
+                  {currentUserEmail || 'Sign In (Email)'}
+                </span>
+              </button>
+            )}
+
             <div
               role="group"
               aria-label="Language Selector"
@@ -160,11 +248,11 @@ export function AppShell({
         aria-label="Mobile Bottom Navigation"
         className="md:hidden fixed bottom-3 inset-x-4 z-50"
       >
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-full px-4 py-2 flex items-center justify-around">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-full px-3 py-2 flex items-center justify-around">
           <button
             type="button"
             onClick={() => onTabChange?.('overview')}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-full text-xs font-semibold ${
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
               activeTab === 'overview' ? 'text-blue-600' : 'text-slate-500'
             }`}
           >
@@ -174,21 +262,49 @@ export function AppShell({
 
           <button
             type="button"
-            onClick={() => onTabChange?.('vault')}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-full text-xs font-semibold ${
-              activeTab === 'vault' ? 'text-blue-600' : 'text-slate-500'
+            onClick={() => navigateToWorkspaceSubTab('evaluate')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
+              activeTab === 'vault' && workspaceSubTab === 'evaluate'
+                ? 'text-blue-600'
+                : 'text-slate-500'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Audit</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigateToWorkspaceSubTab('brain')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
+              activeTab === 'vault' && workspaceSubTab === 'brain'
+                ? 'text-blue-600'
+                : 'text-slate-500'
             }`}
           >
             <Database className="w-4 h-4" />
-            <span>Workspace</span>
+            <span>Brain</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigateToWorkspaceSubTab('connectors')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
+              activeTab === 'vault' && workspaceSubTab === 'connectors'
+                ? 'text-blue-600'
+                : 'text-slate-500'
+            }`}
+          >
+            <Plug className="w-4 h-4" />
+            <span>Connectors</span>
           </button>
 
           <Link
             href="/system"
-            className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-full text-xs font-semibold text-emerald-600"
+            className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold text-emerald-600"
           >
             <Activity className="w-4 h-4" />
-            <span>{dict.nav.systemCenter}</span>
+            <span>System</span>
           </Link>
         </div>
       </nav>

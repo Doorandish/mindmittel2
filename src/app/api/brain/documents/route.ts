@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       sourceType?: DocumentSourceType;
       tags?: string[];
       language?: 'en' | 'de';
+      createdByEmail?: string;
+      createdByName?: string;
     };
 
     if (!body.title?.trim() || !body.content?.trim()) {
@@ -46,6 +48,8 @@ export async function POST(request: NextRequest) {
       sourceType: body.sourceType ?? 'upload',
       tags: body.tags,
       language: body.language ?? 'en',
+      createdByEmail: body.createdByEmail,
+      createdByName: body.createdByName,
     });
 
     const documents = await listBrainDocuments();

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchBrainByVectorSimilarity } from '@/infrastructure/rag/brainRepository';
+import {
+  listAuditHistory,
+  removeAuditHistoryEntry,
+  saveAuditReportToHistory,
+  searchBrainByVectorSimilarity,
+} from '@/infrastructure/rag/brainRepository';
 import { inferProfileFromQuery } from '@/core/ai/modelRanking';
 import { geminiModelSelector } from '@/infrastructure/gemini/modelSelector';
 import {
@@ -94,12 +99,22 @@ Return ONLY valid JSON with this exact structure:
   return parsed;
 }
 
+export async function GET() {
+  const history = await listAuditHistory();
+  return NextResponse.json({
+    ok: true,
+    history,
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       decisionProposal?: string;
       departmentFilter?: string;
       locale?: 'en' | 'de';
+      auditedByEmail?: string;
+      auditedByName?: string;
     };
 
     const decisionProposal = body.decisionProposal?.trim();
@@ -197,10 +212,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const savedEntry = await saveAuditReportToHistory({
+      decisionProposal,
+      departmentFilter: body.departmentFilter ?? 'all',
+      auditedByEmail: body.auditedByEmail,
+      auditedByName: body.auditedByName,
+      report: baselineReport,
+    });
+
+    const history = await listAuditHistory();
+
     systemLogger.info(
       'audit.engine',
-      `Completed Executive Audit -> Verdict: ${baselineReport.verdict} (${baselineReport.alignmentScore}%) via ${baselineReport.selectedModelId}`,
+      `Completed Executive Audit by [${savedEntry.auditedByEmail}] -> Verdict: ${baselineReport.verdict} (${baselineReport.alignmentScore}%) via ${baselineReport.selectedModelId}`,
       {
+        auditId: savedEntry.auditId,
         verdict: baselineReport.verdict,
         alignmentScore: baselineReport.alignmentScore,
         model: baselineReport.selectedModelId,
@@ -211,6 +237,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       report: baselineReport,
+      entry: savedEntry,
+      history,
     });
   } catch (err) {
     return NextResponse.json(
@@ -221,4 +249,22 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  const auditId = request.nextUrl.searchParams.get('auditId');
+  if (!auditId) {
+    return NextResponse.json(
+      { ok: false, error: 'auditId query parameter is required.' },
+      { status: 400 }
+    );
+  }
+
+  await removeAuditHistoryEntry(auditId);
+  const history = await listAuditHistory();
+
+  return NextResponse.json({
+    ok: true,
+    history,
+  });
 }

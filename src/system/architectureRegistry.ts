@@ -43,15 +43,49 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'src/app/globals.css',
       ],
       apiContracts: [
+        'POST /api/auth/session (Email Identity & Attribution)',
         'POST /api/brain/extract (Multimodal File & Live Audio Transcription)',
         'GET / POST / DELETE /api/brain/documents',
-        'POST /api/brain/audit',
+        'GET / POST / DELETE /api/brain/audit (Audit & History Ledger)',
+        'GET / POST /api/connectors (iOS-Style Enterprise Connectors)',
       ],
       dataPipeline:
-        'User switches between Evaluate Decision tab and Company Brain tab -> supports plain text, PDF/PPTX/Image/Audio file upload, and live microphone voice recording.',
+        'User authenticates via corporate email -> switches across Evaluate Decision, Company Brain, Audit History, and Connectors tabs -> every ingested policy and audit report is attributed to user email.',
       errorHandlingAndFallbacks:
         'Hides Launch Live App header CTA when already inside workspace; compact above-the-fold layout ensures primary action buttons require zero scrolling.',
       envVars: ['NEXT_PUBLIC_APP_URL'],
+    },
+  },
+  {
+    id: 'enterprise-connectors-auth-ledger',
+    title: 'Email Auth Attribution, Audit History Ledger & iOS-Toggle Connectors Hub',
+    category: 'api',
+    status: 'healthy',
+    technical: {
+      architecturePattern:
+        'Email Identity Attribution + Deletable Audit History Ledger + Credential-Gated iOS-Switch Connectors',
+      stack: [
+        'Zod Email Identity Validator (src/core/auth/userSession.ts)',
+        'Enterprise Connector Registry (Slack, MS Teams, Confluence, Notion, Google Drive, Zoom, Google Meet)',
+        'Next.js Route Handlers (/api/auth/session, /api/connectors, /api/brain/audit)',
+      ],
+      sourceFiles: [
+        'src/core/auth/userSession.ts',
+        'src/core/connectors/connectorRegistry.ts',
+        'src/app/api/auth/session/route.ts',
+        'src/app/api/connectors/route.ts',
+        'tests/unit/core/connectors/authHistoryAndConnectors.test.ts',
+      ],
+      apiContracts: [
+        'POST /api/auth/session -> AuthenticatedUserIdentity',
+        'GET / POST /api/connectors (action: "configure" | "toggle" | "sync")',
+        'GET / DELETE /api/brain/audit?auditId=...',
+      ],
+      dataPipeline:
+        '1) User signs in via email -> 2) Configures API token/secret on any Chat, Knowledge, or Online Meeting connector -> 3) Toggles iOS switch ON/OFF -> 4) Syncs records into Company Brain with email attribution.',
+      errorHandlingAndFallbacks:
+        'Raw API secrets are masked immediately via maskSecretToken(); attempting to toggle ON an unconfigured connector prompts the user to enter credentials first.',
+      envVars: ['MONGODB_URI'],
     },
   },
   {

@@ -12,6 +12,8 @@ export const COLLECTIONS = {
   RAW_DOCUMENTS: 'raw_documents',
   VECTOR_STORE: 'vector_store',
   SYSTEM_LOGS: 'system_logs',
+  AUDIT_HISTORY: 'audit_history',
+  CONNECTORS: 'connectors',
 } as const;
 
 /**
@@ -44,6 +46,8 @@ export function validateUserDocument(
  * Parent Document Record stored in `raw_documents`.
  */
 export interface RawDocumentRecord extends ParentDocumentChunk {
+  createdByEmail?: string;
+  createdByName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
