@@ -93,7 +93,7 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     expect(syncedDoc.createdByEmail).toBe('amir@mindmittel.de');
   });
 
-  it('exposes Audit History deletion, Email Auth attribution, and iOS-style Connectors in the UI and API', () => {
+  it('renders a sectioned Left Sidebar with bottom User Profile and stacks Audit History directly below Evaluate Decision', () => {
     const pageSource = fs.readFileSync(
       path.join(rootDir, 'src/app/page.tsx'),
       'utf-8'
@@ -103,8 +103,16 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
       'utf-8'
     );
 
-    expect(shellSource).toContain('Audit History');
-    expect(shellSource).toContain('Connectors');
+    // Left Sidebar sections & bottom user profile in AppShell
+    expect(shellSource).toContain('WORKSPACE_SIDEBAR_SECTIONS');
+    expect(shellSource).toContain('GOVERNANCE ENGINE');
+    expect(shellSource).toContain('KNOWLEDGE VAULT');
+    expect(shellSource).toContain('Workspace Sidebar Navigation');
+    expect(shellSource).toContain('Switch Profile');
+
+    // Audit History is stacked directly inside Evaluate Decision (no separate 'history' tab)
+    expect(pageSource).not.toContain("workspaceSubTab === 'history'");
+    expect(pageSource).toContain('Previous Executive Audit Reports');
     expect(pageSource).toContain('handleDeleteAuditHistory');
     expect(pageSource).toContain('handleToggleConnector');
     expect(pageSource).toContain('createdByEmail');

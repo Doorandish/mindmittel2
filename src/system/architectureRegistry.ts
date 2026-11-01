@@ -23,12 +23,12 @@ export interface TopologyEdge {
 export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
   {
     id: 'enterprise-light-ui',
-    title: 'Crisp Enterprise UI, Landing Page & Tabbed Above-the-Fold Workspace',
+    title: 'Crisp Enterprise UI, Left Sidebar Workspace & Stacked Audit Ledger',
     category: 'frontend',
     status: 'healthy',
     technical: {
       architecturePattern:
-        'V1-Inspired High-Contrast Enterprise Shell + Dedicated Sub-Tabs (Evaluate Decision vs Company Brain)',
+        'Overflow-Safe Top Header + Sectioned Left Sidebar (Governance Engine, Knowledge Vault, Bottom User Profile Card) + Stacked Audit History Below Evaluate Decision',
       stack: [
         'Next.js 15 (App Router)',
         'React 19 + Browser MediaRecorder API (Live Voice)',
@@ -50,9 +50,9 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'GET / POST /api/connectors (iOS-Style Enterprise Connectors)',
       ],
       dataPipeline:
-        'User authenticates via corporate email -> switches across Evaluate Decision, Company Brain, Audit History, and Connectors tabs -> every ingested policy and audit report is attributed to user email.',
+        'User authenticates via corporate email -> Left Sidebar displays sectioned navigation (Evaluate Decision, Company Brain, Connectors Hub) and bottom User Profile Card -> Previous Audit Reports stack directly beneath the Evaluate Decision input box.',
       errorHandlingAndFallbacks:
-        'Hides Launch Live App header CTA when already inside workspace; compact above-the-fold layout ensures primary action buttons require zero scrolling.',
+        'Clean top header prevents horizontal overflow of EN | DE language toggle; hides Launch Live App CTA when already inside workspace.',
       envVars: ['NEXT_PUBLIC_APP_URL'],
     },
   },

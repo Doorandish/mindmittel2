@@ -625,6 +625,12 @@ export default function HomePage() {
       workspaceSubTab={workspaceSubTab}
       onWorkspaceSubTabChange={setWorkspaceSubTab}
       currentUserEmail={userEmail}
+      currentUserName={userFullName}
+      currentUserDepartment={userDepartment}
+      brainCount={documents.length}
+      auditHistoryCount={auditHistory.length}
+      enabledConnectorsCount={connectors.filter((c) => c.enabled).length}
+      totalConnectorsCount={connectors.length || 7}
       onOpenAuthModal={() => setShowAuthModal(true)}
     >
       {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated with Multimodal & Tabbed Workspace Capabilities) */}
@@ -1398,366 +1404,410 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* VIEW 2: COMPACT ABOVE-THE-FOLD WORKSPACE WITH 4 DEDICATED TABS */}
+      {/* VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS (Evaluate Decision + Stacked Audit History, Company Brain, Connectors) */}
       {activeTab === 'vault' && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-          {/* Compact Top Sub-Tab Switcher Bar + Active Email Attribution Pill */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex flex-wrap items-center bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
-              <button
-                type="button"
-                onClick={() => setWorkspaceSubTab('evaluate')}
-                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
-                  workspaceSubTab === 'evaluate'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>
-                  {locale === 'de'
-                    ? 'Entscheidung prüfen'
-                    : 'Evaluate Decision'}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setWorkspaceSubTab('brain')}
-                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
-                  workspaceSubTab === 'brain'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Database className="w-4 h-4" />
-                <span>{`Company Brain (${documents.length})`}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setWorkspaceSubTab('history')}
-                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
-                  workspaceSubTab === 'history'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <History className="w-4 h-4" />
-                <span>{`Audit History (${auditHistory.length})`}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setWorkspaceSubTab('connectors')}
-                className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
-                  workspaceSubTab === 'connectors'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Plug className="w-4 h-4" />
-                <span>
-                  {`Connectors (${connectors.filter((c) => c.enabled).length}/${connectors.length})`}
-                </span>
-              </button>
-            </div>
-
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Mobile-Only Compact User Identity Bar (Desktop uses the Left Sidebar) */}
+          <div className="md:hidden bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+            <span className="text-xs font-mono text-slate-700 truncate">
+              Signed in: <strong>{userEmail}</strong>
+            </span>
             <button
               type="button"
               onClick={() => setShowAuthModal(true)}
-              className="text-xs font-mono text-slate-700 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-3 py-1.5 rounded-xl flex items-center gap-2 transition-colors"
+              className="text-xs font-bold text-blue-600 underline shrink-0"
             >
-              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>
-                Signed in as: <strong>{userEmail}</strong>
-              </span>
-              <span className="text-blue-600 underline text-[11px]">
-                Change
-              </span>
+              Switch Profile
             </button>
           </div>
 
-          {/* SUB-TAB 1: EVALUATE DECISION (Compact Above-the-Fold Action Button + Live Step-by-Step Progress Checklist) */}
+          {/* SECTION 1: EVALUATE DECISION (Input Form on Top + Previous Audit Reports Stacked Directly Below) */}
           {workspaceSubTab === 'evaluate' && (
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">
-                  {locale === 'de'
-                    ? 'Management-Entscheidung gegen Company Brain prüfen'
-                    : 'Evaluate Management Decision Against Company Brain'}
-                </h1>
+            <div className="space-y-6">
+              {/* Top Card: Decision Proposal Input + Live Pipeline Checklist + Active Audit Report */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                    {locale === 'de'
+                      ? 'Management-Entscheidung gegen Company Brain prüfen'
+                      : 'Evaluate Management Decision Against Company Brain'}
+                  </h1>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {QUICK_DECISION_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setDecisionProposal(
-                          locale === 'de'
-                            ? preset.proposalDe
-                            : preset.proposalEn
-                        );
-                        setAuditDepartmentFilter(preset.dept);
-                      }}
-                      className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 text-slate-700 transition-colors"
-                    >
-                      {locale === 'de' ? preset.labelDe : preset.labelEn}
-                    </button>
-                  ))}
+                  <div className="flex flex-wrap gap-1.5">
+                    {QUICK_DECISION_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setDecisionProposal(
+                            locale === 'de'
+                              ? preset.proposalDe
+                              : preset.proposalEn
+                          );
+                          setAuditDepartmentFilter(preset.dept);
+                        }}
+                        className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 text-slate-700 transition-colors"
+                      >
+                        {locale === 'de' ? preset.labelDe : preset.labelEn}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <form onSubmit={handleRunExecutiveAudit} className="space-y-3">
-                <textarea
-                  rows={3}
-                  required
-                  value={decisionProposal}
-                  onChange={(e) => setDecisionProposal(e.target.value)}
-                  placeholder={dict.ragSection.searchPlaceholder}
-                  className="w-full p-3.5 text-sm sm:text-base liquid-glass-input"
-                />
+                <form onSubmit={handleRunExecutiveAudit} className="space-y-3">
+                  <textarea
+                    rows={3}
+                    required
+                    value={decisionProposal}
+                    onChange={(e) => setDecisionProposal(e.target.value)}
+                    placeholder={dict.ragSection.searchPlaceholder}
+                    className="w-full p-3.5 text-sm sm:text-base liquid-glass-input"
+                  />
 
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 font-semibold text-blue-900">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                      <span>
-                        Auto-Routed:{' '}
-                        <strong className="font-mono">
-                          {inferredProfile === 'reasoning'
-                            ? 'Gemini Pro'
-                            : 'Gemini Flash'}
-                        </strong>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 font-semibold text-blue-900">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                        <span>
+                          Auto-Routed:{' '}
+                          <strong className="font-mono">
+                            {inferredProfile === 'reasoning'
+                              ? 'Gemini Pro'
+                              : 'Gemini Flash'}
+                          </strong>
+                        </span>
                       </span>
-                    </span>
 
-                    <select
-                      aria-label="Department Scope"
-                      value={auditDepartmentFilter}
-                      onChange={(e) => setAuditDepartmentFilter(e.target.value)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-800 font-semibold"
+                      <select
+                        aria-label="Department Scope"
+                        value={auditDepartmentFilter}
+                        onChange={(e) =>
+                          setAuditDepartmentFilter(e.target.value)
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-800 font-semibold"
+                      >
+                        <option value="all">Scope: All Departments</option>
+                        <option value="finance-legal">Finance & Legal</option>
+                        <option value="engineering">Engineering</option>
+                        <option value="hr-legal">HR & Legal</option>
+                      </select>
+
+                      <span className="text-slate-500 font-mono hidden sm:inline">
+                        Auditor: {userEmail}
+                      </span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isAuditing}
+                      className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2"
                     >
-                      <option value="all">Scope: All Departments</option>
-                      <option value="finance-legal">Finance & Legal</option>
-                      <option value="engineering">Engineering</option>
-                      <option value="hr-legal">HR & Legal</option>
-                    </select>
-
-                    <span className="text-slate-500 font-mono hidden md:inline">
-                      Auditor: {userEmail}
-                    </span>
+                      {isAuditing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-current" />
+                      )}
+                      <span>
+                        {isAuditing
+                          ? locale === 'de'
+                            ? 'Prüfung läuft...'
+                            : 'Evaluating Decision...'
+                          : locale === 'de'
+                          ? 'Entscheidung jetzt prüfen'
+                          : 'Run Executive Audit'}
+                      </span>
+                    </button>
                   </div>
+                </form>
 
-                  <button
-                    type="submit"
-                    disabled={isAuditing}
-                    className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2"
-                  >
-                    {isAuditing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Play className="w-4 h-4 fill-current" />
-                    )}
-                    <span>
-                      {isAuditing
-                        ? locale === 'de'
-                          ? 'Prüfung läuft...'
-                          : 'Evaluating Decision...'
-                        : locale === 'de'
-                        ? 'Entscheidung jetzt prüfen'
-                        : 'Run Executive Audit'}
-                    </span>
-                  </button>
-                </div>
-              </form>
+                {/* LIVE STEP-BY-STEP AUDIT PIPELINE PROGRESS CHECKLIST */}
+                {showAuditChecklist && (
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-700 uppercase">
+                      <span>
+                        {locale === 'de'
+                          ? 'Live-Audit-Fortschritt (Pipeline-Aufgaben)'
+                          : 'Live Audit Execution Pipeline'}
+                      </span>
+                      <span className="text-blue-600">
+                        {auditCompletedSteps}/{AUDIT_PIPELINE_STEPS.length}{' '}
+                        Completed
+                      </span>
+                    </div>
 
-              {/* LIVE STEP-BY-STEP AUDIT PIPELINE PROGRESS CHECKLIST */}
-              {showAuditChecklist && (
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
-                  <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-700 uppercase">
-                    <span>
-                      {locale === 'de'
-                        ? 'Live-Audit-Fortschritt (Pipeline-Aufgaben)'
-                        : 'Live Audit Execution Pipeline'}
-                    </span>
-                    <span className="text-blue-600">
-                      {auditCompletedSteps}/{AUDIT_PIPELINE_STEPS.length} Completed
-                    </span>
-                  </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {AUDIT_PIPELINE_STEPS.map((step, index) => {
+                        const isDone = index < auditCompletedSteps;
+                        const isCurrent =
+                          isAuditing && index === auditCompletedSteps;
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {AUDIT_PIPELINE_STEPS.map((step, index) => {
-                      const isDone = index < auditCompletedSteps;
-                      const isCurrent =
-                        isAuditing && index === auditCompletedSteps;
-
-                      return (
-                        <div
-                          key={step.id}
-                          className={`px-3.5 py-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
-                            isDone
-                              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-semibold'
-                              : isCurrent
-                              ? 'bg-blue-50 border-blue-300 text-blue-950 font-semibold'
-                              : 'bg-white border-slate-200 text-slate-500'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {isDone ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            ) : isCurrent ? (
-                              <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
-                            ) : (
-                              <span className="w-4 h-4 rounded-full border border-slate-300 inline-block shrink-0" />
-                            )}
-                            <span className="truncate">
-                              {locale === 'de' ? step.labelDe : step.labelEn}
-                            </span>
-                          </div>
-
-                          <span
-                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                        return (
+                          <div
+                            key={step.id}
+                            className={`px-3.5 py-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
                               isDone
-                                ? 'bg-emerald-100 text-emerald-700'
+                                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-semibold'
                                 : isCurrent
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-slate-100 text-slate-400'
+                                ? 'bg-blue-50 border-blue-300 text-blue-950 font-semibold'
+                                : 'bg-white border-slate-200 text-slate-500'
                             }`}
                           >
-                            {isDone
-                              ? '✓ Done'
-                              : isCurrent
-                              ? 'Running...'
-                              : 'Queued'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {isDone ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : isCurrent ? (
+                                <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                              ) : (
+                                <span className="w-4 h-4 rounded-full border border-slate-300 inline-block shrink-0" />
+                              )}
+                              <span className="truncate">
+                                {locale === 'de' ? step.labelDe : step.labelEn}
+                              </span>
+                            </div>
 
-              {auditError && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
-                  {auditError}
-                </div>
-              )}
-
-              {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
-              {auditReport && (
-                <div className="pt-4 border-t border-slate-200 space-y-4">
-                  <div
-                    className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${
-                      auditReport.verdict === 'POLICY_CONFLICT'
-                        ? 'bg-rose-50 border-rose-300 text-rose-950'
-                        : auditReport.verdict === 'CONDITIONAL'
-                        ? 'bg-amber-50 border-amber-300 text-amber-950'
-                        : 'bg-emerald-50 border-emerald-400 text-emerald-950'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {auditReport.verdict === 'POLICY_CONFLICT' ? (
-                        <XCircle className="w-7 h-7 text-rose-600 shrink-0" />
-                      ) : auditReport.verdict === 'CONDITIONAL' ? (
-                        <AlertTriangle className="w-7 h-7 text-amber-600 shrink-0" />
-                      ) : (
-                        <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
-                      )}
-                      <div>
-                        <div className="text-[11px] font-mono font-extrabold uppercase tracking-wider">
-                          VERDICT: {auditReport.verdict} · MODEL:{' '}
-                          {auditReport.selectedModelId} · AUDITED BY:{' '}
-                          {lastAuditedByEmail}
-                        </div>
-                        <div className="text-sm sm:text-base font-extrabold">
-                          {auditReport.executiveSummary}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right font-mono">
-                      <div className="text-xl font-extrabold">
-                        {auditReport.alignmentScore}%
-                      </div>
-                      <div className="text-[10px] opacity-80">Alignment</div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed">
-                    <strong className="block text-xs font-mono text-slate-500 uppercase mb-1">
-                      Strategic Policy Cross-Examination
-                    </strong>
-                    {auditReport.strategicEvaluation}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-1.5">
-                      <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
-                        Pros
-                      </div>
-                      <ul className="space-y-1 text-xs text-slate-700">
-                        {auditReport.pros.map((pro, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                            <span>{pro}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200 space-y-1.5">
-                      <div className="text-xs font-mono font-bold text-rose-800 uppercase">
-                        Risks & Policy Conflicts
-                      </div>
-                      <ul className="space-y-1 text-xs text-slate-700">
-                        {auditReport.cons.map((con, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                            <span>{con}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-1.5">
-                      <div className="text-xs font-mono font-bold text-blue-800 uppercase">
-                        Recommended Actionable Roadmap
-                      </div>
-                      <ul className="space-y-1 text-xs text-slate-800 font-medium">
-                        {auditReport.roadmap.map((step, i) => (
-                          <li key={i}>{step}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-                      <div className="text-xs font-mono font-bold text-slate-600 uppercase">
-                        Cited Company Brain Policies
-                      </div>
-                      <div className="space-y-1.5">
-                        {auditReport.citations.map((cit) => (
-                          <div
-                            key={cit.parentId}
-                            className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center justify-between gap-2"
-                          >
-                            <span className="font-bold text-slate-900 truncate">
-                              {cit.title}
-                            </span>
-                            <span className="font-mono text-[11px] text-blue-600 shrink-0">
-                              {cit.department} ·{' '}
-                              {Math.round(cit.similarityScore * 100)}%
+                            <span
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                isDone
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : isCurrent
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-slate-100 text-slate-400'
+                              }`}
+                            >
+                              {isDone
+                                ? '✓ Done'
+                                : isCurrent
+                                ? 'Running...'
+                                : 'Queued'}
                             </span>
                           </div>
-                        ))}
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {auditError && (
+                  <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
+                    {auditError}
+                  </div>
+                )}
+
+                {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
+                {auditReport && (
+                  <div className="pt-4 border-t border-slate-200 space-y-4">
+                    <div
+                      className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${
+                        auditReport.verdict === 'POLICY_CONFLICT'
+                          ? 'bg-rose-50 border-rose-300 text-rose-950'
+                          : auditReport.verdict === 'CONDITIONAL'
+                          ? 'bg-amber-50 border-amber-300 text-amber-950'
+                          : 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {auditReport.verdict === 'POLICY_CONFLICT' ? (
+                          <XCircle className="w-7 h-7 text-rose-600 shrink-0" />
+                        ) : auditReport.verdict === 'CONDITIONAL' ? (
+                          <AlertTriangle className="w-7 h-7 text-amber-600 shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                        )}
+                        <div>
+                          <div className="text-[11px] font-mono font-extrabold uppercase tracking-wider">
+                            VERDICT: {auditReport.verdict} · MODEL:{' '}
+                            {auditReport.selectedModelId} · AUDITED BY:{' '}
+                            {lastAuditedByEmail}
+                          </div>
+                          <div className="text-sm sm:text-base font-extrabold">
+                            {auditReport.executiveSummary}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right font-mono">
+                        <div className="text-xl font-extrabold">
+                          {auditReport.alignmentScore}%
+                        </div>
+                        <div className="text-[10px] opacity-80">Alignment</div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed">
+                      <strong className="block text-xs font-mono text-slate-500 uppercase mb-1">
+                        Strategic Policy Cross-Examination
+                      </strong>
+                      {auditReport.strategicEvaluation}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-1.5">
+                        <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
+                          Pros
+                        </div>
+                        <ul className="space-y-1 text-xs text-slate-700">
+                          {auditReport.pros.map((pro, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              <span>{pro}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200 space-y-1.5">
+                        <div className="text-xs font-mono font-bold text-rose-800 uppercase">
+                          Risks & Policy Conflicts
+                        </div>
+                        <ul className="space-y-1 text-xs text-slate-700">
+                          {auditReport.cons.map((con, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                              <span>{con}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-1.5">
+                        <div className="text-xs font-mono font-bold text-blue-800 uppercase">
+                          Recommended Actionable Roadmap
+                        </div>
+                        <ul className="space-y-1 text-xs text-slate-800 font-medium">
+                          {auditReport.roadmap.map((step, i) => (
+                            <li key={i}>{step}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                        <div className="text-xs font-mono font-bold text-slate-600 uppercase">
+                          Cited Company Brain Policies
+                        </div>
+                        <div className="space-y-1.5">
+                          {auditReport.citations.map((cit) => (
+                            <div
+                              key={cit.parentId}
+                              className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center justify-between gap-2"
+                            >
+                              <span className="font-bold text-slate-900 truncate">
+                                {cit.title}
+                              </span>
+                              <span className="font-mono text-[11px] text-blue-600 shrink-0">
+                                {cit.department} ·{' '}
+                                {Math.round(cit.similarityScore * 100)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* Bottom Card (Stacked Directly Below Evaluate Decision): Previous Executive Audit Reports */}
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                      <History className="w-5 h-5 text-blue-600" />
+                      <span>
+                        {locale === 'de'
+                          ? 'Frühere Executive Audit-Berichte'
+                          : 'Previous Executive Audit Reports'}
+                      </span>
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                      {locale === 'de'
+                        ? 'Alle geprüften Entscheidungen direkt unter dem Eingabefeld inklusive Prüfer-E-Mail und Löschfunktion.'
+                        : 'Every evaluated management decision stacked below with auditor email attribution and one-click deletion.'}
+                    </p>
+                  </div>
+
+                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
+                    {auditHistory.length} Saved Reports
+                  </span>
                 </div>
-              )}
+
+                {auditHistory.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center">
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">
+                      {locale === 'de'
+                        ? 'Noch keine Audit-Berichte gespeichert. Prüfen Sie oben eine Entscheidung, um sie hier zu archivieren.'
+                        : 'No executive audit reports saved yet. Run an audit above to automatically record it here.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {auditHistory.map((item) => (
+                      <div
+                        key={item.auditId}
+                        className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-blue-300 transition-colors"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase ${
+                                item.report.verdict === 'POLICY_CONFLICT'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : item.report.verdict === 'CONDITIONAL'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {item.report.verdict} (
+                              {item.report.alignmentScore}%)
+                            </span>
+                            <span className="text-xs font-mono text-slate-500">
+                              Audited by:{' '}
+                              <strong>{item.auditedByEmail}</strong>
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400">
+                              · {new Date(item.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="text-sm font-bold text-slate-900">
+                            &ldquo;{item.decisionProposal}&rdquo;
+                          </div>
+
+                          <p className="text-xs text-slate-600 line-clamp-2">
+                            {item.report.executiveSummary}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuditReport(item.report);
+                              setDecisionProposal(item.decisionProposal);
+                              setLastAuditedByEmail(item.auditedByEmail);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 border border-slate-200 text-xs font-bold text-blue-700 transition-colors"
+                          >
+                            View Report
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteAuditHistory(item.auditId)
+                            }
+                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Delete Audit Report"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2054,114 +2104,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* SUB-TAB 3: AUDIT HISTORY LEDGER (With Email Attribution & Delete Action) */}
-          {workspaceSubTab === 'history' && (
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                    <History className="w-5 h-5 text-blue-600" />
-                    <span>
-                      {locale === 'de'
-                        ? 'Audit-Verlauf & Entscheidungs-Archiv'
-                        : 'Executive Audit History Ledger'}
-                    </span>
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                    {locale === 'de'
-                      ? 'Alle geprüften Entscheidungen inklusive E-Mail des Prüfers und Löschfunktion.'
-                      : 'Every evaluated management decision with auditor email attribution and one-click deletion.'}
-                  </p>
-                </div>
-
-                <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
-                  {auditHistory.length} Saved Reports
-                </span>
-              </div>
-
-              {auditHistory.length === 0 ? (
-                <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
-                  <p className="text-sm font-semibold text-slate-700">
-                    {locale === 'de'
-                      ? 'Noch keine Audit-Berichte vorhanden.'
-                      : 'No executive audit reports saved yet.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setWorkspaceSubTab('evaluate')}
-                    className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
-                  >
-                    Run Your First Decision Audit
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {auditHistory.map((item) => (
-                    <div
-                      key={item.auditId}
-                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-blue-300 transition-colors"
-                    >
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase ${
-                              item.report.verdict === 'POLICY_CONFLICT'
-                                ? 'bg-rose-100 text-rose-800'
-                                : item.report.verdict === 'CONDITIONAL'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {item.report.verdict} ({item.report.alignmentScore}%)
-                          </span>
-                          <span className="text-xs font-mono text-slate-500">
-                            Audited by: <strong>{item.auditedByEmail}</strong>
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-400">
-                            · {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="text-sm font-bold text-slate-900">
-                          &ldquo;{item.decisionProposal}&rdquo;
-                        </div>
-
-                        <p className="text-xs text-slate-600 line-clamp-2">
-                          {item.report.executiveSummary}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuditReport(item.report);
-                            setDecisionProposal(item.decisionProposal);
-                            setLastAuditedByEmail(item.auditedByEmail);
-                            setWorkspaceSubTab('evaluate');
-                          }}
-                          className="px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 border border-slate-200 text-xs font-bold text-blue-700 transition-colors"
-                        >
-                          View Report
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAuditHistory(item.auditId)}
-                          className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Delete Audit Report"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* SUB-TAB 4: ENTERPRISE CONNECTORS HUB (iOS-Style Toggle Switches + Auth Credentials) */}
+          {/* SECTION 3: ENTERPRISE CONNECTORS HUB (iOS-Style Toggle Switches + Auth Credentials) */}
           {workspaceSubTab === 'connectors' && (
             <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
