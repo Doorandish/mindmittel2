@@ -19,11 +19,24 @@ import { getMindMittelDb } from '@/infrastructure/db/mongo';
 import { generateGeminiEmbedding768 } from '@/infrastructure/gemini/embeddingService';
 import { systemLogger } from '@/infrastructure/logging/logger';
 
+export interface VectorSearchDiagnosticStatus {
+  state:
+    | 'ACTIVE_ON_ATLAS'
+    | 'BUILDING_ON_ATLAS'
+    | 'ATLAS_UI_REQUIRED'
+    | 'MEMORY_FALLBACK';
+  indexName: string;
+  databaseName: string;
+  collectionName: string;
+  message: string;
+}
+
 interface InMemoryBrainVault {
   parents: ParentDocumentChunk[];
   children: EmbeddedChildChunk[];
   seeded: boolean;
-  atlasIndexProvisionAttempted: boolean;
+  atlasSeeded: boolean;
+  vectorDiagnostic: VectorSearchDiagnosticStatus;
 }
 
 declare global {
@@ -82,36 +95,86 @@ const DEFAULT_SAMPLE_POLICIES: RawGovernanceDocumentInput[] = [
   },
 ];
 
+function isMongoConfigured(): boolean {
+  const uri = process.env.MONGODB_URI;
+  return Boolean(
+    uri && (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'))
+  );
+}
+
 function getMemoryVault(): InMemoryBrainVault {
   if (!globalThis.__mindmittelBrainVault) {
     globalThis.__mindmittelBrainVault = {
       parents: [],
       children: [],
       seeded: false,
-      atlasIndexProvisionAttempted: false,
+      atlasSeeded: false,
+      vectorDiagnostic: {
+        state: 'MEMORY_FALLBACK',
+        indexName: VECTOR_INDEX_DEFINITION.name,
+        databaseName: 'mindmittel_v2',
+        collectionName: COLLECTIONS.VECTOR_STORE,
+        message: 'Awaiting MongoDB Atlas connection...',
+      },
     };
   }
   return globalThis.__mindmittelBrainVault;
 }
 
+export function getVectorSearchDiagnosticStatus(): VectorSearchDiagnosticStatus {
+  return getMemoryVault().vectorDiagnostic;
+}
+
 /**
- * Automatically attempts to create the `mindmittel_vector_index` on MongoDB Atlas (`mindmittel_v2.vector_store`)
- * so the user never has to configure vector indexes manually in the Atlas UI.
+ * Automatically checks and provisions the `mindmittel_vector_index` on MongoDB Atlas (`mindmittel_v2.vector_store`).
+ * Ensures the `vector_store` collection physically exists in MongoDB Atlas BEFORE calling `createSearchIndex`.
  */
-async function ensureAtlasVectorIndexProvisioned(): Promise<void> {
+export async function ensureAtlasVectorIndexProvisioned(): Promise<VectorSearchDiagnosticStatus> {
   const vault = getMemoryVault();
-  if (vault.atlasIndexProvisionAttempted) return;
-  vault.atlasIndexProvisionAttempted = true;
+  if (!isMongoConfigured()) {
+    return vault.vectorDiagnostic;
+  }
 
   try {
     const db = await getMindMittelDb();
     const vectorCollection = db.collection(COLLECTIONS.VECTOR_STORE);
 
+    // 1. Check if the index already exists on Atlas
+    try {
+      const existingIndexes = await vectorCollection
+        .listSearchIndexes(VECTOR_INDEX_DEFINITION.name)
+        .toArray();
+      if (existingIndexes.length > 0) {
+        const idx = existingIndexes[0] as Record<string, unknown>;
+        const statusStr = String(idx.status ?? 'READY').toUpperCase();
+        vault.vectorDiagnostic = {
+          state:
+            statusStr === 'READY' ? 'ACTIVE_ON_ATLAS' : 'BUILDING_ON_ATLAS',
+          indexName: VECTOR_INDEX_DEFINITION.name,
+          databaseName: db.databaseName,
+          collectionName: COLLECTIONS.VECTOR_STORE,
+          message: `Atlas Vector Index [${VECTOR_INDEX_DEFINITION.name}] status: ${statusStr}`,
+        };
+        return vault.vectorDiagnostic;
+      }
+    } catch {
+      // Ignore if listSearchIndexes is not supported on older tier
+    }
+
+    // 2. Create the index programmatically on mindmittel_v2.vector_store
     await vectorCollection.createSearchIndex({
       name: VECTOR_INDEX_DEFINITION.name,
       type: VECTOR_INDEX_DEFINITION.type,
       definition: VECTOR_INDEX_DEFINITION.definition,
     });
+
+    vault.vectorDiagnostic = {
+      state: 'BUILDING_ON_ATLAS',
+      indexName: VECTOR_INDEX_DEFINITION.name,
+      databaseName: db.databaseName,
+      collectionName: COLLECTIONS.VECTOR_STORE,
+      message: `Auto-created [${VECTOR_INDEX_DEFINITION.name}] on ${db.databaseName}.${COLLECTIONS.VECTOR_STORE}`,
+    };
 
     systemLogger.info(
       'db.mongo',
@@ -120,10 +183,87 @@ async function ensureAtlasVectorIndexProvisioned(): Promise<void> {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    vault.vectorDiagnostic = {
+      state: 'ATLAS_UI_REQUIRED',
+      indexName: VECTOR_INDEX_DEFINITION.name,
+      databaseName: 'mindmittel_v2',
+      collectionName: COLLECTIONS.VECTOR_STORE,
+      message: `Atlas driver index creation note: ${msg.slice(0, 120)}`,
+    };
     systemLogger.info(
       'db.mongo',
-      `Atlas Vector Search index check completed (${msg.slice(0, 90)})`
+      `Atlas Vector Search index check (${msg.slice(0, 110)})`
     );
+  }
+
+  return vault.vectorDiagnostic;
+}
+
+/**
+ * Ensures the Company Brain has the 3 baseline corporate policies loaded on first boot,
+ * AND persists them into `mindmittel_v2.raw_documents` & `mindmittel_v2.vector_store` in MongoDB Atlas
+ * so the `vector_store` collection physically exists in Atlas immediately!
+ */
+async function ensureDefaultPoliciesSeeded(): Promise<void> {
+  const vault = getMemoryVault();
+
+  if (!vault.seeded) {
+    vault.seeded = true;
+    for (const policy of DEFAULT_SAMPLE_POLICIES) {
+      const { parents, children } = createParentChildChunks(policy);
+      for (const p of parents) {
+        vault.parents.push(p);
+      }
+      for (const c of children) {
+        const { vector } = await generateGeminiEmbedding768(
+          `${c.metadata.department} ${c.metadata.tags.join(' ')} ${c.text}`
+        );
+        vault.children.push({ ...c, embedding: vector });
+      }
+    }
+  }
+
+  // Also ensure MongoDB Atlas `mindmittel_v2.raw_documents` and `mindmittel_v2.vector_store` are seeded on first boot
+  if (!vault.atlasSeeded && isMongoConfigured()) {
+    vault.atlasSeeded = true;
+    try {
+      const db = await getMindMittelDb();
+      const rawCol = db.collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS);
+      const vecCol = db.collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE);
+
+      const existingCount = await vecCol.countDocuments({});
+      if (existingCount === 0 && vault.parents.length > 0) {
+        const now = new Date();
+        await rawCol.insertMany(
+          vault.parents.map((p) => ({
+            ...p,
+            createdAt: now,
+            updatedAt: now,
+          }))
+        );
+        await vecCol.insertMany(
+          vault.children.map((c) => ({
+            ...c,
+            embeddingModel: 'gemini-embedding-768d',
+            createdAt: now,
+          }))
+        );
+        systemLogger.info(
+          'db.mongo',
+          `Seeded ${vault.parents.length} Parent documents and ${vault.children.length} 768-d vectors into MongoDB Atlas (mindmittel_v2.vector_store)`
+        );
+      }
+
+      // Now that `mindmittel_v2.vector_store` exists in Atlas, provision the Vector Search index
+      await ensureAtlasVectorIndexProvisioned();
+    } catch (err) {
+      vault.atlasSeeded = false;
+      systemLogger.warn(
+        'db.mongo',
+        'Initial MongoDB Atlas seed deferred',
+        { error: err instanceof Error ? err.message : String(err) }
+      );
+    }
   }
 }
 
@@ -147,6 +287,7 @@ export async function ingestDocumentIntoBrain(params: {
   storageMode: 'mongodb_atlas' | 'memory_fallback';
   firstParentId: string;
 }> {
+  await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
 
   const rawInput: RawGovernanceDocumentInput = {
@@ -198,11 +339,7 @@ export async function ingestDocumentIntoBrain(params: {
 
   // Persist to MongoDB Atlas (`mindmittel_v2`) if MONGODB_URI is configured
   let storageMode: 'mongodb_atlas' | 'memory_fallback' = 'memory_fallback';
-  if (
-    process.env.MONGODB_URI &&
-    (process.env.MONGODB_URI.startsWith('mongodb://') ||
-      process.env.MONGODB_URI.startsWith('mongodb+srv://'))
-  ) {
+  if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
       const now = new Date();
@@ -257,28 +394,6 @@ export async function ingestDocumentIntoBrain(params: {
 }
 
 /**
- * Ensures the Company Brain has the 3 baseline corporate policies loaded on first boot.
- */
-async function ensureDefaultPoliciesSeeded(): Promise<void> {
-  const vault = getMemoryVault();
-  if (vault.seeded) return;
-  vault.seeded = true;
-
-  for (const policy of DEFAULT_SAMPLE_POLICIES) {
-    const { parents, children } = createParentChildChunks(policy);
-    for (const p of parents) {
-      vault.parents.push(p);
-    }
-    for (const c of children) {
-      const { vector } = await generateGeminiEmbedding768(
-        `${c.metadata.department} ${c.metadata.tags.join(' ')} ${c.text}`
-      );
-      vault.children.push({ ...c, embedding: vector });
-    }
-  }
-}
-
-/**
  * Lists all Parent documents currently stored in the Company Brain along with their child vector count.
  */
 export async function listBrainDocuments(): Promise<
@@ -295,12 +410,8 @@ export async function listBrainDocuments(): Promise<
   await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
 
-  // Also try reading from MongoDB Atlas if configured
-  if (
-    process.env.MONGODB_URI &&
-    (process.env.MONGODB_URI.startsWith('mongodb://') ||
-      process.env.MONGODB_URI.startsWith('mongodb+srv://'))
-  ) {
+  // Also sync any remote documents from MongoDB Atlas if configured
+  if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
       const remoteDocs = await db
@@ -348,11 +459,7 @@ export async function removeBrainDocument(parentId: string): Promise<void> {
   vault.parents = vault.parents.filter((p) => p.parentId !== parentId);
   vault.children = vault.children.filter((c) => c.parentId !== parentId);
 
-  if (
-    process.env.MONGODB_URI &&
-    (process.env.MONGODB_URI.startsWith('mongodb://') ||
-      process.env.MONGODB_URI.startsWith('mongodb+srv://'))
-  ) {
+  if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
       await Promise.all([
@@ -371,7 +478,9 @@ export async function removeBrainDocument(parentId: string): Promise<void> {
 }
 
 /**
- * Searches the Company Brain by meaning (768-d vector similarity) and returns the top Parent documents.
+ * Searches the Company Brain by meaning (768-d vector similarity):
+ * 1. First attempts native MongoDB Atlas `$vectorSearch` on `mindmittel_v2.vector_store` using `mindmittel_vector_index`.
+ * 2. Automatically falls back to deterministic 768-d cosine similarity if the Atlas index is still building or offline.
  */
 export async function searchBrainByVectorSimilarity(params: {
   query: string;
@@ -380,14 +489,97 @@ export async function searchBrainByVectorSimilarity(params: {
 }): Promise<MatchedParentDocumentResult[]> {
   await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
+  const topK = params.topK ?? 3;
 
   const { vector: queryVector } = await generateGeminiEmbedding768(params.query);
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      const vecCol = db.collection(COLLECTIONS.VECTOR_STORE);
+      const rawCol = db.collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS);
+
+      const vectorSearchStage: Record<string, unknown> = {
+        index: VECTOR_INDEX_DEFINITION.name,
+        path: 'embedding',
+        queryVector,
+        numCandidates: 50,
+        limit: topK * 3,
+      };
+
+      if (
+        params.departmentFilter &&
+        params.departmentFilter !== 'all' &&
+        params.departmentFilter.trim() !== ''
+      ) {
+        vectorSearchStage.filter = {
+          'metadata.department': params.departmentFilter
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-'),
+        };
+      }
+
+      const atlasHits = await vecCol
+        .aggregate([
+          { $vectorSearch: vectorSearchStage },
+          {
+            $project: {
+              chunkId: 1,
+              parentId: 1,
+              text: 1,
+              metadata: 1,
+              score: { $meta: 'vectorSearchScore' },
+            },
+          },
+        ])
+        .toArray();
+
+      if (atlasHits.length > 0) {
+        const parentIds = Array.from(
+          new Set(atlasHits.map((h) => String(h.parentId)))
+        ).slice(0, topK);
+
+        const parentDocs = await rawCol
+          .find({ parentId: { $in: parentIds } })
+          .toArray();
+        const parentMap = new Map(parentDocs.map((p) => [p.parentId, p]));
+
+        const results: MatchedParentDocumentResult[] = [];
+        for (const pid of parentIds) {
+          const parent =
+            parentMap.get(pid) ??
+            vault.parents.find((p) => p.parentId === pid);
+          const bestChild = atlasHits.find((h) => String(h.parentId) === pid);
+          if (parent && bestChild) {
+            results.push({
+              parentId: parent.parentId,
+              title: parent.title,
+              department: parent.metadata.department,
+              sourceType: parent.metadata.sourceType,
+              similarityScore: Number(Number(bestChild.score ?? 0.8).toFixed(4)),
+              matchedChildSnippet: String(bestChild.text),
+              fullParentContent: parent.content,
+              parent,
+            });
+          }
+        }
+
+        if (results.length > 0) {
+          vault.vectorDiagnostic.state = 'ACTIVE_ON_ATLAS';
+          return results;
+        }
+      }
+    } catch {
+      // Seamless fallback to in-memory cosine similarity while Atlas index builds
+    }
+  }
 
   return rankParentDocumentsByVectorMatch({
     queryVector,
     children: vault.children,
     parents: vault.parents,
     departmentFilter: params.departmentFilter,
-    topK: params.topK ?? 3,
+    topK,
   });
 }

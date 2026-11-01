@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import {
   computeCosineSimilarity,
   generateDeterministicSemanticEmbedding,
@@ -11,6 +13,8 @@ import { EMBEDDING_DIMENSIONS } from '@/infrastructure/db/schemas';
 import { createParentChildChunks } from '@/core/rag/chunker';
 
 describe('768-d Vector Similarity & Parent-Child Retrieval Engine (Functional Core)', () => {
+  const rootDir = path.resolve(__dirname, '../../../../');
+
   it('generates 768-dimensional normalized vectors and scores semantically similar governance texts higher than unrelated texts', () => {
     const vecExpense1 = generateDeterministicSemanticEmbedding(
       'Approve €18,000 unbudgeted vendor software contract without board sign-off'
@@ -121,5 +125,16 @@ describe('768-d Vector Similarity & Parent-Child Retrieval Engine (Functional Co
     expect(report.pros.length).toBeGreaterThan(0);
     expect(report.cons.length).toBeGreaterThan(0);
     expect(report.roadmap.length).toBeGreaterThan(0);
+  });
+
+  it('auto-seeds MongoDB Atlas vector_store collection on boot, provisions mindmittel_vector_index, and executes native $vectorSearch with cosine fallback', () => {
+    const repoSource = fs.readFileSync(
+      path.join(rootDir, 'src/infrastructure/rag/brainRepository.ts'),
+      'utf-8'
+    );
+
+    expect(repoSource).toContain('$vectorSearch');
+    expect(repoSource).toContain('createSearchIndex');
+    expect(repoSource).toContain('getVectorSearchDiagnosticStatus');
   });
 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  getVectorSearchDiagnosticStatus,
   ingestDocumentIntoBrain,
   listBrainDocuments,
   removeBrainDocument,
@@ -13,6 +14,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     documents,
+    vectorSearchStatus: getVectorSearchDiagnosticStatus(),
   });
 }
 
