@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getConnectorsList,
+  listBrainDocumentConflicts,
   listBrainDocuments,
   saveConnectorConfig,
   syncConnectorDataIntoBrain,
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
         userName: body.userName,
       });
       const documents = await listBrainDocuments();
+      const conflicts = await listBrainDocumentConflicts();
 
       return NextResponse.json({
         ok: true,
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
         syncedTitle: syncResult.syncedTitle,
         childVectorCount: syncResult.childVectorCount,
         documents,
+        conflicts,
       });
     }
 

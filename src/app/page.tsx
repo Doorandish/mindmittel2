@@ -33,6 +33,8 @@ import {
   RefreshCw,
   Video,
   BookOpen,
+  Pencil,
+  Download,
 } from 'lucide-react';
 import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
 import { SystemObservabilityPanel } from '@/components/system/SystemObservabilityPanel';
@@ -45,6 +47,7 @@ import { inferProfileFromQuery } from '@/core/ai/modelRanking';
 import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
 import type { EnterpriseConnectorItem } from '@/core/connectors/connectorRegistry';
 import type { StoredAuditHistoryEntry } from '@/infrastructure/rag/brainRepository';
+import type { BrainKnowledgeConflictWarning } from '@/core/rag/conflictDetector';
 
 interface StoredBrainDocumentSummary {
   parentId: string;
@@ -136,6 +139,9 @@ export default function HomePage() {
 
   // Company Brain Documents & Multimodal Ingestion State
   const [documents, setDocuments] = useState<StoredBrainDocumentSummary[]>([]);
+  const [brainConflicts, setBrainConflicts] = useState<
+    BrainKnowledgeConflictWarning[]
+  >([]);
   const [docTitle, setDocTitle] = useState<string>('');
   const [docDepartment, setDocDepartment] = useState<string>('Finance & Legal');
   const [docSourceType, setDocSourceType] = useState<'upload' | 'slack'>(
@@ -145,6 +151,15 @@ export default function HomePage() {
   const [docContent, setDocContent] = useState<string>('');
   const [isIngesting, setIsIngesting] = useState<boolean>(false);
   const [ingestFeedback, setIngestFeedback] = useState<string | null>(null);
+
+  // Online In-Place Document Editor State
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editDepartment, setEditDepartment] =
+    useState<string>('Finance & Legal');
+  const [editTags, setEditTags] = useState<string>('');
+  const [editContent, setEditContent] = useState<string>('');
+  const [isUpdatingDoc, setIsUpdatingDoc] = useState<boolean>(false);
 
   // Multimodal File Upload & Live Voice Recording State
   const [inputMode, setInputMode] = useState<'text' | 'file' | 'voice'>('text');
@@ -196,6 +211,9 @@ export default function HomePage() {
       const data = await res.json();
       if (data.ok && Array.isArray(data.documents)) {
         setDocuments(data.documents);
+      }
+      if (data.ok && Array.isArray(data.conflicts)) {
+        setBrainConflicts(data.conflicts);
       }
     } catch {
       // Ignore network error on initial load
@@ -433,6 +451,9 @@ export default function HomePage() {
       const data = await res.json();
       if (data.ok) {
         setDocuments(data.documents ?? []);
+        if (Array.isArray(data.conflicts)) {
+          setBrainConflicts(data.conflicts);
+        }
         setDocTitle('');
         setDocContent('');
         setExtractionStatus(null);
@@ -455,7 +476,100 @@ export default function HomePage() {
     const data = await res.json();
     if (data.ok) {
       setDocuments(data.documents ?? []);
+      if (Array.isArray(data.conflicts)) {
+        setBrainConflicts(data.conflicts);
+      }
     }
+  }
+
+  function openOnlineDocumentEditor(doc: {
+    parentId: string;
+    title: string;
+    department: string;
+    content: string;
+    tags?: string[];
+  }) {
+    const fullDoc = documents.find((d) => d.parentId === doc.parentId);
+    setEditingDocId(doc.parentId);
+    setEditTitle(fullDoc?.title ?? doc.title);
+    setEditDepartment(fullDoc?.department ?? doc.department);
+    setEditTags((fullDoc?.tags ?? doc.tags ?? []).join(', '));
+    setEditContent(fullDoc?.contentPreview ?? doc.content);
+  }
+
+  async function handleUpdateDocument(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingDocId || !editTitle.trim() || !editContent.trim()) return;
+
+    setIsUpdatingDoc(true);
+    try {
+      const parsedTags = editTags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const res = await fetch('/api/brain/documents', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parentId: editingDocId,
+          title: editTitle,
+          content: editContent,
+          department: editDepartment,
+          tags: parsedTags,
+          updatedByEmail: userEmail,
+          updatedByName: userFullName,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setDocuments(data.documents ?? []);
+        if (Array.isArray(data.conflicts)) {
+          setBrainConflicts(data.conflicts);
+        }
+        setEditingDocId(null);
+        setIngestFeedback(
+          locale === 'de'
+            ? `✓ Dokument aktualisiert & ${data.updated?.childVectorCount ?? 1} Vektoren neu indexiert`
+            : `✓ Updated online & re-indexed (${data.updated?.childVectorCount ?? 1} vectors)`
+        );
+      }
+    } finally {
+      setIsUpdatingDoc(false);
+    }
+  }
+
+  function handleDownloadDocument(doc: {
+    parentId: string;
+    title: string;
+    department: string;
+    content: string;
+    createdByEmail?: string;
+  }) {
+    const fullDoc = documents.find((d) => d.parentId === doc.parentId);
+    const bodyText = [
+      `Title: ${fullDoc?.title ?? doc.title}`,
+      `Department: ${fullDoc?.department ?? doc.department}`,
+      `Author: ${fullDoc?.createdByEmail ?? doc.createdByEmail ?? userEmail}`,
+      `Document ID: ${doc.parentId}`,
+      '----------------------------------------',
+      '',
+      fullDoc?.contentPreview ?? doc.content,
+    ].join('\n');
+
+    const blob = new Blob([bodyText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeName = (fullDoc?.title ?? doc.title)
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]+/g, '_')
+      .slice(0, 48);
+    link.href = url;
+    link.download = `${safeName || 'company_brain_policy'}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   async function handleRunExecutiveAudit(e?: React.FormEvent) {
@@ -612,6 +726,9 @@ export default function HomePage() {
         }
         if (Array.isArray(data.documents)) {
           setDocuments(data.documents);
+        }
+        if (Array.isArray(data.conflicts)) {
+          setBrainConflicts(data.conflicts);
         }
         setConnectorFeedback(
           locale === 'de'
@@ -2077,6 +2194,235 @@ export default function HomePage() {
                 </form>
               </div>
 
+              {/* MIDDLE SECTION: KNOWLEDGE CONFLICT WARNINGS (Placed directly between Ingestion Box and Indexed Brain Documents List) */}
+              {brainConflicts.length > 0 && (
+                <div className="w-full bg-rose-50/70 rounded-xl border border-rose-200/90 shadow-[0_1px_3px_rgba(225,29,72,0.06)] p-5 sm:p-6 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-[15px] font-semibold tracking-[-0.015em] text-rose-950">
+                          {locale === 'de'
+                            ? 'Konfliktwarnung im Company Brain (Widersprüchliche Richtlinien erkannt)'
+                            : 'Knowledge Conflict Warning — Contradictory Brain Data Detected'}
+                        </h3>
+                        <p className="text-[12px] text-rose-700">
+                          {locale === 'de'
+                            ? 'Bitte bearbeiten Sie das fehlerhafte Dokument direkt online in der Datenbank oder löschen Sie den veralteten Eintrag.'
+                            : 'Review conflicting clauses below: edit the inaccurate document directly online in the database, download a backup, or delete the outdated entry.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="px-2.5 py-1 rounded-md bg-rose-100 border border-rose-200 text-[11px] font-mono font-semibold text-rose-800">
+                      {brainConflicts.length}{' '}
+                      {brainConflicts.length === 1 ? 'Conflict' : 'Conflicts'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {brainConflicts.map((conflict) => (
+                      <div
+                        key={conflict.conflictId}
+                        className="p-4 rounded-lg bg-white border border-rose-200/90 space-y-3 shadow-sm"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                          <span className="text-[12.5px] font-semibold text-rose-800">
+                            {locale === 'de'
+                              ? conflict.conflictReasonDe
+                              : conflict.conflictReasonEn}
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                            Topic Similarity:{' '}
+                            {Math.round(conflict.similarityScore * 100)}%
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          {[
+                            {
+                              badge:
+                                locale === 'de'
+                                  ? 'Neuerer Eintrag'
+                                  : 'Newer Document',
+                              doc: conflict.newerDocument,
+                            },
+                            {
+                              badge:
+                                locale === 'de'
+                                  ? 'Bestehende Richtlinie'
+                                  : 'Existing Document in Brain',
+                              doc: conflict.existingDocument,
+                            },
+                          ].map(({ badge, doc }) => (
+                            <div
+                              key={doc.parentId}
+                              className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-200/90 flex flex-col justify-between gap-3"
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase bg-slate-200/80 text-slate-700">
+                                    {badge}
+                                  </span>
+                                  <span className="text-[11px] font-mono text-slate-500">
+                                    {doc.department} ·{' '}
+                                    {doc.createdByEmail ??
+                                      'governance-board@mindmittel.de'}
+                                  </span>
+                                </div>
+
+                                <div className="text-[13.5px] font-semibold text-slate-900">
+                                  {doc.title}
+                                </div>
+
+                                <p className="text-[12px] text-slate-600 leading-relaxed line-clamp-3">
+                                  {doc.content}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/70">
+                                <button
+                                  type="button"
+                                  onClick={() => openOnlineDocumentEditor(doc)}
+                                  className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-[11.5px] font-medium flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  <span>
+                                    {locale === 'de'
+                                      ? 'Online bearbeiten'
+                                      : 'Edit Online'}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadDocument(doc)}
+                                  className="h-7 px-2.5 rounded-md bg-white hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-[11.5px] font-medium flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>
+                                    {locale === 'de'
+                                      ? 'Herunterladen'
+                                      : 'Download'}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteDocument(doc.parentId)
+                                  }
+                                  className="h-7 px-2.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[11.5px] font-medium flex items-center gap-1.5 transition-colors ml-auto"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>
+                                    {locale === 'de' ? 'Löschen' : 'Delete'}
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ONLINE IN-PLACE DOCUMENT EDITOR MODAL (Updates MongoDB Atlas & Re-Indexes 768-d Vectors) */}
+              {editingDocId && (
+                <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div>
+                        <h3 className="text-[15.5px] font-semibold text-slate-900">
+                          {locale === 'de'
+                            ? 'Dokument online in der Datenbank bearbeiten & neu indexieren'
+                            : 'Edit Document Online in Database & Re-Index Vectors'}
+                        </h3>
+                        <p className="text-[12px] text-slate-500">
+                          {locale === 'de'
+                            ? 'Änderungen aktualisieren sofort das Dokument und berechnen die 768-d Vektoren neu.'
+                            : 'Saving updates the record in place, regenerates its 768-d vectors, and re-runs conflict checks.'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDocId(null)}
+                        className="text-xs font-bold text-slate-400 hover:text-slate-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleUpdateDocument} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
+                            Document Title
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full h-9 px-3 text-[13px] liquid-glass-input"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
+                            Department
+                          </label>
+                          <input
+                            type="text"
+                            value={editDepartment}
+                            onChange={(e) => setEditDepartment(e.target.value)}
+                            className="w-full h-9 px-3 text-[13px] liquid-glass-input"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
+                          Policy Content (Fix conflicting numbers or clauses here)
+                        </label>
+                        <textarea
+                          rows={6}
+                          required
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="w-full p-3 text-[13.5px] leading-relaxed liquid-glass-input"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingDocId(null)}
+                          className="h-8 px-3.5 rounded-md text-[12.5px] font-medium text-slate-600 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isUpdatingDoc}
+                          className="h-8 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-medium shadow-sm"
+                        >
+                          {isUpdatingDoc
+                            ? 'Re-Indexing...'
+                            : locale === 'de'
+                            ? 'Speichern & Vektoren aktualisieren'
+                            : 'Save & Re-Index Vectors'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
               {/* Bottom Full-Width Card (Stacked Below Input Form): Indexed Brain Documents */}
               <div className="w-full bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-3.5">
                 <div className="flex items-center justify-between">
@@ -2116,14 +2462,50 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDocument(doc.parentId)}
-                        className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
-                        title="Delete Document"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openOnlineDocumentEditor({
+                              parentId: doc.parentId,
+                              title: doc.title,
+                              department: doc.department,
+                              content: doc.contentPreview,
+                              tags: doc.tags,
+                            })
+                          }
+                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          title="Edit Document Online"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDownloadDocument({
+                              parentId: doc.parentId,
+                              title: doc.title,
+                              department: doc.department,
+                              content: doc.contentPreview,
+                              createdByEmail: doc.createdByEmail,
+                            })
+                          }
+                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
+                          title="Download Document (.txt)"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocument(doc.parentId)}
+                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Delete Document"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

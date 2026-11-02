@@ -35,7 +35,7 @@ export interface NormalizedFilterMetadata {
   sourceType: DocumentSourceType;
   connectorId: string;
   externalId: string;
-  docType: string;
+  docType: 'policy' | 'minutes' | 'report' | 'chat' | 'charter';
   language: 'en' | 'de';
   accessLevel: AccessLevel;
   framework?: string;

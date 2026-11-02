@@ -11,6 +11,10 @@ import {
   type MatchedParentDocumentResult,
 } from '@/core/rag/vectorMath';
 import {
+  detectBrainDocumentConflicts,
+  type BrainKnowledgeConflictWarning,
+} from '@/core/rag/conflictDetector';
+import {
   COLLECTIONS,
   VECTOR_INDEX_DEFINITION,
   type RawDocumentRecord,
@@ -583,6 +587,174 @@ export async function removeBrainDocument(parentId: string): Promise<void> {
   systemLogger.info(
     'rag.delete',
     `Cascaded deletion for parentId [${parentId}] and its child vectors`
+  );
+}
+
+/**
+ * Updates an existing Parent document in-place (Online Database Editor) and regenerates all of its 768-d Child vectors.
+ */
+export async function updateBrainDocument(params: {
+  parentId: string;
+  title: string;
+  content: string;
+  department: string;
+  tags?: string[];
+  updatedByEmail?: string;
+  updatedByName?: string;
+}): Promise<{
+  parentId: string;
+  childVectorCount: number;
+  updatedByEmail: string;
+}> {
+  await ensureDefaultPoliciesSeeded();
+  const vault = getMemoryVault();
+
+  const existing = vault.parents.find((p) => p.parentId === params.parentId);
+  const editorEmail =
+    params.updatedByEmail?.trim().toLowerCase() ||
+    existing?.createdByEmail ||
+    'executive@mindmittel.de';
+  const editorName =
+    params.updatedByName?.trim() ||
+    existing?.createdByName ||
+    'Executive User';
+
+  const rawInput: RawGovernanceDocumentInput = {
+    orgId: existing?.metadata.orgId ?? 'org_default',
+    title: params.title.trim(),
+    content: params.content.trim(),
+    department: params.department.trim() || existing?.metadata.department || 'General',
+    docType: existing?.metadata.docType ?? 'policy',
+    language: existing?.metadata.language ?? 'en',
+    accessLevel: existing?.metadata.accessLevel ?? 'internal',
+    tags:
+      params.tags && params.tags.length > 0
+        ? params.tags
+        : existing?.metadata.tags ?? ['governance'],
+    source: {
+      type: existing?.metadata.sourceType ?? 'upload',
+      connectorId: existing?.metadata.connectorId ?? 'workspace_ui',
+      externalId: existing?.metadata.externalId ?? `doc_${Date.now()}`,
+    },
+  };
+
+  const { parents, children } = createParentChildChunks(rawInput);
+  const primaryTemplate = parents[0];
+
+  // Preserve the original parentId so references and UI keys remain stable
+  const updatedParent: AttributedParentChunk = {
+    ...primaryTemplate,
+    parentId: params.parentId,
+    title: params.title.trim(),
+    content: params.content.trim(),
+    childCount: Math.max(1, children.length),
+    createdByEmail: editorEmail,
+    createdByName: editorName,
+  };
+
+  const embeddedChildren: EmbeddedChildChunk[] = [];
+  let embeddingModelUsed = 'deterministic-semantic-768d';
+
+  for (let idx = 0; idx < children.length; idx++) {
+    const child = children[idx];
+    const { vector, modelUsed } = await generateGeminiEmbedding768(
+      `${child.metadata.department} ${child.metadata.tags.join(' ')} ${child.text}`
+    );
+    embeddingModelUsed = modelUsed;
+    embeddedChildren.push({
+      ...child,
+      parentId: params.parentId,
+      childId: `child_${params.parentId}_${idx}`,
+      embedding: vector,
+    });
+  }
+
+  vault.parents = vault.parents.map((p) =>
+    p.parentId === params.parentId ? updatedParent : p
+  );
+  if (!vault.parents.some((p) => p.parentId === params.parentId)) {
+    vault.parents.unshift(updatedParent);
+  }
+
+  vault.children = [
+    ...embeddedChildren,
+    ...vault.children.filter((c) => c.parentId !== params.parentId),
+  ];
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      const now = new Date();
+
+      await db
+        .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
+        .updateOne(
+          { parentId: params.parentId },
+          {
+            $set: {
+              ...updatedParent,
+              updatedAt: now,
+            },
+            $setOnInsert: {
+              createdAt: now,
+            },
+          },
+          { upsert: true }
+        );
+
+      await db
+        .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
+        .deleteMany({ parentId: params.parentId });
+
+      if (embeddedChildren.length > 0) {
+        await db
+          .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
+          .insertMany(
+            embeddedChildren.map((c) => ({
+              ...c,
+              embeddingModel: embeddingModelUsed,
+              createdAt: now,
+            }))
+          );
+      }
+    } catch (err) {
+      systemLogger.warn(
+        'db.mongo',
+        `MongoDB Atlas update fallback for [${params.parentId}]`,
+        { error: err instanceof Error ? err.message : String(err) }
+      );
+    }
+  }
+
+  systemLogger.info(
+    'rag.update',
+    `Updated & re-indexed document [${params.title}] (${params.parentId}) by [${editorEmail}] (${embeddedChildren.length} Child 768-d vectors)`
+  );
+
+  return {
+    parentId: params.parentId,
+    childVectorCount: embeddedChildren.length,
+    updatedByEmail: editorEmail,
+  };
+}
+
+/**
+ * Evaluates all currently indexed Parent documents in the Company Brain and returns any active policy/threshold conflicts.
+ */
+export async function listBrainDocumentConflicts(): Promise<
+  BrainKnowledgeConflictWarning[]
+> {
+  const docs = await listBrainDocuments();
+  return detectBrainDocumentConflicts(
+    docs.map((d) => ({
+      parentId: d.parentId,
+      title: d.title,
+      department: d.department,
+      content: d.contentPreview,
+      tags: d.tags,
+      createdByEmail: d.createdByEmail,
+      createdByName: d.createdByName,
+    }))
   );
 }
 
