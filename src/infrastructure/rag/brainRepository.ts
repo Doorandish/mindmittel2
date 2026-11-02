@@ -6,6 +6,7 @@ import {
 } from '@/core/rag/chunker';
 import {
   rankParentDocumentsByVectorMatch,
+  resolveDepartmentFilterCandidates,
   type EmbeddedChildChunk,
   type MatchedParentDocumentResult,
 } from '@/core/rag/vectorMath';
@@ -23,6 +24,7 @@ import {
   buildConnectorSyncDocument,
   configureConnectorCredentials,
   createInitialConnectorsState,
+  fetchLiveConnectorPayloadOrFallback,
   toggleConnectorState,
   type EnterpriseConnectorItem,
 } from '@/core/connectors/connectorRegistry';
@@ -54,6 +56,7 @@ export interface StoredAuditHistoryEntry {
 }
 
 interface AttributedParentChunk extends ParentDocumentChunk {
+  childCount?: number;
   createdByEmail?: string;
   createdByName?: string;
 }
@@ -63,6 +66,7 @@ interface InMemoryBrainVault {
   children: EmbeddedChildChunk[];
   auditHistory: StoredAuditHistoryEntry[];
   connectors: EnterpriseConnectorItem[];
+  connectorSecrets: Record<string, string>;
   users: AuthenticatedUserIdentity[];
   seeded: boolean;
   atlasSeeded: boolean;
@@ -139,6 +143,7 @@ function getMemoryVault(): InMemoryBrainVault {
       children: [],
       auditHistory: [],
       connectors: createInitialConnectorsState(),
+      connectorSecrets: {},
       users: [],
       seeded: false,
       atlasSeeded: false,
@@ -291,8 +296,12 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
     for (const policy of DEFAULT_SAMPLE_POLICIES) {
       const { parents, children } = createParentChildChunks(policy);
       for (const p of parents) {
+        const pChildCount = children.filter(
+          (c) => c.parentId === p.parentId
+        ).length;
         vault.parents.push({
           ...p,
+          childCount: Math.max(1, pChildCount),
           createdByEmail: 'governance-board@mindmittel.de',
           createdByName: 'Governance Board',
         });
@@ -313,8 +322,11 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
       const rawCol = db.collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS);
       const vecCol = db.collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE);
 
-      const existingCount = await vecCol.countDocuments({});
-      if (existingCount === 0 && vault.parents.length > 0) {
+      const [existingRawCount, existingVecCount] = await Promise.all([
+        rawCol.countDocuments({}),
+        vecCol.countDocuments({}),
+      ]);
+      if (existingRawCount === 0 && existingVecCount === 0 && vault.parents.length > 0) {
         const now = new Date();
         await rawCol.insertMany(
           vault.parents.map((p) => ({
@@ -397,6 +409,10 @@ export async function ingestDocumentIntoBrain(params: {
   const { parents, children } = createParentChildChunks(rawInput);
   const attributedParents: AttributedParentChunk[] = parents.map((p) => ({
     ...p,
+    childCount: Math.max(
+      1,
+      children.filter((c) => c.parentId === p.parentId).length
+    ),
     createdByEmail: authorEmail,
     createdByName: authorName,
   }));
@@ -526,7 +542,7 @@ export async function listBrainDocuments(): Promise<
   }
 
   return vault.parents.map((parent) => {
-    const childCount = vault.children.filter(
+    const memoryChildCount = vault.children.filter(
       (c) => c.parentId === parent.parentId
     ).length;
 
@@ -537,7 +553,7 @@ export async function listBrainDocuments(): Promise<
       sourceType: parent.metadata.sourceType,
       tags: parent.metadata.tags,
       contentPreview: parent.content,
-      childCount: Math.max(1, childCount),
+      childCount: Math.max(1, parent.childCount ?? memoryChildCount),
       createdByEmail: parent.createdByEmail ?? 'governance-board@mindmittel.de',
       createdByName: parent.createdByName ?? 'Governance Board',
     };
@@ -638,6 +654,10 @@ export async function listAuditHistory(): Promise<StoredAuditHistoryEntry[]> {
     }
   }
 
+  vault.auditHistory.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
   return vault.auditHistory;
 }
 
@@ -664,15 +684,71 @@ export async function removeAuditHistoryEntry(auditId: string): Promise<void> {
 }
 
 /**
- * Returns the current list of Enterprise Connectors (Chat, Knowledge Management, Online Meetings).
+ * Persists a single EnterpriseConnectorItem state into `mindmittel_v2.connectors` in MongoDB Atlas.
+ */
+async function persistConnectorItemToAtlas(
+  connector: EnterpriseConnectorItem
+): Promise<void> {
+  if (!isMongoConfigured()) return;
+  try {
+    const db = await getMindMittelDb();
+    await db.collection(COLLECTIONS.CONNECTORS).updateOne(
+      { id: connector.id },
+      {
+        $set: {
+          ...connector,
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+  } catch {
+    // Fallback silently to in-memory connector state if offline
+  }
+}
+
+/**
+ * Returns the current list of Enterprise Connectors (Chat, Knowledge Management, Online Meetings),
+ * hydrating persisted configurations from `mindmittel_v2.connectors` in MongoDB Atlas when available.
  */
 export async function getConnectorsList(): Promise<EnterpriseConnectorItem[]> {
   const vault = getMemoryVault();
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      const remoteConnectors = await db
+        .collection<EnterpriseConnectorItem>(COLLECTIONS.CONNECTORS)
+        .find({})
+        .toArray();
+
+      if (remoteConnectors.length > 0) {
+        const remoteMap = new Map(remoteConnectors.map((c) => [c.id, c]));
+        vault.connectors = vault.connectors.map((local) => {
+          const persisted = remoteMap.get(local.id);
+          if (!persisted) return local;
+          return {
+            ...local,
+            configured: Boolean(persisted.configured),
+            enabled: Boolean(persisted.enabled),
+            maskedCredential: persisted.maskedCredential ?? local.maskedCredential,
+            targetScope: persisted.targetScope || local.targetScope,
+            lastSyncedAt: persisted.lastSyncedAt ?? local.lastSyncedAt,
+            updatedByEmail: persisted.updatedByEmail ?? local.updatedByEmail,
+          };
+        });
+      }
+    } catch {
+      // Fallback to in-memory connectors state
+    }
+  }
+
   return vault.connectors;
 }
 
 /**
- * Configures authentication credentials for an Enterprise Connector and enables it.
+ * Configures authentication credentials for an Enterprise Connector, enables it,
+ * and persists the updated state to `mindmittel_v2.connectors` in MongoDB Atlas.
  */
 export async function saveConnectorConfig(params: {
   connectorId: string;
@@ -682,6 +758,12 @@ export async function saveConnectorConfig(params: {
 }): Promise<EnterpriseConnectorItem[]> {
   const vault = getMemoryVault();
   vault.connectors = configureConnectorCredentials(vault.connectors, params);
+  vault.connectorSecrets[params.connectorId] = params.apiSecret.trim();
+
+  const updated = vault.connectors.find((c) => c.id === params.connectorId);
+  if (updated) {
+    await persistConnectorItemToAtlas(updated);
+  }
 
   systemLogger.info(
     'connectors.auth',
@@ -692,7 +774,7 @@ export async function saveConnectorConfig(params: {
 }
 
 /**
- * Toggles an Enterprise Connector ON or OFF (iOS Switch).
+ * Toggles an Enterprise Connector ON or OFF (iOS Switch) and persists to MongoDB Atlas.
  */
 export async function toggleConnectorById(params: {
   connectorId: string;
@@ -707,6 +789,11 @@ export async function toggleConnectorById(params: {
     params.userEmail
   );
 
+  const updated = vault.connectors.find((c) => c.id === params.connectorId);
+  if (updated) {
+    await persistConnectorItemToAtlas(updated);
+  }
+
   systemLogger.info(
     'connectors.toggle',
     `Switched connector [${params.connectorId}] ${params.enabled ? 'ON' : 'OFF'} by [${params.userEmail}]`
@@ -716,7 +803,8 @@ export async function toggleConnectorById(params: {
 }
 
 /**
- * Pulls data from an enabled Enterprise Connector and indexes it directly into the Company Brain.
+ * Pulls data from an enabled Enterprise Connector (using live HTTP API handshake or resilient fallback)
+ * and indexes it directly into the Company Brain.
  */
 export async function syncConnectorDataIntoBrain(params: {
   connectorId: string;
@@ -733,7 +821,12 @@ export async function syncConnectorDataIntoBrain(params: {
     throw new Error(`Connector not found: ${params.connectorId}`);
   }
 
-  const syncPayload = buildConnectorSyncDocument(target, params.userEmail);
+  const syncPayload = await fetchLiveConnectorPayloadOrFallback({
+    connector: target,
+    rawSecret: vault.connectorSecrets[params.connectorId],
+    userEmail: params.userEmail,
+  });
+
   const ingestion = await ingestDocumentIntoBrain({
     title: syncPayload.title,
     content: syncPayload.content,
@@ -754,6 +847,11 @@ export async function syncConnectorDataIntoBrain(params: {
         }
       : c
   );
+
+  const updated = vault.connectors.find((c) => c.id === params.connectorId);
+  if (updated) {
+    await persistConnectorItemToAtlas(updated);
+  }
 
   return {
     connectors: vault.connectors,
@@ -797,11 +895,11 @@ export async function searchBrainByVectorSimilarity(params: {
         params.departmentFilter !== 'all' &&
         params.departmentFilter.trim() !== ''
       ) {
+        const deptCandidates = resolveDepartmentFilterCandidates(
+          params.departmentFilter
+        );
         vectorSearchStage.filter = {
-          'metadata.department': params.departmentFilter
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-'),
+          'metadata.department': { $in: deptCandidates },
         };
       }
 

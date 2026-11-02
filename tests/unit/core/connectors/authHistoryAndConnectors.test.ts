@@ -10,6 +10,7 @@ import {
   configureConnectorCredentials,
   toggleConnectorState,
   buildConnectorSyncDocument,
+  fetchLiveConnectorPayloadOrFallback,
 } from '@/core/connectors/connectorRegistry';
 
 describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise Connectors', () => {
@@ -93,6 +94,32 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     expect(syncedDoc.createdByEmail).toBe('amir@mindmittel.de');
   });
 
+  it('persists connectors in MongoDB Atlas COLLECTIONS.CONNECTORS and supports live HTTP connector sync with resilient fallback', async () => {
+    const initial = createInitialConnectorsState();
+    const configured = configureConnectorCredentials(initial, {
+      connectorId: 'slack',
+      apiSecret: 'xoxb-demo-token-1234',
+      targetScope: '#gov-council',
+      userEmail: 'amir@mindmittel.de',
+    });
+    const slack = configured.find((c) => c.id === 'slack')!;
+
+    const payload = await fetchLiveConnectorPayloadOrFallback({
+      connector: slack,
+      rawSecret: 'xoxb-demo-token-1234',
+      userEmail: 'amir@mindmittel.de',
+    });
+    expect(payload.title).toContain('Slack');
+    expect(payload.createdByEmail).toBe('amir@mindmittel.de');
+
+    const repoSource = fs.readFileSync(
+      path.join(rootDir, 'src/infrastructure/rag/brainRepository.ts'),
+      'utf-8'
+    );
+    expect(repoSource).toContain('COLLECTIONS.CONNECTORS');
+    expect(repoSource).toContain('fetchLiveConnectorPayloadOrFallback');
+  });
+
   it('renders a full-height Left Sidebar with top Brand Logo + Language Selector, middle sections, and bottom User Profile (no top header in workspace), and stacks Audit History below Evaluate Decision', () => {
     const pageSource = fs.readFileSync(
       path.join(rootDir, 'src/app/page.tsx'),
@@ -125,7 +152,9 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     );
     expect(shellSource).toContain("subTab: 'system'");
     expect(pageSource).toContain("workspaceSubTab === 'system'");
+    expect(pageSource).toContain("openLiveWorkspace('system')");
     expect(systemPageSource).toContain('AppShell');
+    expect(systemPageSource).toContain('onOpenAuthModal');
     expect(systemPageSource).not.toContain('ArrowLeft');
     expect(systemPageSource).not.toContain('Back to Landing Page');
   });

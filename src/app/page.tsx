@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import {
   ShieldCheck,
   Layers,
@@ -1273,14 +1272,22 @@ export default function HomePage() {
                 </div>
                 <ul className="space-y-1.5 text-xs">
                   <li>
-                    <Link href="/system" className="hover:text-blue-600">
+                    <button
+                      type="button"
+                      onClick={() => openLiveWorkspace('system')}
+                      className="hover:text-blue-600 text-left"
+                    >
                       Interactive System Topology (/system)
-                    </Link>
+                    </button>
                   </li>
                   <li>
-                    <Link href="/system" className="hover:text-blue-600">
+                    <button
+                      type="button"
+                      onClick={() => openLiveWorkspace('system')}
+                      className="hover:text-blue-600 text-left"
+                    >
                       Live SSE Telemetry Stream
-                    </Link>
+                    </button>
                   </li>
                 </ul>
               </div>

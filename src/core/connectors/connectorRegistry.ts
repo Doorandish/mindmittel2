@@ -313,3 +313,94 @@ export function buildConnectorSyncDocument(
     createdByEmail: userEmail.trim().toLowerCase(),
   };
 }
+
+/**
+ * Attempts a live API handshake/fetch using the configured credential for real enterprise tokens,
+ * and seamlessly falls back to `buildConnectorSyncDocument` when running in demo/offline environments.
+ */
+export async function fetchLiveConnectorPayloadOrFallback(params: {
+  connector: EnterpriseConnectorItem;
+  rawSecret?: string;
+  userEmail: string;
+}): Promise<{
+  title: string;
+  content: string;
+  department: string;
+  sourceType: DocumentSourceType;
+  tags: string[];
+  createdByEmail: string;
+}> {
+  const { connector, rawSecret, userEmail } = params;
+  const fallback = buildConnectorSyncDocument(connector, userEmail);
+  const cleanSecret = rawSecret?.trim() ?? '';
+
+  // Only attempt external HTTP calls if a non-demo real token is provided in online runtime
+  const isDemoSecret =
+    cleanSecret.length < 16 ||
+    cleanSecret.includes('demo') ||
+    cleanSecret.includes('test') ||
+    cleanSecret.includes('1234') ||
+    cleanSecret.includes('9999');
+
+  if (!cleanSecret || isDemoSecret || typeof fetch !== 'function') {
+    return fallback;
+  }
+
+  try {
+    if (connector.id === 'slack' && cleanSecret.startsWith('xoxb-')) {
+      const res = await fetch(
+        'https://slack.com/api/conversations.list?types=public_channel&limit=5',
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${cleanSecret}` },
+          signal: AbortSignal.timeout(3500),
+        }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          ok?: boolean;
+          channels?: Array<{ name?: string; purpose?: { value?: string } }>;
+        };
+        if (data.ok && Array.isArray(data.channels) && data.channels.length > 0) {
+          const summary = data.channels
+            .map(
+              (ch) =>
+                `#${ch.name ?? 'channel'}: ${ch.purpose?.value || 'Governance channel active'}`
+            )
+            .join(' | ');
+          return {
+            ...fallback,
+            content: `[Live Slack API Sync — ${connector.targetScope}] Active Workspace Channels: ${summary}. ${fallback.content}`,
+          };
+        }
+      }
+    } else if (
+      connector.id === 'notion' &&
+      (cleanSecret.startsWith('secret_') || cleanSecret.startsWith('ntn_'))
+    ) {
+      const res = await fetch('https://api.notion.com/v1/search', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cleanSecret}`,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ page_size: 5 }),
+        signal: AbortSignal.timeout(3500),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { results?: Array<{ id?: string }> };
+        if (Array.isArray(data.results) && data.results.length > 0) {
+          return {
+            ...fallback,
+            content: `[Live Notion API Sync — ${ data.results.length } workspace pages verified] ${fallback.content}`,
+          };
+        }
+      }
+    }
+  } catch {
+    // Graceful fallback to deterministic governance sync document
+  }
+
+  return fallback;
+}

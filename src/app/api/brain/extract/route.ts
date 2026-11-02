@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   classifyMultimodalInput,
   extractTextFromPlainBuffer,
+  extractTextFromPptxBuffer,
+  validateMultimodalFileSize,
 } from '@/core/rag/multimodalExtractor';
 import { geminiModelSelector } from '@/infrastructure/gemini/modelSelector';
 import { systemLogger } from '@/infrastructure/logging/logger';
@@ -27,6 +29,22 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    try {
+      validateMultimodalFileSize(buffer.byteLength, file.name);
+    } catch (sizeErr) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            sizeErr instanceof Error
+              ? sizeErr.message
+              : 'File exceeds 15 MB limit.',
+        },
+        { status: 413 }
+      );
+    }
+
     const classification = classifyMultimodalInput(file.name, file.type);
 
     // 1. Direct fast path for plain text files (.txt, .md, .csv, .json)
@@ -43,6 +61,23 @@ export async function POST(request: NextRequest) {
         extractedText: text,
         suggestedTitle: file.name.replace(/\.[^.]+$/, ''),
         mode: 'direct_text_parser',
+      });
+    }
+
+    // 1b. Native OpenXML Slide Parser for PowerPoint (.pptx / presentation) files
+    if (classification.category === 'presentation') {
+      const slideText = extractTextFromPptxBuffer(buffer, file.name);
+      systemLogger.info(
+        'rag.multimodal',
+        `Extracted slide text from presentation [${file.name}] (${buffer.byteLength} bytes)`
+      );
+      return NextResponse.json({
+        ok: true,
+        category: classification.category,
+        fileName: file.name,
+        extractedText: slideText,
+        suggestedTitle: file.name.replace(/\.[^.]+$/, ''),
+        mode: 'native_pptx_xml_parser',
       });
     }
 

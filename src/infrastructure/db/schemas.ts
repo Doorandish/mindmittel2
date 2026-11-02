@@ -46,6 +46,7 @@ export function validateUserDocument(
  * Parent Document Record stored in `raw_documents`.
  */
 export interface RawDocumentRecord extends ParentDocumentChunk {
+  childCount?: number;
   createdByEmail?: string;
   createdByName?: string;
   createdAt: Date;

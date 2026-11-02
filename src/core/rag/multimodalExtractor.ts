@@ -1,3 +1,7 @@
+import zlib from 'zlib';
+
+export const MAX_MULTIMODAL_FILE_BYTES = 15 * 1024 * 1024; // 15 MB guard for Base64 inline payloads
+
 export type MultimodalInputCategory =
   | 'text'
   | 'pdf'
@@ -9,6 +13,21 @@ export interface MultimodalClassification {
   category: MultimodalInputCategory;
   normalizedMimeType: string;
   extractionPrompt: string;
+}
+
+/**
+ * Validates that an uploaded file or audio stream does not exceed the 15 MB inline processing limit.
+ */
+export function validateMultimodalFileSize(
+  byteLength: number,
+  fileName: string
+): void {
+  if (byteLength > MAX_MULTIMODAL_FILE_BYTES) {
+    const sizeMb = (byteLength / (1024 * 1024)).toFixed(1);
+    throw new Error(
+      `File "${fileName}" (${sizeMb} MB) exceeds the maximum allowed upload size of 15 MB.`
+    );
+  }
 }
 
 /**
@@ -107,4 +126,106 @@ export function extractTextFromPlainBuffer(
   }
 
   return `Extracted content from ${fileName} (${buffer.byteLength} bytes).`;
+}
+
+function decodeXmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function extractDrawingMlTextNodes(xmlString: string): string[] {
+  const matches: string[] = [];
+  const tagRegex = /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/gi;
+  let match: RegExpExecArray | null = tagRegex.exec(xmlString);
+  while (match !== null) {
+    const cleaned = decodeXmlEntities(match[1]).trim();
+    if (cleaned.length > 0) {
+      matches.push(cleaned);
+    }
+    match = tagRegex.exec(xmlString);
+  }
+  return matches;
+}
+
+/**
+ * Native PowerPoint (.pptx) Slide Text Extractor.
+ * Parses OpenXML `<a:t>` text runs directly from uncompressed XML or ZIP-deflated `ppt/slides/slide*.xml` entries
+ * without sending unsupported `.pptx` binary MIME types to Gemini `inlineData`.
+ */
+export function extractTextFromPptxBuffer(
+  buffer: Buffer,
+  fileName: string
+): string {
+  const collectedSegments: string[] = [];
+
+  // 1. Check if buffer contains ZIP Local File Headers (PK\x03\x04 = 0x04034b50)
+  let offset = 0;
+  while (offset + 30 <= buffer.length) {
+    const signature = buffer.readUInt32LE(offset);
+    if (signature !== 0x04034b50) {
+      offset += 1;
+      continue;
+    }
+
+    const compressionMethod = buffer.readUInt16LE(offset + 8);
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraFieldLength = buffer.readUInt16LE(offset + 28);
+    const dataStart = offset + 30 + fileNameLength + extraFieldLength;
+
+    if (dataStart > buffer.length) break;
+
+    const entryName = buffer
+      .subarray(offset + 30, offset + 30 + fileNameLength)
+      .toString('utf-8');
+
+    const dataEnd =
+      compressedSize > 0
+        ? Math.min(dataStart + compressedSize, buffer.length)
+        : buffer.length;
+
+    if (
+      entryName.endsWith('.xml') &&
+      (entryName.includes('slide') || entryName.includes('notes'))
+    ) {
+      try {
+        const rawSlice = buffer.subarray(dataStart, dataEnd);
+        const xmlBuf =
+          compressionMethod === 8
+            ? zlib.inflateRawSync(rawSlice)
+            : compressionMethod === 0
+              ? rawSlice
+              : null;
+
+        if (xmlBuf) {
+          const nodes = extractDrawingMlTextNodes(xmlBuf.toString('utf-8'));
+          if (nodes.length > 0) {
+            collectedSegments.push(nodes.join(' '));
+          }
+        }
+      } catch {
+        // Continue scanning remaining entries if a single ZIP entry uses data descriptors
+      }
+    }
+
+    offset = dataEnd > offset ? dataEnd : offset + 30;
+  }
+
+  // 2. Also scan raw UTF-8 buffer directly for <a:t>...</a:t> tags (handles uncompressed XML or test buffers)
+  if (collectedSegments.length === 0) {
+    const directNodes = extractDrawingMlTextNodes(buffer.toString('utf-8'));
+    if (directNodes.length > 0) {
+      collectedSegments.push(directNodes.join(' '));
+    }
+  }
+
+  if (collectedSegments.length > 0) {
+    return collectedSegments.join('\n\n').trim();
+  }
+
+  return extractTextFromPlainBuffer(buffer, fileName);
 }

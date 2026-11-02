@@ -4,6 +4,8 @@ import path from 'path';
 import {
   computeCosineSimilarity,
   generateDeterministicSemanticEmbedding,
+  normalizeDepartmentSlug,
+  resolveDepartmentFilterCandidates,
   rankParentDocumentsByVectorMatch,
 } from '@/core/rag/vectorMath';
 import {
@@ -136,5 +138,62 @@ describe('768-d Vector Similarity & Parent-Child Retrieval Engine (Functional Co
     expect(repoSource).toContain('$vectorSearch');
     expect(repoSource).toContain('createSearchIndex');
     expect(repoSource).toContain('getVectorSearchDiagnosticStatus');
+    expect(repoSource).toContain('resolveDepartmentFilterCandidates');
+    expect(repoSource).toContain('childCount');
+  });
+
+  it('normalizes department slugs and matches display labels ("Finance & Legal") against normalized slugs ("finance-legal") in both vector search and in-memory ranking', () => {
+    expect(normalizeDepartmentSlug('Finance & Legal')).toBe('finance-legal');
+    expect(normalizeDepartmentSlug('HR & Legal')).toBe('hr-legal');
+    expect(normalizeDepartmentSlug('Engineering')).toBe('engineering');
+
+    const candidates = resolveDepartmentFilterCandidates('Finance & Legal');
+    expect(candidates).toContain('finance-legal');
+    expect(candidates).toContain('Finance & Legal');
+
+    const financeDoc = createParentChildChunks({
+      orgId: 'org_default',
+      title: 'Procurement Charter',
+      content: 'All unbudgeted expenses above €10,000 require CFO approval.',
+      department: 'Finance & Legal', // chunker normalizes this to 'finance-legal'
+      docType: 'charter',
+      language: 'en',
+      accessLevel: 'internal',
+      tags: ['finance', 'budget'],
+      source: {
+        type: 'upload',
+        connectorId: 'seed',
+        externalId: 'fin_test',
+      },
+    });
+
+    const embeddedChildren = financeDoc.children.map((c) => ({
+      ...c,
+      embedding: generateDeterministicSemanticEmbedding(c.text),
+    }));
+
+    const queryVec = generateDeterministicSemanticEmbedding(
+      'Approve €15,000 unbudgeted vendor expense'
+    );
+
+    // Filtering by display label "Finance & Legal" or slug "finance-legal" must both match
+    const matchByLabel = rankParentDocumentsByVectorMatch({
+      queryVector: queryVec,
+      children: embeddedChildren,
+      parents: financeDoc.parents,
+      departmentFilter: 'Finance & Legal',
+      topK: 2,
+    });
+    const matchBySlug = rankParentDocumentsByVectorMatch({
+      queryVector: queryVec,
+      children: embeddedChildren,
+      parents: financeDoc.parents,
+      departmentFilter: 'finance-legal',
+      topK: 2,
+    });
+
+    expect(matchByLabel.length).toBe(1);
+    expect(matchBySlug.length).toBe(1);
+    expect(matchByLabel[0].title).toBe('Procurement Charter');
   });
 });

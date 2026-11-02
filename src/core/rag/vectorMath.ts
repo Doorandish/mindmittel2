@@ -144,6 +144,36 @@ export function generateDeterministicSemanticEmbedding(text: string): number[] {
 }
 
 /**
+ * Normalizes any department label or slug (e.g. "Finance & Legal", "HR & Legal", "finance-legal")
+ * into a canonical lowercase hyphenated slug matching `chunker.ts`.
+ */
+export function normalizeDepartmentSlug(dept: string): string {
+  return dept
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+const DEPARTMENT_DISPLAY_MAP: Record<string, string[]> = {
+  'finance-legal': ['finance-legal', 'Finance & Legal', 'finance', 'Finance'],
+  'hr-legal': ['hr-legal', 'HR & Legal', 'hr', 'HR'],
+  engineering: ['engineering', 'Engineering'],
+  'executive-board': ['executive-board', 'Executive Board', 'executive'],
+  general: ['general', 'General'],
+};
+
+/**
+ * Returns all candidate department strings (canonical slug + display labels)
+ * for MongoDB Atlas `$vectorSearch` `$in` filtering and in-memory matching.
+ */
+export function resolveDepartmentFilterCandidates(filter: string): string[] {
+  const slug = normalizeDepartmentSlug(filter);
+  const mapped = DEPARTMENT_DISPLAY_MAP[slug] ?? [];
+  return Array.from(new Set([slug, filter.trim(), ...mapped])).filter(Boolean);
+}
+
+/**
  * Matches a query vector against Child chunks (with optional department filter),
  * then deduplicates and returns the highest-scoring Parent documents.
  */
@@ -167,14 +197,17 @@ export function rankParentDocumentsByVectorMatch(params: {
     parentMap.set(p.parentId, p);
   }
 
-  const filteredChildren =
-    departmentFilter && departmentFilter !== 'all'
-      ? children.filter(
-          (c) =>
-            c.metadata.department.toLowerCase() ===
-            departmentFilter.toLowerCase()
-        )
-      : children;
+  const normalizedFilterSlug =
+    departmentFilter && departmentFilter !== 'all' && departmentFilter.trim() !== ''
+      ? normalizeDepartmentSlug(departmentFilter)
+      : null;
+
+  const filteredChildren = normalizedFilterSlug
+    ? children.filter(
+        (c) =>
+          normalizeDepartmentSlug(c.metadata.department) === normalizedFilterSlug
+      )
+    : children;
 
   const bestByParent = new Map<string, MatchedParentDocumentResult>();
 

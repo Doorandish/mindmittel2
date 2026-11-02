@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyMultimodalInput,
   extractTextFromPlainBuffer,
+  extractTextFromPptxBuffer,
+  validateMultimodalFileSize,
+  MAX_MULTIMODAL_FILE_BYTES,
 } from '@/core/rag/multimodalExtractor';
 import { dictionaries } from '@/i18n/dictionaries';
 import fs from 'fs';
@@ -35,6 +38,25 @@ describe('Multimodal File & Audio Transcription Classifier & Workspace UX Rules'
     );
     const extracted = extractTextFromPlainBuffer(sample, 'security.txt');
     expect(extracted).toContain('full-disk encryption');
+  });
+
+  it('extracts structured slide text from PPTX XML <a:t> tags and enforces 15MB upload size guard', () => {
+    const mockPptxXmlBuffer = Buffer.from(
+      '<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:cSld><p:spTree><a:t>Q4 Supervisory Board Resolution</a:t><a:t>Unbudgeted software spend over €10,000 requires CFO sign-off.</a:t></p:spTree></p:cSld></p:sld>',
+      'utf-8'
+    );
+    const slideText = extractTextFromPptxBuffer(
+      mockPptxXmlBuffer,
+      'board_deck.pptx'
+    );
+    expect(slideText).toContain('Q4 Supervisory Board Resolution');
+    expect(slideText).toContain('requires CFO sign-off');
+
+    expect(MAX_MULTIMODAL_FILE_BYTES).toBe(15 * 1024 * 1024);
+    expect(() => validateMultimodalFileSize(1024, 'small.pdf')).not.toThrow();
+    expect(() =>
+      validateMultimodalFileSize(MAX_MULTIMODAL_FILE_BYTES + 100, 'huge.mp3')
+    ).toThrow(/15 MB/i);
   });
 
   it('removes PHASE 1 and PHASE 2 labels from workspace UI and hides Launch Live App button when inside workspace', () => {
