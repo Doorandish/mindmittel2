@@ -1,4 +1,5 @@
 import type { ModelSelectionProfile } from '@/core/ai/modelRanking';
+import type { GermanRegulatoryAdvisory } from '@/core/audit/germanRegulatoryAdvisor';
 
 export type AuditVerdict = 'CERTIFIED' | 'CONDITIONAL' | 'POLICY_CONFLICT';
 
@@ -31,6 +32,8 @@ export interface ExecutiveAuditReport {
     matchedChildSnippet: string;
   }>;
   evaluatedAt: string;
+  /** Optional: absent on audit history entries created before the DACH advisory existed. */
+  germanAdvisory?: GermanRegulatoryAdvisory;
 }
 
 const CONFLICT_TRIGGER_PATTERN =

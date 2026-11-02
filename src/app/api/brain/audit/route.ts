@@ -12,6 +12,10 @@ import {
   type AuditVerdict,
   type ExecutiveAuditReport,
 } from '@/core/audit/decisionEvaluator';
+import {
+  applyGermanAdvisoryToReport,
+  evaluateGermanRegulatoryAdvisory,
+} from '@/core/audit/germanRegulatoryAdvisor';
 import { systemLogger } from '@/infrastructure/logging/logger';
 
 export const dynamic = 'force-dynamic';
@@ -212,31 +216,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 5. German Regulatory & Betriebsrat Advisory (applied after LLM synthesis so it cannot be overridden)
+    const germanAdvisory = evaluateGermanRegulatoryAdvisory({
+      decisionProposal,
+      matchedParents,
+    });
+    const finalReport = applyGermanAdvisoryToReport(
+      baselineReport,
+      germanAdvisory,
+      locale
+    );
+
     const savedEntry = await saveAuditReportToHistory({
       decisionProposal,
       departmentFilter: body.departmentFilter ?? 'all',
       auditedByEmail: body.auditedByEmail,
       auditedByName: body.auditedByName,
-      report: baselineReport,
+      report: finalReport,
     });
 
     const history = await listAuditHistory();
 
     systemLogger.info(
       'audit.engine',
-      `Completed Executive Audit by [${savedEntry.auditedByEmail}] -> Verdict: ${baselineReport.verdict} (${baselineReport.alignmentScore}%) via ${baselineReport.selectedModelId}`,
+      `Completed Executive Audit by [${savedEntry.auditedByEmail}] -> Verdict: ${finalReport.verdict} (${finalReport.alignmentScore}%) via ${finalReport.selectedModelId}`,
       {
         auditId: savedEntry.auditId,
-        verdict: baselineReport.verdict,
-        alignmentScore: baselineReport.alignmentScore,
-        model: baselineReport.selectedModelId,
+        verdict: finalReport.verdict,
+        alignmentScore: finalReport.alignmentScore,
+        model: finalReport.selectedModelId,
         matchedDocs: matchedParents.length,
+        betriebsratRequired: germanAdvisory.betriebsratInvolvementRequired,
+        knowledgeCoverage: germanAdvisory.knowledgeCoverage.status,
       }
     );
 
     return NextResponse.json({
       ok: true,
-      report: baselineReport,
+      report: finalReport,
       entry: savedEntry,
       history,
     });

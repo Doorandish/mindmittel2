@@ -195,17 +195,21 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       ],
       sourceFiles: [
         'src/core/audit/decisionEvaluator.ts',
+        'src/core/audit/germanRegulatoryAdvisor.ts',
         'src/app/api/brain/audit/route.ts',
         'tests/unit/core/audit/vectorAndAuditEngine.test.ts',
+        'tests/unit/core/audit/germanRegulatoryAdvisor.test.ts',
       ],
       apiContracts: [
-        'POST /api/brain/audit -> ExecutiveAuditReport',
+        'POST /api/brain/audit -> ExecutiveAuditReport (incl. germanAdvisory)',
         'evaluateDecisionAgainstPoliciesHeuristic(params)',
+        'evaluateGermanRegulatoryAdvisory({ decisionProposal, matchedParents })',
+        'applyGermanAdvisoryToReport(report, advisory, locale)',
       ],
       dataPipeline:
-        'Decision Proposal -> 768-d vector retrieval of top Parent policies -> autonomous Gemini Pro/Flash synthesis -> outputs Verdict (CERTIFIED / CONDITIONAL / POLICY_CONFLICT), Alignment %, Pros/Cons, Citations, and 3-Step Roadmap.',
+        'Decision Proposal -> 768-d vector retrieval of top Parent policies -> autonomous Gemini Pro/Flash synthesis -> German statutory screening (BetrVG §87/§111, DSGVO, EU AI Act, NIS-2) + Company Brain knowledge-coverage check -> outputs Verdict (CERTIFIED / CONDITIONAL / POLICY_CONFLICT), Alignment %, Pros/Cons, Citations, Roadmap and DACH Advisory.',
       errorHandlingAndFallbacks:
-        'If live Gemini API call times out or is unconfigured, evaluateDecisionAgainstPoliciesHeuristic() deterministically evaluates policy conflicts and returns a complete certified audit report.',
+        'If live Gemini API call times out or is unconfigured, evaluateDecisionAgainstPoliciesHeuristic() deterministically evaluates policy conflicts. The German advisory is fully deterministic, applied after LLM synthesis so it cannot be overridden, and only ever downgrades a CERTIFIED verdict to CONDITIONAL when a statute is triggered.',
       envVars: ['GEMINI_API_KEY'],
     },
   },

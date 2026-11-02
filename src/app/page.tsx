@@ -331,6 +331,19 @@ export default function HomePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  /**
+   * Knowledge-gap shortcut: jumps from the advisory report to the Company Brain
+   * ingestion form, pre-filled with a suggested policy title and department.
+   */
+  function handleFillKnowledgeGap(suggestedTitle: string, suggestedDepartment: string) {
+    setDocTitle(suggestedTitle);
+    setDocDepartment(suggestedDepartment);
+    setDocContent('');
+    setInputMode('text');
+    setIngestFeedback(null);
+    openLiveWorkspace('brain');
+  }
+
   async function handleMultimodalFileUpload(
     file: File,
     sourceLabel = 'file'
@@ -1784,6 +1797,138 @@ export default function HomePage() {
                       </strong>
                       {auditReport.strategicEvaluation}
                     </div>
+
+                    {/* GERMAN REGULATORY & BETRIEBSRAT ADVISORY (DACH Pre-Decision Check + Company Brain Coverage) */}
+                    {auditReport.germanAdvisory && (
+                      <div className="p-4 rounded-lg bg-white border border-slate-200/90 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="text-[11px] font-mono font-semibold text-slate-500 uppercase">
+                              {locale === 'de'
+                                ? 'Gesetzliche Vorprüfung Deutschland & Betriebsrat'
+                                : 'German Regulatory & Betriebsrat Advisory'}
+                            </div>
+                            <p className="text-[11.5px] text-slate-400 mt-0.5">
+                              {locale === 'de'
+                                ? auditReport.germanAdvisory.disclaimerDe
+                                : auditReport.germanAdvisory.disclaimerEn}
+                            </p>
+                          </div>
+                          {auditReport.germanAdvisory.betriebsratInvolvementRequired && (
+                            <span className="px-2.5 py-1 rounded-md bg-rose-50 border border-rose-200 text-[11px] font-semibold text-rose-800">
+                              {locale === 'de'
+                                ? 'Betriebsrat einbinden'
+                                : 'Betriebsrat involvement required'}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                          {auditReport.germanAdvisory.checks.map((check) => (
+                            <div
+                              key={check.framework}
+                              className={`p-3 rounded-lg border space-y-1 ${
+                                check.status === 'TRIGGERED'
+                                  ? 'bg-rose-50/50 border-rose-200'
+                                  : check.status === 'REVIEW'
+                                  ? 'bg-amber-50/50 border-amber-200'
+                                  : 'bg-slate-50/60 border-slate-200/80'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[12.5px] font-semibold text-slate-900">
+                                  {check.label}
+                                </span>
+                                <span
+                                  className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${
+                                    check.status === 'TRIGGERED'
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : check.status === 'REVIEW'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {check.status === 'TRIGGERED'
+                                    ? locale === 'de'
+                                      ? 'BETROFFEN'
+                                      : 'TRIGGERED'
+                                    : check.status === 'REVIEW'
+                                    ? locale === 'de'
+                                      ? 'PRÜFEN'
+                                      : 'REVIEW'
+                                    : 'OK'}
+                                </span>
+                              </div>
+                              <div className="text-[10.5px] font-mono text-slate-500">
+                                {check.legalReference}
+                              </div>
+                              <p className="text-[12px] text-slate-700 leading-relaxed">
+                                {locale === 'de' ? check.findingDe : check.findingEn}
+                              </p>
+                              {check.matchedSignals.length > 0 && (
+                                <ul className="text-[11px] text-slate-500 list-disc pl-4">
+                                  {check.matchedSignals.map((signal) => (
+                                    <li key={signal}>{signal}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div
+                          className={`p-3 rounded-lg border flex flex-wrap items-center justify-between gap-3 ${
+                            auditReport.germanAdvisory.knowledgeCoverage.status ===
+                            'COVERED_BY_BRAIN'
+                              ? 'bg-emerald-50/50 border-emerald-200'
+                              : auditReport.germanAdvisory.knowledgeCoverage.status ===
+                                'PARTIAL_COVERAGE'
+                              ? 'bg-amber-50/50 border-amber-200'
+                              : 'bg-blue-50/50 border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2 min-w-0">
+                            <BookOpen className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <div className="text-[11px] font-mono font-semibold text-slate-600 uppercase">
+                                {auditReport.germanAdvisory.knowledgeCoverage.status ===
+                                'COVERED_BY_BRAIN'
+                                  ? 'Company Brain Coverage'
+                                  : auditReport.germanAdvisory.knowledgeCoverage.status ===
+                                    'PARTIAL_COVERAGE'
+                                  ? 'Partial Company Brain Coverage'
+                                  : 'Company Brain Knowledge Gap'}
+                              </div>
+                              <p className="text-[12px] text-slate-700 leading-relaxed">
+                                {locale === 'de'
+                                  ? auditReport.germanAdvisory.knowledgeCoverage.messageDe
+                                  : auditReport.germanAdvisory.knowledgeCoverage.messageEn}
+                              </p>
+                            </div>
+                          </div>
+
+                          {auditReport.germanAdvisory.knowledgeCoverage.status !==
+                            'COVERED_BY_BRAIN' && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleFillKnowledgeGap(
+                                  auditReport.germanAdvisory!.knowledgeCoverage
+                                    .suggestedTitle,
+                                  auditReport.germanAdvisory!.knowledgeCoverage
+                                    .suggestedDepartment
+                                )
+                              }
+                              className="h-8 px-3 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-[12px] font-medium shrink-0 transition-colors"
+                            >
+                              {locale === 'de'
+                                ? '+ Richtlinie im Company Brain anlegen'
+                                : '+ Add Policy to Company Brain'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       <div className="p-3.5 rounded-lg bg-emerald-50/40 border border-emerald-200/80 space-y-1.5">
