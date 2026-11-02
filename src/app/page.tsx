@@ -1406,16 +1406,16 @@ export default function HomePage() {
 
       {/* VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS (Evaluate Decision + Stacked Audit History, Company Brain, Connectors) */}
       {activeTab === 'vault' && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
           {/* Mobile-Only Compact User Identity Bar (Desktop uses the Left Sidebar) */}
-          <div className="md:hidden bg-white rounded-2xl border border-slate-200/90 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+          <div className="md:hidden bg-white rounded-xl border border-slate-200/85 px-3.5 py-2.5 flex items-center justify-between gap-3">
             <span className="text-xs font-mono text-slate-700 truncate">
               Signed in: <strong>{userEmail}</strong>
             </span>
             <button
               type="button"
               onClick={() => setShowAuthModal(true)}
-              className="text-xs font-bold text-blue-600 underline shrink-0"
+              className="text-xs font-semibold text-blue-600 underline shrink-0"
             >
               Switch Profile
             </button>
@@ -1423,15 +1423,22 @@ export default function HomePage() {
 
           {/* SECTION 1: EVALUATE DECISION (Input Form on Top + Previous Audit Reports Stacked Directly Below) */}
           {workspaceSubTab === 'evaluate' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Top Card: Decision Proposal Input + Live Pipeline Checklist + Active Audit Report */}
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-7 space-y-5">
+              <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">
-                    {locale === 'de'
-                      ? 'Management-Entscheidung gegen Company Brain prüfen'
-                      : 'Evaluate Management Decision Against Company Brain'}
-                  </h1>
+                  <div>
+                    <h1 className="text-[16px] sm:text-[17px] font-semibold tracking-[-0.02em] text-slate-900">
+                      {locale === 'de'
+                        ? 'Management-Entscheidung gegen Company Brain prüfen'
+                        : 'Evaluate Management Decision Against Company Brain'}
+                    </h1>
+                    <p className="text-[12.5px] text-slate-500 mt-0.5">
+                      {locale === 'de'
+                        ? 'Prüft Ihr Vorhaben in Echtzeit gegen gespeicherte Unternehmensrichtlinien.'
+                        : 'Cross-examine proposed leadership actions against indexed company policies.'}
+                    </p>
+                  </div>
 
                   <div className="flex flex-wrap gap-1.5">
                     {QUICK_DECISION_PRESETS.map((preset, idx) => (
@@ -1446,7 +1453,7 @@ export default function HomePage() {
                           );
                           setAuditDepartmentFilter(preset.dept);
                         }}
-                        className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 text-slate-700 transition-colors"
+                        className="px-2.5 py-1 rounded-md text-[11.5px] font-medium bg-slate-100/80 hover:bg-slate-200/70 border border-slate-200/80 text-slate-700 transition-colors"
                       >
                         {locale === 'de' ? preset.labelDe : preset.labelEn}
                       </button>
@@ -1461,16 +1468,16 @@ export default function HomePage() {
                     value={decisionProposal}
                     onChange={(e) => setDecisionProposal(e.target.value)}
                     placeholder={dict.ragSection.searchPlaceholder}
-                    className="w-full p-3.5 text-sm sm:text-base liquid-glass-input"
+                    className="w-full p-3 text-[13.5px] leading-relaxed liquid-glass-input"
                   />
 
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3 text-xs">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 font-semibold text-blue-900">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-2.5 text-[12px]">
+                      <span className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-slate-100 border border-slate-200/80 font-medium text-slate-700">
                         <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                         <span>
                           Auto-Routed:{' '}
-                          <strong className="font-mono">
+                          <strong className="font-mono font-semibold text-slate-900">
                             {inferredProfile === 'reasoning'
                               ? 'Gemini Pro'
                               : 'Gemini Flash'}
@@ -1484,7 +1491,7 @@ export default function HomePage() {
                         onChange={(e) =>
                           setAuditDepartmentFilter(e.target.value)
                         }
-                        className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-800 font-semibold"
+                        className="h-8 px-2.5 rounded-md bg-white border border-slate-200/90 text-slate-700 font-medium text-[12px]"
                       >
                         <option value="all">Scope: All Departments</option>
                         <option value="finance-legal">Finance & Legal</option>
@@ -1492,7 +1499,7 @@ export default function HomePage() {
                         <option value="hr-legal">HR & Legal</option>
                       </select>
 
-                      <span className="text-slate-500 font-mono hidden sm:inline">
+                      <span className="text-slate-400 font-mono text-[11.5px] hidden sm:inline">
                         Auditor: {userEmail}
                       </span>
                     </div>
@@ -1500,12 +1507,12 @@ export default function HomePage() {
                     <button
                       type="submit"
                       disabled={isAuditing}
-                      className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2"
+                      className="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-medium text-[13px] shadow-sm transition-colors flex items-center gap-2"
                     >
                       {isAuditing ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <Play className="w-4 h-4 fill-current" />
+                        <Play className="w-3.5 h-3.5 fill-current" />
                       )}
                       <span>
                         {isAuditing
@@ -1522,11 +1529,11 @@ export default function HomePage() {
 
                 {/* LIVE STEP-BY-STEP AUDIT PIPELINE PROGRESS CHECKLIST */}
                 {showAuditChecklist && (
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
-                    <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-700 uppercase">
+                  <div className="p-3.5 rounded-lg bg-slate-50/90 border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-slate-600">
                       <span>
                         {locale === 'de'
-                          ? 'Live-Audit-Fortschritt (Pipeline-Aufgaben)'
+                          ? 'Live-Audit-Pipeline'
                           : 'Live Audit Execution Pipeline'}
                       </span>
                       <span className="text-blue-600">
@@ -1535,7 +1542,7 @@ export default function HomePage() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                       {AUDIT_PIPELINE_STEPS.map((step, index) => {
                         const isDone = index < auditCompletedSteps;
                         const isCurrent =
@@ -1544,21 +1551,21 @@ export default function HomePage() {
                         return (
                           <div
                             key={step.id}
-                            className={`px-3.5 py-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
+                            className={`px-3 py-2 rounded-md border text-[12px] flex items-center justify-between gap-2 transition-all ${
                               isDone
-                                ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-semibold'
+                                ? 'bg-emerald-50/70 border-emerald-200/90 text-emerald-950 font-medium'
                                 : isCurrent
-                                ? 'bg-blue-50 border-blue-300 text-blue-950 font-semibold'
-                                : 'bg-white border-slate-200 text-slate-500'
+                                ? 'bg-blue-50/80 border-blue-200 text-blue-950 font-medium'
+                                : 'bg-white border-slate-200/80 text-slate-500'
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
                               {isDone ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                               ) : isCurrent ? (
-                                <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                                <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin shrink-0" />
                               ) : (
-                                <span className="w-4 h-4 rounded-full border border-slate-300 inline-block shrink-0" />
+                                <span className="w-3.5 h-3.5 rounded-full border border-slate-300 inline-block shrink-0" />
                               )}
                               <span className="truncate">
                                 {locale === 'de' ? step.labelDe : step.labelEn}
@@ -1566,11 +1573,11 @@ export default function HomePage() {
                             </div>
 
                             <span
-                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded shrink-0 ${
                                 isDone
-                                  ? 'bg-emerald-100 text-emerald-700'
+                                  ? 'bg-emerald-100/80 text-emerald-700'
                                   : isCurrent
-                                  ? 'bg-blue-100 text-blue-700'
+                                  ? 'bg-blue-100/80 text-blue-700'
                                   : 'bg-slate-100 text-slate-400'
                               }`}
                             >
@@ -1588,64 +1595,66 @@ export default function HomePage() {
                 )}
 
                 {auditError && (
-                  <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
+                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 font-medium">
                     {auditError}
                   </div>
                 )}
 
                 {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
                 {auditReport && (
-                  <div className="pt-4 border-t border-slate-200 space-y-4">
+                  <div className="pt-4 border-t border-slate-200/80 space-y-3.5">
                     <div
-                      className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${
+                      className={`p-4 rounded-lg border flex flex-wrap items-center justify-between gap-4 ${
                         auditReport.verdict === 'POLICY_CONFLICT'
-                          ? 'bg-rose-50 border-rose-300 text-rose-950'
+                          ? 'bg-rose-50/70 border-rose-200 text-rose-950'
                           : auditReport.verdict === 'CONDITIONAL'
-                          ? 'bg-amber-50 border-amber-300 text-amber-950'
-                          : 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                          ? 'bg-amber-50/70 border-amber-200 text-amber-950'
+                          : 'bg-emerald-50/70 border-emerald-300 text-emerald-950'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         {auditReport.verdict === 'POLICY_CONFLICT' ? (
-                          <XCircle className="w-7 h-7 text-rose-600 shrink-0" />
+                          <XCircle className="w-6 h-6 text-rose-600 shrink-0" />
                         ) : auditReport.verdict === 'CONDITIONAL' ? (
-                          <AlertTriangle className="w-7 h-7 text-amber-600 shrink-0" />
+                          <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" />
                         ) : (
-                          <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                          <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
                         )}
                         <div>
-                          <div className="text-[11px] font-mono font-extrabold uppercase tracking-wider">
+                          <div className="text-[11px] font-mono font-semibold text-slate-600">
                             VERDICT: {auditReport.verdict} · MODEL:{' '}
                             {auditReport.selectedModelId} · AUDITED BY:{' '}
                             {lastAuditedByEmail}
                           </div>
-                          <div className="text-sm sm:text-base font-extrabold">
+                          <div className="text-[14px] font-semibold tracking-[-0.01em] mt-0.5">
                             {auditReport.executiveSummary}
                           </div>
                         </div>
                       </div>
 
                       <div className="text-right font-mono">
-                        <div className="text-xl font-extrabold">
+                        <div className="text-lg font-bold">
                           {auditReport.alignmentScore}%
                         </div>
-                        <div className="text-[10px] opacity-80">Alignment</div>
+                        <div className="text-[10px] text-slate-500">
+                          Alignment
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed">
-                      <strong className="block text-xs font-mono text-slate-500 uppercase mb-1">
+                    <div className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-200/80 text-[13px] text-slate-700 leading-relaxed">
+                      <strong className="block text-[11px] font-mono font-semibold text-slate-500 uppercase mb-1">
                         Strategic Policy Cross-Examination
                       </strong>
                       {auditReport.strategicEvaluation}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-1.5">
-                        <div className="text-xs font-mono font-bold text-emerald-800 uppercase">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div className="p-3.5 rounded-lg bg-emerald-50/40 border border-emerald-200/80 space-y-1.5">
+                        <div className="text-[11px] font-mono font-semibold text-emerald-800 uppercase">
                           Pros
                         </div>
-                        <ul className="space-y-1 text-xs text-slate-700">
+                        <ul className="space-y-1 text-[12.5px] text-slate-700">
                           {auditReport.pros.map((pro, i) => (
                             <li key={i} className="flex items-start gap-1.5">
                               <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
@@ -1655,11 +1664,11 @@ export default function HomePage() {
                         </ul>
                       </div>
 
-                      <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-200 space-y-1.5">
-                        <div className="text-xs font-mono font-bold text-rose-800 uppercase">
+                      <div className="p-3.5 rounded-lg bg-rose-50/40 border border-rose-200/80 space-y-1.5">
+                        <div className="text-[11px] font-mono font-semibold text-rose-800 uppercase">
                           Risks & Policy Conflicts
                         </div>
-                        <ul className="space-y-1 text-xs text-slate-700">
+                        <ul className="space-y-1 text-[12.5px] text-slate-700">
                           {auditReport.cons.map((con, i) => (
                             <li key={i} className="flex items-start gap-1.5">
                               <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
@@ -1670,29 +1679,29 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-1.5">
-                        <div className="text-xs font-mono font-bold text-blue-800 uppercase">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div className="p-3.5 rounded-lg bg-blue-50/40 border border-blue-200/80 space-y-1.5">
+                        <div className="text-[11px] font-mono font-semibold text-blue-800 uppercase">
                           Recommended Actionable Roadmap
                         </div>
-                        <ul className="space-y-1 text-xs text-slate-800 font-medium">
+                        <ul className="space-y-1 text-[12.5px] text-slate-800 font-medium">
                           {auditReport.roadmap.map((step, i) => (
                             <li key={i}>{step}</li>
                           ))}
                         </ul>
                       </div>
 
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-                        <div className="text-xs font-mono font-bold text-slate-600 uppercase">
+                      <div className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-200/80 space-y-1.5">
+                        <div className="text-[11px] font-mono font-semibold text-slate-600 uppercase">
                           Cited Company Brain Policies
                         </div>
                         <div className="space-y-1.5">
                           {auditReport.citations.map((cit) => (
                             <div
                               key={cit.parentId}
-                              className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center justify-between gap-2"
+                              className="p-2 rounded-md bg-white border border-slate-200/80 text-[12px] flex items-center justify-between gap-2"
                             >
-                              <span className="font-bold text-slate-900 truncate">
+                              <span className="font-semibold text-slate-900 truncate">
                                 {cit.title}
                               </span>
                               <span className="font-mono text-[11px] text-blue-600 shrink-0">
@@ -1709,77 +1718,76 @@ export default function HomePage() {
               </div>
 
               {/* Bottom Card (Stacked Directly Below Evaluate Decision): Previous Executive Audit Reports */}
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
+              <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                      <History className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-slate-900 flex items-center gap-2">
+                      <History className="w-4 h-4 text-slate-500" />
                       <span>
                         {locale === 'de'
                           ? 'Frühere Executive Audit-Berichte'
                           : 'Previous Executive Audit Reports'}
                       </span>
                     </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                    <p className="text-[12.5px] text-slate-500 mt-0.5">
                       {locale === 'de'
                         ? 'Alle geprüften Entscheidungen direkt unter dem Eingabefeld inklusive Prüfer-E-Mail und Löschfunktion.'
-                        : 'Every evaluated management decision stacked below with auditor email attribution and one-click deletion.'}
+                        : 'Evaluated management decisions with auditor email attribution and one-click deletion.'}
                     </p>
                   </div>
 
-                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
-                    {auditHistory.length} Saved Reports
+                  <span className="text-[11.5px] font-mono font-medium text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-md">
+                    {auditHistory.length} Saved
                   </span>
                 </div>
 
                 {auditHistory.length === 0 ? (
-                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-                    <p className="text-xs sm:text-sm font-medium text-slate-600">
+                  <div className="p-5 rounded-lg bg-slate-50/70 border border-slate-200/80 text-center">
+                    <p className="text-[12.5px] text-slate-500">
                       {locale === 'de'
                         ? 'Noch keine Audit-Berichte gespeichert. Prüfen Sie oben eine Entscheidung, um sie hier zu archivieren.'
                         : 'No executive audit reports saved yet. Run an audit above to automatically record it here.'}
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {auditHistory.map((item) => (
                       <div
                         key={item.auditId}
-                        className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-blue-300 transition-colors"
+                        className="p-3.5 rounded-lg bg-slate-50/60 border border-slate-200/85 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 hover:border-slate-300 transition-colors"
                       >
                         <div className="space-y-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold uppercase ${
+                              className={`px-2 py-0.5 rounded text-[10.5px] font-mono font-semibold uppercase ${
                                 item.report.verdict === 'POLICY_CONFLICT'
-                                  ? 'bg-rose-100 text-rose-800'
+                                  ? 'bg-rose-100/80 text-rose-800'
                                   : item.report.verdict === 'CONDITIONAL'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-emerald-100 text-emerald-800'
+                                  ? 'bg-amber-100/80 text-amber-800'
+                                  : 'bg-emerald-100/80 text-emerald-800'
                               }`}
                             >
                               {item.report.verdict} (
                               {item.report.alignmentScore}%)
                             </span>
-                            <span className="text-xs font-mono text-slate-500">
-                              Audited by:{' '}
-                              <strong>{item.auditedByEmail}</strong>
+                            <span className="text-[11.5px] font-mono text-slate-500">
+                              By: <strong>{item.auditedByEmail}</strong>
                             </span>
                             <span className="text-[11px] font-mono text-slate-400">
                               · {new Date(item.createdAt).toLocaleString()}
                             </span>
                           </div>
 
-                          <div className="text-sm font-bold text-slate-900">
+                          <div className="text-[13.5px] font-semibold text-slate-900 tracking-[-0.01em]">
                             &ldquo;{item.decisionProposal}&rdquo;
                           </div>
 
-                          <p className="text-xs text-slate-600 line-clamp-2">
+                          <p className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed">
                             {item.report.executiveSummary}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
                             onClick={() => {
@@ -1787,7 +1795,7 @@ export default function HomePage() {
                               setDecisionProposal(item.decisionProposal);
                               setLastAuditedByEmail(item.auditedByEmail);
                             }}
-                            className="px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 border border-slate-200 text-xs font-bold text-blue-700 transition-colors"
+                            className="h-8 px-3 rounded-md bg-white hover:bg-slate-100 border border-slate-200/90 text-[12px] font-medium text-slate-700 transition-colors shadow-sm"
                           >
                             View Report
                           </button>
@@ -1797,10 +1805,10 @@ export default function HomePage() {
                             onClick={() =>
                               handleDeleteAuditHistory(item.auditId)
                             }
-                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            className="h-8 w-8 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                             title="Delete Audit Report"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1813,17 +1821,17 @@ export default function HomePage() {
 
           {/* SUB-TAB 2: COMPANY BRAIN KNOWLEDGE MANAGEMENT (Full-Width Ingestion Form on Top + Indexed List Below) */}
           {workspaceSubTab === 'brain' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Top Full-Width Card: Wide Multimodal Knowledge Ingestion Form */}
-              <div className="w-full bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
+              <div className="w-full bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                    <h2 className="text-[16px] sm:text-[17px] font-semibold tracking-[-0.02em] text-slate-900">
                       {locale === 'de'
                         ? 'Wissen ins Company Brain einspeisen'
                         : 'Add Knowledge to Company Brain'}
                     </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                    <p className="text-[12.5px] text-slate-500 mt-0.5">
                       {locale === 'de'
                         ? `Wird unter Ihrer E-Mail (${userEmail}) gespeichert & indexiert.`
                         : `Attributed to your corporate email (${userEmail}) and indexed into 768-d vectors.`}
@@ -1831,43 +1839,43 @@ export default function HomePage() {
                   </div>
 
                   {/* Multimodal Input Mode Selector: Text | File Upload | Live Voice */}
-                  <div className="inline-flex flex-wrap items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs sm:text-sm font-bold gap-1">
+                  <div className="inline-flex flex-wrap items-center bg-slate-100 p-1 rounded-lg border border-slate-200/80 text-[12px] font-medium gap-0.5">
                     <button
                       type="button"
                       onClick={() => setInputMode('text')}
-                      className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
+                      className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
                         inputMode === 'text'
-                          ? 'bg-white text-blue-700 shadow-sm'
+                          ? 'bg-white text-slate-900 font-semibold shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <FileText className="w-4 h-4" />
+                      <FileText className="w-3.5 h-3.5" />
                       <span>Text</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setInputMode('file')}
-                      className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
+                      className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
                         inputMode === 'file'
-                          ? 'bg-white text-blue-700 shadow-sm'
+                          ? 'bg-white text-slate-900 font-semibold shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Upload className="w-4 h-4" />
+                      <Upload className="w-3.5 h-3.5" />
                       <span>PDF / PPTX / Image / Audio</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setInputMode('voice')}
-                      className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${
+                      className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
                         inputMode === 'voice'
-                          ? 'bg-white text-rose-600 shadow-sm'
+                          ? 'bg-white text-rose-600 font-semibold shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <Mic className="w-4 h-4" />
+                      <Mic className="w-3.5 h-3.5" />
                       <span>Live Voice</span>
                     </button>
                   </div>
@@ -1875,20 +1883,20 @@ export default function HomePage() {
 
                 {/* Multimodal File Dropzone (PDF, Image, PPTX, Audio, TXT) */}
                 {inputMode === 'file' && (
-                  <div className="p-5 rounded-2xl bg-blue-50/50 border-2 border-dashed border-blue-300 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5 text-xs sm:text-sm text-slate-700">
-                      <FileAudio className="w-7 h-7 text-blue-600 shrink-0" />
+                  <div className="p-4 rounded-lg bg-slate-50 border border-dashed border-slate-300 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-[12.5px] text-slate-700">
+                      <FileAudio className="w-5 h-5 text-blue-600 shrink-0" />
                       <div>
-                        <div className="font-bold text-slate-900">
+                        <div className="font-semibold text-slate-900">
                           Upload PDF, PowerPoint (.pptx), Image, Audio (.mp3/.wav), or Text
                         </div>
-                        <div className="text-slate-500">
+                        <div className="text-slate-500 text-[12px]">
                           Gemini Multimodal automatically extracts text or transcribes audio into the editor below.
                         </div>
                       </div>
                     </div>
 
-                    <label className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold cursor-pointer shrink-0 transition-colors shadow-sm">
+                    <label className="h-8 px-3.5 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-[12px] font-medium cursor-pointer shrink-0 transition-colors inline-flex items-center">
                       <span>{isExtractingMedia ? 'Processing...' : 'Choose File'}</span>
                       <input
                         type="file"
@@ -1907,24 +1915,24 @@ export default function HomePage() {
 
                 {/* Live Microphone Voice Dictation Recorder */}
                 {inputMode === 'voice' && (
-                  <div className="p-5 rounded-2xl bg-rose-50/60 border border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5 text-xs sm:text-sm">
+                  <div className="p-4 rounded-lg bg-rose-50/50 border border-rose-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-[12.5px]">
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                           isRecording
                             ? 'bg-rose-600 text-white animate-pulse'
                             : 'bg-rose-100 text-rose-600'
                         }`}
                       >
-                        <Mic className="w-5 h-5" />
+                        <Mic className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="font-bold text-slate-900">
+                        <div className="font-semibold text-slate-900">
                           {isRecording
                             ? 'Recording Live Voice Dictation...'
                             : 'Record Policy or Meeting Note by Voice'}
                         </div>
-                        <div className="text-slate-600">
+                        <div className="text-slate-500 text-[12px]">
                           Audio is automatically transcribed into structured text for Company Brain indexing.
                         </div>
                       </div>
@@ -1934,18 +1942,18 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={startLiveVoiceRecording}
-                        className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shrink-0 shadow-sm"
+                        className="h-8 px-3.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-medium flex items-center gap-1.5 shrink-0"
                       >
-                        <Mic className="w-4 h-4" />
+                        <Mic className="w-3.5 h-3.5" />
                         <span>Start Recording</span>
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={stopLiveVoiceRecording}
-                        className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold flex items-center gap-2 shrink-0 shadow-sm"
+                        className="h-8 px-3.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium flex items-center gap-1.5 shrink-0"
                       >
-                        <Square className="w-4 h-4 fill-current" />
+                        <Square className="w-3.5 h-3.5 fill-current" />
                         <span>Stop & Transcribe</span>
                       </button>
                     )}
@@ -1953,13 +1961,13 @@ export default function HomePage() {
                 )}
 
                 {extractionStatus && (
-                  <div className="px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-xs sm:text-sm font-semibold text-blue-800">
+                  <div className="px-3.5 py-2 rounded-lg bg-blue-50/80 border border-blue-200 text-[12.5px] font-medium text-blue-800">
                     {extractionStatus}
                   </div>
                 )}
 
-                <form onSubmit={handleInjectDocument} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                <form onSubmit={handleInjectDocument} className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div className="md:col-span-5">
                       <input
                         type="text"
@@ -1971,7 +1979,7 @@ export default function HomePage() {
                             ? 'Dokumenttitel (z. B. IT-Sicherheitsrichtlinie 2026)'
                             : 'Document Title (e.g. IT Security Policy 2026)'
                         }
-                        className="w-full px-4 py-2.5 text-sm liquid-glass-input"
+                        className="w-full h-9 px-3 text-[13px] liquid-glass-input"
                       />
                     </div>
 
@@ -1980,7 +1988,7 @@ export default function HomePage() {
                         aria-label="Department"
                         value={docDepartment}
                         onChange={(e) => setDocDepartment(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm liquid-glass-input"
+                        className="w-full h-9 px-3 text-[13px] liquid-glass-input"
                       >
                         <option value="Finance & Legal">
                           Department: Finance & Legal
@@ -2003,7 +2011,7 @@ export default function HomePage() {
                         value={docTags}
                         onChange={(e) => setDocTags(e.target.value)}
                         placeholder="Tags: policy, approval, budget"
-                        className="w-full px-4 py-2.5 text-xs sm:text-sm font-mono liquid-glass-input"
+                        className="w-full h-9 px-3 text-[12.5px] font-mono liquid-glass-input"
                       />
                     </div>
                   </div>
@@ -2018,16 +2026,16 @@ export default function HomePage() {
                         ? 'Richtlinien-Text (oder Ergebnis aus Datei-Upload / Sprachaufnahme)...'
                         : 'Policy text or transcribed content (auto-sliced into Parent & 768-d Child vectors)...'
                     }
-                    className="w-full p-4 text-sm sm:text-base liquid-glass-input"
+                    className="w-full p-3 text-[13.5px] leading-relaxed liquid-glass-input"
                   />
 
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
                     {ingestFeedback ? (
-                      <span className="text-xs sm:text-sm font-bold text-emerald-700">
+                      <span className="text-[12.5px] font-semibold text-emerald-700">
                         {ingestFeedback}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-500">
+                      <span className="text-[12px] text-slate-500">
                         Author attribution: <strong>{userEmail}</strong> · 768-d Atlas Vector Store
                       </span>
                     )}
@@ -2035,9 +2043,9 @@ export default function HomePage() {
                     <button
                       type="submit"
                       disabled={isIngesting || isExtractingMedia}
-                      className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 shrink-0"
+                      className="h-9 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-medium text-[13px] shadow-sm transition-colors flex items-center gap-2 shrink-0"
                     >
-                      <Database className="w-4 h-4" />
+                      <Database className="w-3.5 h-3.5" />
                       <span>
                         {isIngesting
                           ? 'Saving...'
@@ -2051,40 +2059,40 @@ export default function HomePage() {
               </div>
 
               {/* Bottom Full-Width Card (Stacked Below Input Form): Indexed Brain Documents */}
-              <div className="w-full bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-4">
+              <div className="w-full bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-[15px] font-semibold tracking-[-0.015em] text-slate-900 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-slate-500" />
                     <span>
                       {locale === 'de'
                         ? 'Gespeicherte Richtlinien im Company Brain'
                         : 'Indexed Brain Documents'}
                     </span>
                   </h3>
-                  <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full">
+                  <span className="text-[11.5px] font-mono font-medium text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-md">
                     {documents.length} Indexed
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   {documents.map((doc) => (
                     <div
                       key={doc.parentId}
-                      className="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200/90 flex items-center justify-between gap-3 hover:border-blue-300 transition-colors"
+                      className="px-3.5 py-3 rounded-lg bg-slate-50/60 border border-slate-200/85 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors"
                     >
                       <div className="min-w-0">
-                        <div className="text-sm font-bold text-slate-900 truncate">
+                        <div className="text-[13.5px] font-semibold text-slate-900 truncate tracking-[-0.01em]">
                           {doc.title}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-500 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] font-mono text-slate-500 mt-0.5">
                           <span>{doc.department}</span>
                           <span>·</span>
-                          <span className="text-blue-600 font-semibold">
+                          <span className="text-blue-600 font-medium">
                             {doc.childCount} vectors
                           </span>
                           <span>·</span>
-                          <span className="text-slate-600">
-                            By: {doc.createdByEmail ?? 'governance-board@mindmittel.de'}
+                          <span className="text-slate-500 truncate">
+                            {doc.createdByEmail ?? 'governance-board@mindmittel.de'}
                           </span>
                         </div>
                       </div>
@@ -2092,10 +2100,10 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteDocument(doc.parentId)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                        className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
                         title="Delete Document"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
@@ -2106,27 +2114,27 @@ export default function HomePage() {
 
           {/* SECTION 3: ENTERPRISE CONNECTORS HUB (iOS-Style Toggle Switches + Auth Credentials) */}
           {workspaceSubTab === 'connectors' && (
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                    <Plug className="w-5 h-5 text-blue-600" />
+                  <h2 className="text-[16px] sm:text-[17px] font-semibold tracking-[-0.02em] text-slate-900 flex items-center gap-2">
+                    <Plug className="w-4 h-4 text-blue-600" />
                     <span>
                       {locale === 'de'
                         ? 'Enterprise Connectors (Chat, Wissensmanagement & Online-Meetings)'
-                        : 'Enterprise Connectors Hub (Chat, Knowledge & Online Meetings)'}
+                        : 'Enterprise Connectors Hub'}
                     </span>
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                  <p className="text-[12.5px] text-slate-500 mt-0.5">
                     {locale === 'de'
                       ? 'Hinterlegen Sie API-Zugangsdaten und schalten Sie Plattformen per iOS-Schalter ein oder aus.'
-                      : 'Enter authentication credentials to grant MindMittel V2 access and toggle connectors ON or OFF at any time.'}
+                      : 'Configure platform credentials and toggle data ingestion switches ON or OFF at any time.'}
                   </p>
                 </div>
               </div>
 
               {connectorFeedback && (
-                <div className="px-4 py-3 rounded-2xl bg-blue-50 border border-blue-200 text-xs sm:text-sm font-semibold text-blue-900">
+                <div className="px-3.5 py-2.5 rounded-lg bg-blue-50/80 border border-blue-200 text-[12.5px] font-medium text-blue-900">
                   {connectorFeedback}
                 </div>
               )}
@@ -2159,15 +2167,15 @@ export default function HomePage() {
                 );
 
                 return (
-                  <div key={group.category} className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs font-mono font-extrabold uppercase tracking-wider text-slate-500">
-                      <IconComp className="w-4 h-4 text-blue-600" />
+                  <div key={group.category} className="space-y-2.5">
+                    <div className="flex items-center gap-2 text-[11.5px] font-semibold text-slate-500">
+                      <IconComp className="w-3.5 h-3.5 text-slate-400" />
                       <span>
                         {locale === 'de' ? group.titleDe : group.titleEn}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       {items.map((conn) => {
                         const isConfigOpen =
                           activeConfigConnectorId === conn.id;
@@ -2175,25 +2183,25 @@ export default function HomePage() {
                         return (
                           <div
                             key={conn.id}
-                            className={`p-5 rounded-2xl border transition-all space-y-3.5 ${
+                            className={`p-4 rounded-lg border transition-all space-y-3 ${
                               conn.enabled
-                                ? 'bg-emerald-50/30 border-emerald-300'
-                                : 'bg-slate-50 border-slate-200/90'
+                                ? 'bg-emerald-50/25 border-emerald-300/90'
+                                : 'bg-slate-50/50 border-slate-200/85'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div className="space-y-1">
+                              <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm sm:text-base font-extrabold text-slate-900">
+                                  <span className="text-[14px] font-semibold tracking-[-0.01em] text-slate-900">
                                     {conn.name}
                                   </span>
                                   {conn.configured && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-white text-slate-600 border border-slate-200/80">
                                       {conn.maskedCredential}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-xs text-slate-600 leading-relaxed">
+                                <p className="text-[12px] text-slate-500 leading-relaxed">
                                   {locale === 'de'
                                     ? conn.descriptionDe
                                     : conn.descriptionEn}
@@ -2207,14 +2215,14 @@ export default function HomePage() {
                                 aria-checked={conn.enabled}
                                 aria-label={`Toggle ${conn.name}`}
                                 onClick={() => handleToggleConnector(conn)}
-                                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                                   conn.enabled
                                     ? 'bg-emerald-500'
                                     : 'bg-slate-300'
                                 }`}
                               >
                                 <span
-                                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
                                     conn.enabled
                                       ? 'translate-x-5'
                                       : 'translate-x-0'
@@ -2223,7 +2231,7 @@ export default function HomePage() {
                               </button>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/70 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 text-[12px]">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2235,7 +2243,7 @@ export default function HomePage() {
                                     setConnectorApiSecret('');
                                   }
                                 }}
-                                className="font-semibold text-blue-700 hover:text-blue-800 flex items-center gap-1.5"
+                                className="font-medium text-slate-600 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
                               >
                                 <KeyRound className="w-3.5 h-3.5" />
                                 <span>
@@ -2250,10 +2258,10 @@ export default function HomePage() {
                                   type="button"
                                   disabled={syncingConnectorId === conn.id}
                                   onClick={() => handleSyncConnector(conn.id)}
-                                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                                  className="h-7 px-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11.5px] font-medium flex items-center gap-1.5 shadow-sm"
                                 >
                                   <RefreshCw
-                                    className={`w-3.5 h-3.5 ${
+                                    className={`w-3 h-3 ${
                                       syncingConnectorId === conn.id
                                         ? 'animate-spin'
                                         : ''
@@ -2274,10 +2282,10 @@ export default function HomePage() {
                                 onSubmit={(e) =>
                                   handleConfigureConnector(e, conn.id)
                                 }
-                                className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2.5"
+                                className="p-3 rounded-lg bg-white border border-slate-200/90 space-y-2.5"
                               >
                                 <div>
-                                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
                                     {locale === 'de'
                                       ? conn.authFieldLabelDe
                                       : conn.authFieldLabelEn}
@@ -2290,12 +2298,12 @@ export default function HomePage() {
                                       setConnectorApiSecret(e.target.value)
                                     }
                                     placeholder="Paste API Token / OAuth Secret..."
-                                    className="w-full px-3 py-2 text-xs font-mono liquid-glass-input"
+                                    className="w-full h-8 px-2.5 text-xs font-mono liquid-glass-input"
                                   />
                                 </div>
 
                                 <div>
-                                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
                                     Target Channel / Space / Meeting Series
                                   </label>
                                   <input
@@ -2305,7 +2313,7 @@ export default function HomePage() {
                                       setConnectorTargetScope(e.target.value)
                                     }
                                     placeholder={conn.scopePlaceholder}
-                                    className="w-full px-3 py-2 text-xs liquid-glass-input"
+                                    className="w-full h-8 px-2.5 text-xs liquid-glass-input"
                                   />
                                 </div>
 
@@ -2315,13 +2323,13 @@ export default function HomePage() {
                                     onClick={() =>
                                       setActiveConfigConnectorId(null)
                                     }
-                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500"
+                                    className="h-7 px-2.5 rounded-md text-xs font-medium text-slate-500 hover:bg-slate-100"
                                   >
                                     Cancel
                                   </button>
                                   <button
                                     type="submit"
-                                    className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold"
+                                    className="h-7 px-3 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-xs font-medium"
                                   >
                                     Save & Switch ON
                                   </button>

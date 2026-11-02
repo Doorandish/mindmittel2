@@ -93,7 +93,7 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     expect(syncedDoc.createdByEmail).toBe('amir@mindmittel.de');
   });
 
-  it('renders a sectioned Left Sidebar with bottom User Profile and stacks Audit History directly below Evaluate Decision', () => {
+  it('renders a full-height Left Sidebar with top Brand Logo + Language Selector, middle sections, and bottom User Profile (no top header in workspace), and stacks Audit History below Evaluate Decision', () => {
     const pageSource = fs.readFileSync(
       path.join(rootDir, 'src/app/page.tsx'),
       'utf-8'
@@ -103,11 +103,11 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
       'utf-8'
     );
 
-    // Left Sidebar sections & bottom user profile in AppShell
+    // Top header is only rendered on the landing page (overview), not inside the vault workspace
+    expect(shellSource).toContain("activeTab === 'overview' && (");
     expect(shellSource).toContain('WORKSPACE_SIDEBAR_SECTIONS');
-    expect(shellSource).toContain('GOVERNANCE ENGINE');
-    expect(shellSource).toContain('KNOWLEDGE VAULT');
     expect(shellSource).toContain('Workspace Sidebar Navigation');
+    expect(shellSource).toContain('Sidebar Language Selector');
     expect(shellSource).toContain('Switch Profile');
 
     // Audit History is stacked directly inside Evaluate Decision (no separate 'history' tab)
