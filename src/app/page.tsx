@@ -36,6 +36,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
+import { SystemObservabilityPanel } from '@/components/system/SystemObservabilityPanel';
 import {
   getDictionary,
   DEFAULT_LOCALE,
@@ -247,6 +248,17 @@ export default function HomePage() {
           setUserDepartment(parsed.department);
           setAuthDeptInput(parsed.department);
         }
+      }
+      const params = new URLSearchParams(window.location.search);
+      const requestedTab = params.get('tab');
+      if (
+        requestedTab === 'evaluate' ||
+        requestedTab === 'brain' ||
+        requestedTab === 'connectors' ||
+        requestedTab === 'system'
+      ) {
+        setActiveTab('vault');
+        setWorkspaceSubTab(requestedTab);
       }
     } catch {
       // Ignore storage access errors
@@ -2345,6 +2357,9 @@ export default function HomePage() {
               })}
             </div>
           )}
+
+          {/* SECTION 4: SYSTEM ARCHITECTURE & LIVE TELEMETRY (With Left Sidebar) */}
+          {workspaceSubTab === 'system' && <SystemObservabilityPanel />}
         </div>
       )}
     </AppShell>

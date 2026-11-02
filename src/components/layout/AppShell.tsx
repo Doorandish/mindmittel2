@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
   BrainCircuit,
   Database,
@@ -14,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
 
-export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors';
+export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors' | 'system';
 
 export interface WorkspaceSidebarSection {
   id: string;
@@ -57,6 +56,18 @@ export const WORKSPACE_SIDEBAR_SECTIONS: WorkspaceSidebarSection[] = [
       },
     ],
   },
+  {
+    id: 'observability',
+    titleEn: 'Observability',
+    titleDe: 'System & Telemetrie',
+    items: [
+      {
+        subTab: 'system',
+        labelEn: 'System & Logs',
+        labelDe: 'System & Logs',
+      },
+    ],
+  },
 ];
 
 export interface AppShellProps {
@@ -82,7 +93,8 @@ export interface AppShellProps {
  * MindMittel V2 Precision Enterprise Layout Shell:
  * - Landing Page ('overview'): Top marketing header with anchor links, language switcher, and Launch CTA.
  * - Workspace ('vault'): Headerless full-height architectural layout with a 248px Left Sidebar
- *   housing the Brand Mark, Language Switcher (EN | DE), single-line navigation items, and pinned User Profile.
+ *   housing the Brand Mark, Language Switcher (EN | DE), single-line navigation items (including System & Logs),
+ *   and pinned User Profile.
  */
 export function AppShell({
   children,
@@ -114,15 +126,19 @@ export function AppShell({
     if (subTab === 'brain') {
       return `${brainCount}`;
     }
-    return `${enabledConnectorsCount}/${totalConnectorsCount}`;
+    if (subTab === 'connectors') {
+      return `${enabledConnectorsCount}/${totalConnectorsCount}`;
+    }
+    return 'LIVE';
   }
 
-  const userInitials = currentUserName
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || 'AD';
+  const userInitials =
+    currentUserName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || 'AD';
 
   return (
     <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0 selection:bg-blue-600 selection:text-white">
@@ -175,13 +191,14 @@ export function AppShell({
               >
                 {dict.nav.features}
               </a>
-              <Link
-                href="/system"
+              <button
+                type="button"
+                onClick={() => navigateToWorkspaceSubTab('system')}
                 className="text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 <span>{dict.nav.systemCenter}</span>
-              </Link>
+              </button>
             </nav>
 
             <div className="flex items-center gap-3 shrink-0">
@@ -346,7 +363,9 @@ export function AppShell({
                             ? ShieldCheck
                             : item.subTab === 'brain'
                             ? Database
-                            : Plug;
+                            : item.subTab === 'connectors'
+                            ? Plug
+                            : Activity;
 
                         return (
                           <button
@@ -376,15 +395,19 @@ export function AppShell({
                               </span>
                             </span>
 
-                            <span
-                              className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
-                                isActive
-                                  ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
-                                  : 'text-slate-400 group-hover:text-slate-600'
-                              }`}
-                            >
-                              {getBadgeText(item.subTab)}
-                            </span>
+                            {item.subTab === 'system' ? (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            ) : (
+                              <span
+                                className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                                  isActive
+                                    ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
+                                    : 'text-slate-400 group-hover:text-slate-600'
+                                }`}
+                              >
+                                {getBadgeText(item.subTab)}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -392,37 +415,18 @@ export function AppShell({
                   </div>
                 ))}
 
-                {/* System & Overview Links */}
-                <div className="space-y-1 pt-3 border-t border-slate-200/60">
-                  <div className="px-2.5 pb-0.5 text-[11px] font-medium text-slate-400 tracking-[0.01em]">
-                    {locale === 'de' ? 'System' : 'Workspace'}
-                  </div>
-
-                  <div className="space-y-0.5">
-                    <Link
-                      href="/system"
-                      className="group w-full h-9 px-2.5 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 transition-colors flex items-center justify-between"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <Activity className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
-                        <span className="tracking-[-0.01em]">
-                          {dict.nav.systemCenter}
-                        </span>
-                      </span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => onTabChange?.('overview')}
-                      className="group w-full h-9 px-2.5 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 transition-colors flex items-center gap-2.5 text-left"
-                    >
-                      <Home className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                      <span className="tracking-[-0.01em]">
-                        {dict.nav.backToLanding}
-                      </span>
-                    </button>
-                  </div>
+                {/* Landing Page Return Link */}
+                <div className="pt-3 border-t border-slate-200/60">
+                  <button
+                    type="button"
+                    onClick={() => onTabChange?.('overview')}
+                    className="group w-full h-9 px-2.5 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 transition-colors flex items-center gap-2.5 text-left"
+                  >
+                    <Home className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                    <span className="tracking-[-0.01em]">
+                      {dict.nav.backToLanding}
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -529,13 +533,18 @@ export function AppShell({
             <span>Connectors</span>
           </button>
 
-          <Link
-            href="/system"
-            className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold text-emerald-600"
+          <button
+            type="button"
+            onClick={() => navigateToWorkspaceSubTab('system')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
+              activeTab === 'vault' && workspaceSubTab === 'system'
+                ? 'text-blue-600'
+                : 'text-emerald-600'
+            }`}
           >
             <Activity className="w-4 h-4" />
             <span>System</span>
-          </Link>
+          </button>
         </div>
       </nav>
     </div>
