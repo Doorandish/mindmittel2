@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { DocumentSourceType } from '@/core/rag/chunker';
 
 /**
@@ -28,13 +29,149 @@ interface GoogleDriveFileEntry {
   description?: string;
 }
 
+export interface GoogleServiceAccountKey {
+  type?: string;
+  project_id?: string;
+  private_key_id?: string;
+  private_key?: string;
+  client_email?: string;
+  client_id?: string;
+  auth_uri?: string;
+  token_uri?: string;
+}
+
+interface CachedToken {
+  accessToken: string;
+  expiresAtMs: number;
+}
+
+const serviceAccountTokenCache = new Map<string, CachedToken>();
+
+/**
+ * Detects whether the user provided a Google Cloud Service Account JSON key string.
+ */
+export function isServiceAccountJson(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+    return false;
+  }
+  return trimmed.includes('private_key') && trimmed.includes('client_email');
+}
+
+/**
+ * Parses a Google Service Account JSON key, creates a cryptographically signed RS256 JWT,
+ * and exchanges it with Google's OAuth2 token endpoint (https://oauth2.googleapis.com/token)
+ * to receive a fresh 1-hour OAuth Access Token using Node.js built-in crypto (no external SDK required).
+ */
+export async function mintGoogleServiceAccountToken(
+  serviceAccountJson: string
+): Promise<string> {
+  let parsed: GoogleServiceAccountKey;
+  try {
+    parsed = JSON.parse(serviceAccountJson) as GoogleServiceAccountKey;
+  } catch {
+    throw new Error(
+      'Invalid Google Service Account JSON: Unable to parse credentials.'
+    );
+  }
+
+  const { client_email, private_key, token_uri = 'https://oauth2.googleapis.com/token' } =
+    parsed;
+
+  if (!client_email || !private_key) {
+    throw new Error(
+      'Invalid Google Service Account JSON: Both "client_email" and "private_key" are required.'
+    );
+  }
+
+  // Check in-memory cache for an active token (with 2-minute safety buffer)
+  const cached = serviceAccountTokenCache.get(client_email);
+  if (cached && Date.now() < cached.expiresAtMs - 120_000) {
+    return cached.accessToken;
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'RS256', typ: 'JWT' })
+  ).toString('base64url');
+
+  const claims = Buffer.from(
+    JSON.stringify({
+      iss: client_email,
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+      aud: token_uri,
+      exp: nowSec + 3600,
+      iat: nowSec - 30, // 30-second clock skew tolerance
+    })
+  ).toString('base64url');
+
+  const unsignedToken = `${header}.${claims}`;
+
+  let signature: string;
+  try {
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(unsignedToken);
+    signature = signer.sign(private_key, 'base64url');
+  } catch (err) {
+    throw new Error(
+      `Failed to sign Google Service Account JWT: ${
+        err instanceof Error ? err.message : String(err)
+      }. Ensure the private_key is an uncorrupted RSA key in PEM format.`
+    );
+  }
+
+  const assertion = `${unsignedToken}.${signature}`;
+
+  const postBody = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion,
+  }).toString();
+
+  const tokenRes = await fetch(token_uri, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: postBody,
+    signal: AbortSignal.timeout(6000),
+  });
+
+  if (!tokenRes.ok) {
+    const errPayload = (await tokenRes.json().catch(() => null)) as {
+      error?: string;
+      error_description?: string;
+    } | null;
+    throw new Error(
+      `Google Service Account authentication failed (HTTP ${tokenRes.status}): ${
+        errPayload?.error_description || errPayload?.error || tokenRes.statusText
+      }. Ensure Google Drive API is enabled in your Google Cloud Project.`
+    );
+  }
+
+  const tokenData = (await tokenRes.json()) as {
+    access_token?: string;
+    expires_in?: number;
+  };
+
+  if (!tokenData.access_token) {
+    throw new Error(
+      'Google OAuth token exchange succeeded but no access_token was returned.'
+    );
+  }
+
+  const expiresInSec = tokenData.expires_in ?? 3600;
+  serviceAccountTokenCache.set(client_email, {
+    accessToken: tokenData.access_token,
+    expiresAtMs: Date.now() + expiresInSec * 1000,
+  });
+
+  return tokenData.access_token;
+}
+
 /**
  * Connects to Google Drive API v3 (https://www.googleapis.com/drive/v3/files),
  * searches the target folder or files, exports and downloads their actual content,
  * and compiles them into a structured Company Brain governance document.
  *
- * Throws explicit, informative errors when credentials or permissions fail,
- * preventing silent fallback to fake demo templates.
+ * Supports both direct OAuth Access Tokens (ya29...) and Google Cloud Service Account JSON keys.
  */
 export async function fetchLiveGoogleDrivePayload(params: {
   rawToken: string;
@@ -44,14 +181,19 @@ export async function fetchLiveGoogleDrivePayload(params: {
 }): Promise<GoogleDriveSyncedPayload> {
   const { rawToken, targetScope, userEmail, defaultDepartment = 'Finance & Legal' } =
     params;
-  const cleanToken = rawToken.trim();
+  const inputString = rawToken.trim();
   const folderScope = parseGoogleDriveFolderScope(targetScope);
 
-  if (!cleanToken) {
+  if (!inputString) {
     throw new Error(
-      'Google Drive OAuth Access Token or Service Account credential is required.'
+      'Google Drive OAuth Access Token or Service Account JSON key is required.'
     );
   }
+
+  // Transparently mint an OAuth Access Token if a Service Account JSON was provided
+  const cleanToken = isServiceAccountJson(inputString)
+    ? await mintGoogleServiceAccountToken(inputString)
+    : inputString;
 
   const authHeaders = {
     Authorization: `Bearer ${cleanToken}`,
@@ -84,12 +226,12 @@ export async function fetchLiveGoogleDrivePayload(params: {
 
       if (folderRes.status === 401) {
         throw new Error(
-          'Google Drive API authorization failed (HTTP 401: Invalid Credentials). Please check your Google OAuth Access Token.'
+          'Google Drive API authorization failed (HTTP 401: Invalid Credentials). Please check your Google OAuth Access Token or Service Account key.'
         );
       }
       if (folderRes.status === 403) {
         throw new Error(
-          "Google Drive API permission denied (HTTP 403). Ensure your OAuth token includes 'https://www.googleapis.com/auth/drive.readonly' permission."
+          "Google Drive API permission denied (HTTP 403). Ensure the folder is shared with your Service Account email, or your OAuth token includes 'https://www.googleapis.com/auth/drive.readonly' permission."
         );
       }
 
@@ -143,12 +285,12 @@ export async function fetchLiveGoogleDrivePayload(params: {
 
   if (filesRes.status === 401) {
     throw new Error(
-      'Google Drive API authorization failed (HTTP 401: Invalid Credentials). Please check your Google OAuth Access Token.'
+      'Google Drive API authorization failed (HTTP 401: Invalid Credentials). Please check your Google OAuth Access Token or Service Account key.'
     );
   }
   if (filesRes.status === 403) {
     throw new Error(
-      "Google Drive API permission denied (HTTP 403). Ensure your OAuth token includes 'https://www.googleapis.com/auth/drive.readonly' permission."
+      "Google Drive API permission denied (HTTP 403). Ensure the folder is shared with your Service Account email as Viewer, and Google Drive API is enabled in your Google Cloud Console."
     );
   }
   if (!filesRes.ok) {

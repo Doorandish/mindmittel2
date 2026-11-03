@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import crypto from 'crypto';
 import {
   parseGoogleDriveFolderScope,
   fetchLiveGoogleDrivePayload,
+  isServiceAccountJson,
+  mintGoogleServiceAccountToken,
 } from '@/core/connectors/googleDriveImporter';
 import {
   createInitialConnectorsState,
@@ -132,5 +135,121 @@ describe('Google Drive Live API Importer & Real Document Extraction', () => {
     expect(payload.content).toContain('Governance_Guidelines.txt');
     expect(payload.content).toContain('DSGVO and NIS-2');
     expect(payload.content.length).toBeGreaterThan(250);
+  });
+
+  it('detects and mints a 1-hour Google OAuth token from a Service Account JSON key using built-in crypto RS256 JWT exchange', async () => {
+    const { privateKey } = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    });
+
+    const mockServiceAccount = {
+      type: 'service_account',
+      project_id: 'mindmittel',
+      private_key_id: 'key123',
+      private_key: privateKey,
+      client_email: 'mindmittel@mindmittel.iam.gserviceaccount.com',
+      token_uri: 'https://oauth2.googleapis.com/token',
+    };
+    const jsonString = JSON.stringify(mockServiceAccount);
+
+    expect(isServiceAccountJson(jsonString)).toBe(true);
+    expect(isServiceAccountJson('ya29.some-oauth-token')).toBe(false);
+
+    let capturedPostUrl = '';
+    let capturedBody = '';
+
+    const mockFetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
+      if (url.includes('oauth2.googleapis.com/token')) {
+        capturedPostUrl = url;
+        capturedBody = String(opts?.body ?? '');
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: 'ya29.minted-from-service-account-jwt',
+            expires_in: 3600,
+            token_type: 'Bearer',
+          }),
+        };
+      }
+      return { ok: false, status: 404 };
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const token = await mintGoogleServiceAccountToken(jsonString);
+    expect(token).toBe('ya29.minted-from-service-account-jwt');
+    expect(capturedPostUrl).toContain('oauth2.googleapis.com/token');
+    expect(capturedBody).toContain('grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer');
+    expect(capturedBody).toContain('assertion=');
+  });
+
+  it('seamlessly authenticates via pasted Service Account JSON and extracts files from the shared IPM folder', async () => {
+    const { privateKey } = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    });
+
+    const mockServiceAccount = {
+      type: 'service_account',
+      project_id: 'mindmittel',
+      private_key: privateKey,
+      client_email: 'mindmittel@mindmittel.iam.gserviceaccount.com',
+      token_uri: 'https://oauth2.googleapis.com/token',
+    };
+    const jsonString = JSON.stringify(mockServiceAccount);
+
+    const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+      // Token endpoint
+      if (url.includes('oauth2.googleapis.com/token')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: 'ya29.minted-from-service-account-12345',
+            expires_in: 3600,
+          }),
+        };
+      }
+      // Files list endpoint
+      if (url.includes('/drive/v3/files?') && !url.includes('/export')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            files: [
+              {
+                id: 'shared_file_1',
+                name: 'IPM_Board_Meeting_Minutes.gdoc',
+                mimeType: 'application/vnd.google-apps.document',
+              },
+            ],
+          }),
+        };
+      }
+      // Export endpoint
+      if (url.includes('/files/shared_file_1/export')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            'Executive board consensus for IPM: All digital infrastructure must be hosted in compliance with DSGVO EU data protection standards.',
+        };
+      }
+      return { ok: false, status: 404 };
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await fetchLiveGoogleDrivePayload({
+      rawToken: jsonString,
+      targetScope: 'IPM',
+      userEmail: 'amir@mindmittel.de',
+    });
+
+    expect(result.title).toContain('Google Drive');
+    expect(result.content).toContain('IPM_Board_Meeting_Minutes');
+    expect(result.content).toContain('Executive board consensus for IPM');
   });
 });

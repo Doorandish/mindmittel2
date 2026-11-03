@@ -24,6 +24,21 @@ export interface EnterpriseConnectorItem {
 
 export function maskSecretToken(rawSecret: string): string {
   const trimmed = rawSecret.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        client_email?: string;
+        project_id?: string;
+      };
+      if (parsed.client_email) {
+        const parts = parsed.client_email.split('@');
+        const prefix = parts[0]?.slice(0, 4) || 'gcp';
+        return `sa:${prefix}••••@${parts[1] || 'iam'}`;
+      }
+    } catch {
+      // Fall through to standard masking
+    }
+  }
   if (trimmed.length <= 4) {
     return '***';
   }
