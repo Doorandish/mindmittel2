@@ -1,5 +1,9 @@
 import crypto from 'crypto';
 import type { DocumentSourceType } from '@/core/rag/chunker';
+import {
+  extractTextFromPdfBuffer,
+  extractTextFromPptxBuffer,
+} from '@/core/rag/multimodalExtractor';
 
 /**
  * Normalizes folder path inputs like "/IPM", "Folder: /Board-Charters-2026", or direct IDs.
@@ -345,15 +349,76 @@ export async function fetchLiveGoogleDrivePayload(params: {
           fileText = await exportRes.text();
         }
       } else {
-        // Direct media download for plain text, markdown, CSV, or PDF
+        // Direct media download for plain text, markdown, CSV, or PDF / binary
         const downloadUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`;
         const dlRes = await fetch(downloadUrl, {
           method: 'GET',
           headers: authHeaders,
-          signal: AbortSignal.timeout(4500),
+          signal: AbortSignal.timeout(6000),
         });
         if (dlRes.ok) {
-          fileText = await dlRes.text();
+          const isPdf =
+            file.mimeType === 'application/pdf' ||
+            file.name.toLowerCase().endsWith('.pdf');
+          const isPptx =
+            file.mimeType?.includes('presentation') ||
+            file.name.toLowerCase().endsWith('.pptx');
+
+          if (isPdf || isPptx) {
+            const arrBuf = await dlRes.arrayBuffer();
+            const buf = Buffer.from(arrBuf);
+
+            // High-fidelity Gemini Multimodal OCR if GEMINI_API_KEY is configured
+            const apiKey = process.env.GEMINI_API_KEY?.trim();
+            if (isPdf && apiKey && buf.length <= 15 * 1024 * 1024) {
+              try {
+                const base64Data = buf.toString('base64');
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
+                  apiKey
+                )}`;
+                const geminiRes = await fetch(geminiUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [
+                      {
+                        parts: [
+                          {
+                            text: 'Extract all text, clauses, headings, and certificate details from this PDF into clean, structured plain text.',
+                          },
+                          {
+                            inlineData: {
+                              mimeType: 'application/pdf',
+                              data: base64Data,
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  }),
+                  signal: AbortSignal.timeout(8000),
+                });
+                if (geminiRes.ok) {
+                  const gData = await geminiRes.json();
+                  const geminiText =
+                    gData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                  if (geminiText) {
+                    fileText = geminiText;
+                  }
+                }
+              } catch {
+                // Fall back gracefully to native parser
+              }
+            }
+
+            if (!fileText) {
+              fileText = isPdf
+                ? extractTextFromPdfBuffer(buf, file.name)
+                : extractTextFromPptxBuffer(buf, file.name);
+            }
+          } else {
+            fileText = await dlRes.text();
+          }
         }
       }
 

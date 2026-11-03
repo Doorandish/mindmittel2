@@ -120,4 +120,34 @@ describe('Company Brain Knowledge Conflict Detector & Online In-Place Editor', (
     expect(pageSource).toContain('handleUpdateDocument');
     expect(pageSource).toContain('handleDownloadDocument');
   });
+
+  it('does not trigger conflict warnings between different parent chunks of the exact same document or title', () => {
+    const multiChunkDoc: BrainDocumentForConflictCheck[] = [
+      {
+        parentId: 'parent_chunk_0',
+        title:
+          'Google Drive Sync (/IPM) — Studienbescheinigung-fuer-das-WS-2026-27_IPM-M',
+        department: 'finance-legal',
+        content:
+          '1 0 R >> /Type /Page /Parent 26 0 R /Contents [21 0 R 27 0 R] /MediaBox [0 0 597.96850397008 844.979527559055] >> endobj 24 0 obj',
+        tags: ['google-drive', 'live-sync'],
+        createdByEmail: 'amir@mindmittel.de',
+        createdByName: 'Amir',
+      },
+      {
+        parentId: 'parent_chunk_1',
+        title:
+          'Google Drive Sync (/IPM) — Studienbescheinigung-fuer-das-WS-2026-27_IPM-M',
+        department: 'finance-legal',
+        content:
+          '597,968 Matriculation Certificate Hochschule Pforzheim Winter Semester 2026/27 Degree: IPM-M Master of Science',
+        tags: ['google-drive', 'live-sync'],
+        createdByEmail: 'amir@mindmittel.de',
+        createdByName: 'Amir',
+      },
+    ];
+
+    const conflicts = detectBrainDocumentConflicts(multiChunkDoc);
+    expect(conflicts).toHaveLength(0);
+  });
 });

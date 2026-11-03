@@ -1010,6 +1010,20 @@ export async function syncConnectorDataIntoBrain(params: {
     userEmail: params.userEmail,
   });
 
+  // Clean up any stale or previous sync artifacts from the same connector/scope to avoid duplicate cards
+  const staleParentIds = vault.parents
+    .filter(
+      (p) =>
+        p.metadata.sourceType === syncPayload.sourceType &&
+        (p.title === syncPayload.title ||
+          p.title.startsWith(`Google Drive Sync (${target.targetScope})`))
+    )
+    .map((p) => p.parentId);
+
+  for (const pid of staleParentIds) {
+    await removeBrainDocument(pid);
+  }
+
   const ingestion = await ingestDocumentIntoBrain({
     title: syncPayload.title,
     content: syncPayload.content,

@@ -229,3 +229,90 @@ export function extractTextFromPptxBuffer(
 
   return extractTextFromPlainBuffer(buffer, fileName);
 }
+
+/**
+ * Native PDF Text Extractor.
+ * Extracts text streams from uncompressed or FlateDecode zlib-compressed PDF objects,
+ * decoding text operators (BT...ET, Tj, TJ) while stripping PDF internal metadata
+ * (/MediaBox, /Type, /Pages, obj, endobj).
+ */
+export function extractTextFromPdfBuffer(
+  buffer: Buffer,
+  fileName: string
+): string {
+  const collectedSegments: string[] = [];
+
+  const extractTextRuns = (content: string) => {
+    // 1. Text blocks enclosed between BT (Begin Text) and ET (End Text)
+    const btEtRegex = /BT[\s\S]*?ET/g;
+    let btMatch: RegExpExecArray | null = btEtRegex.exec(content);
+    while (btMatch !== null) {
+      const block = btMatch[0];
+      // Match (string) Tj or strings inside TJ arrays [(str) 20 (ing)]
+      const strRegex = /\(((?:[^)\\]|\\.)*)\)/g;
+      let sMatch: RegExpExecArray | null = strRegex.exec(block);
+      const wordsInBlock: string[] = [];
+      while (sMatch !== null) {
+        const decoded = sMatch[1]
+          .replace(/\\([()\\])/g, '$1')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '')
+          .replace(/\\t/g, ' ')
+          .trim();
+        if (decoded.length > 0) {
+          wordsInBlock.push(decoded);
+        }
+        sMatch = strRegex.exec(block);
+      }
+      if (wordsInBlock.length > 0) {
+        collectedSegments.push(wordsInBlock.join(' '));
+      }
+      btMatch = btEtRegex.exec(content);
+    }
+  };
+
+  // 1. Scan uncompressed text directly
+  const rawString = buffer.toString('binary');
+  extractTextRuns(rawString);
+
+  // 2. Scan and inflate deflated streams (stream ... endstream)
+  const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
+  let streamMatch: RegExpExecArray | null = streamRegex.exec(rawString);
+  while (streamMatch !== null) {
+    const rawStream = streamMatch[1];
+    const streamBuffer = Buffer.from(rawStream, 'binary');
+    try {
+      const decompressed = zlib.inflateSync(streamBuffer);
+      extractTextRuns(decompressed.toString('utf-8'));
+    } catch {
+      try {
+        const rawDecompressed = zlib.inflateRawSync(streamBuffer);
+        extractTextRuns(rawDecompressed.toString('utf-8'));
+      } catch {
+        // Continue scanning remaining streams
+      }
+    }
+    streamMatch = streamRegex.exec(rawString);
+  }
+
+  if (collectedSegments.length > 0) {
+    return collectedSegments.join('\n\n').trim();
+  }
+
+  // 3. Fallback: clean printable strings while strictly stripping PDF operator syntax and /MediaBox
+  const sanitized = buffer
+    .toString('utf-8')
+    .replace(/\/MediaBox\s*\[[^\]]*\]/gi, '')
+    .replace(/\/\w+\s*\[[^\]]*\]/g, '')
+    .replace(/\b\d+\s+\d+\s+R\b/g, '')
+    .replace(/\b(obj|endobj|xref|trailer|startxref|endstream)\b/gi, '')
+    .replace(/[^\x20-\x7E\u00C0-\u017F\n\r]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (sanitized.length > 20) {
+    return sanitized.slice(0, 4000);
+  }
+
+  return `Document content extracted from ${fileName} (${buffer.byteLength} bytes).`;
+}

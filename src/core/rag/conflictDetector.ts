@@ -93,6 +93,17 @@ export function detectBrainDocumentConflicts(
 
       if (newer.doc.parentId === older.doc.parentId) continue;
 
+      // Do not compare chunks or sections belonging to the exact same document
+      const normNewerTitle = newer.doc.title
+        .trim()
+        .toLowerCase()
+        .replace(/\s*\(part\s+\d+\)$/i, '');
+      const normOlderTitle = older.doc.title
+        .trim()
+        .toLowerCase()
+        .replace(/\s*\(part\s+\d+\)$/i, '');
+      if (normNewerTitle === normOlderTitle) continue;
+
       const similarity = computeCosineSimilarity(newer.vector, older.vector);
       const sameDept = newer.deptSlug === older.deptSlug;
 

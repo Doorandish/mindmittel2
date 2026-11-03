@@ -252,4 +252,56 @@ describe('Google Drive Live API Importer & Real Document Extraction', () => {
     expect(result.content).toContain('IPM_Board_Meeting_Minutes');
     expect(result.content).toContain('Executive board consensus for IPM');
   });
+
+  it('downloads PDF files from Google Drive and extracts clean human text rather than raw /MediaBox binary operators', async () => {
+    // A synthetic PDF containing raw PDF operator stream
+    const rawPdfBytes = Buffer.from(
+      '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n' +
+        '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n' +
+        '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 597.96850397008 844.979527559055] /Contents 4 0 R >>\nendobj\n' +
+        '4 0 obj\n<< /Length 85 >>\nstream\n' +
+        'BT /F1 12 Tf 72 712 Td (Studienbescheinigung fuer das WS 2026/27 IPM-M Master) Tj ET\n' +
+        'endstream\nendobj\nxref\n0 5\ntrailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n400\n%%EOF'
+    );
+
+    const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/drive/v3/files?') && !url.includes('alt=media')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            files: [
+              {
+                id: 'pdf_file_789',
+                name: 'Studienbescheinigung-fuer-das-WS-2026-27_IPM-M.pdf',
+                mimeType: 'application/pdf',
+                size: String(rawPdfBytes.length),
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes('/files/pdf_file_789') && url.includes('alt=media')) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => rawPdfBytes.buffer,
+          text: async () => rawPdfBytes.toString('utf-8'),
+        };
+      }
+      return { ok: false, status: 404 };
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await fetchLiveGoogleDrivePayload({
+      rawToken: 'ya29.mock-drive-token',
+      targetScope: '/IPM',
+      userEmail: 'amir@mindmittel.de',
+    });
+
+    expect(result.title).toContain('Studienbescheinigung');
+    // Content should extract actual human text and strip raw /MediaBox or binary operators
+    expect(result.content).not.toContain('/MediaBox');
+    expect(result.content).toContain('Studienbescheinigung fuer das WS 2026/27 IPM-M');
+  });
 });
