@@ -1,4 +1,5 @@
 import type { DocumentSourceType } from '@/core/rag/chunker';
+import { fetchLiveGoogleDrivePayload } from '@/core/connectors/googleDriveImporter';
 
 export type ConnectorCategory = 'chat' | 'knowledge' | 'meetings';
 
@@ -120,9 +121,9 @@ export function createInitialConnectorsState(): EnterpriseConnectorItem[] {
         'Connect shared executive folders to index board charters, PDFs, and financial guidelines.',
       descriptionDe:
         'Verbinden Sie freigegebene Vorstandsordner zur Indexierung von Satzungen und Richtlinien.',
-      authFieldLabelEn: 'Google Workspace Service Account Key / OAuth Token',
-      authFieldLabelDe: 'Google Workspace OAuth-Token',
-      scopePlaceholder: 'Folder: /Board-Charters-2026',
+      authFieldLabelEn: 'Google OAuth Access Token (ya29...) / Service Account Key',
+      authFieldLabelDe: 'Google OAuth-Zugriffstoken (ya29...) / Service Account',
+      scopePlaceholder: 'Folder Name (e.g. IPM) or Folder ID',
       defaultDepartment: 'Finance & Legal',
       configured: false,
       enabled: false,
@@ -337,10 +338,10 @@ export async function fetchLiveConnectorPayloadOrFallback(params: {
   // Only attempt external HTTP calls if a non-demo real token is provided in online runtime
   const isDemoSecret =
     cleanSecret.length < 16 ||
-    cleanSecret.includes('demo') ||
-    cleanSecret.includes('test') ||
-    cleanSecret.includes('1234') ||
-    cleanSecret.includes('9999');
+    cleanSecret.toLowerCase().includes('demo') ||
+    cleanSecret.toLowerCase().includes('dummy') ||
+    cleanSecret.toLowerCase().includes('sample') ||
+    cleanSecret.toLowerCase().includes('mock');
 
   if (!cleanSecret || isDemoSecret || typeof fetch !== 'function') {
     return fallback;
@@ -397,8 +398,23 @@ export async function fetchLiveConnectorPayloadOrFallback(params: {
           };
         }
       }
+    } else if (connector.id === 'google-drive') {
+      return await fetchLiveGoogleDrivePayload({
+        rawToken: cleanSecret,
+        targetScope: connector.targetScope,
+        userEmail,
+        defaultDepartment: connector.defaultDepartment,
+      });
     }
-  } catch {
+  } catch (err) {
+    // If live API returned an explicit error (like 401 unauthenticated or 403 forbidden), rethrow it
+    // so the user receives actionable feedback instead of a silent fake template!
+    if (
+      connector.id === 'google-drive' ||
+      (err instanceof Error && err.message.includes('HTTP 401'))
+    ) {
+      throw err;
+    }
     // Graceful fallback to deterministic governance sync document
   }
 

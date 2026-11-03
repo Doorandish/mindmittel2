@@ -859,18 +859,23 @@ export async function removeAuditHistoryEntry(auditId: string): Promise<void> {
  * Persists a single EnterpriseConnectorItem state into `mindmittel_v2.connectors` in MongoDB Atlas.
  */
 async function persistConnectorItemToAtlas(
-  connector: EnterpriseConnectorItem
+  connector: EnterpriseConnectorItem,
+  rawSecret?: string
 ): Promise<void> {
   if (!isMongoConfigured()) return;
   try {
     const db = await getMindMittelDb();
+    const updateSet: Record<string, unknown> = {
+      ...connector,
+      updatedAt: new Date(),
+    };
+    if (rawSecret && rawSecret.trim().length > 0) {
+      updateSet.serverSecret = rawSecret.trim();
+    }
     await db.collection(COLLECTIONS.CONNECTORS).updateOne(
       { id: connector.id },
       {
-        $set: {
-          ...connector,
-          updatedAt: new Date(),
-        },
+        $set: updateSet,
       },
       { upsert: true }
     );
@@ -890,7 +895,9 @@ export async function getConnectorsList(): Promise<EnterpriseConnectorItem[]> {
     try {
       const db = await getMindMittelDb();
       const remoteConnectors = await db
-        .collection<EnterpriseConnectorItem>(COLLECTIONS.CONNECTORS)
+        .collection<EnterpriseConnectorItem & { serverSecret?: string }>(
+          COLLECTIONS.CONNECTORS
+        )
         .find({})
         .toArray();
 
@@ -899,11 +906,15 @@ export async function getConnectorsList(): Promise<EnterpriseConnectorItem[]> {
         vault.connectors = vault.connectors.map((local) => {
           const persisted = remoteMap.get(local.id);
           if (!persisted) return local;
+          if (persisted.serverSecret) {
+            vault.connectorSecrets[local.id] = persisted.serverSecret;
+          }
           return {
             ...local,
             configured: Boolean(persisted.configured),
             enabled: Boolean(persisted.enabled),
-            maskedCredential: persisted.maskedCredential ?? local.maskedCredential,
+            maskedCredential:
+              persisted.maskedCredential ?? local.maskedCredential,
             targetScope: persisted.targetScope || local.targetScope,
             lastSyncedAt: persisted.lastSyncedAt ?? local.lastSyncedAt,
             updatedByEmail: persisted.updatedByEmail ?? local.updatedByEmail,
@@ -934,7 +945,7 @@ export async function saveConnectorConfig(params: {
 
   const updated = vault.connectors.find((c) => c.id === params.connectorId);
   if (updated) {
-    await persistConnectorItemToAtlas(updated);
+    await persistConnectorItemToAtlas(updated, params.apiSecret.trim());
   }
 
   systemLogger.info(
