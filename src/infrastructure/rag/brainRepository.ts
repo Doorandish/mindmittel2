@@ -522,12 +522,14 @@ export async function ingestDocumentIntoBrain(params: {
 export async function listBrainDocuments(): Promise<
   Array<{
     parentId: string;
+    allParentIds?: string[];
     title: string;
     department: string;
     sourceType: string;
     tags: string[];
     contentPreview: string;
     childCount: number;
+    sectionCount?: number;
     createdByEmail: string;
     createdByName: string;
     createdAt?: string;
@@ -559,10 +561,28 @@ export async function listBrainDocuments(): Promise<
     }
   }
 
-  return vault.parents.map((parent) => {
+  // Aggregate multi-chunk parents belonging to the same logical document entity
+  interface GroupedDocEntity {
+    primaryParentId: string;
+    allParentIds: string[];
+    title: string;
+    department: string;
+    sourceType: string;
+    tags: Set<string>;
+    chunks: Array<{ index: number; content: string; childCount: number }>;
+    totalChildCount: number;
+    createdByEmail: string;
+    createdByName: string;
+    createdAtStr: string;
+  }
+
+  const groupedMap = new Map<string, GroupedDocEntity>();
+
+  for (const parent of vault.parents) {
     const memoryChildCount = vault.children.filter(
       (c) => c.parentId === parent.parentId
     ).length;
+    const chunkChildCount = Math.max(1, parent.childCount ?? memoryChildCount);
 
     const rawCreatedAt =
       parent.createdAt ??
@@ -574,35 +594,100 @@ export async function listBrainDocuments(): Promise<
         ? rawCreatedAt
         : new Date().toISOString();
 
+    const groupKey = `${parent.title.trim().toLowerCase()}:::${parent.metadata.department}:::${parent.metadata.sourceType}`;
+    const existing = groupedMap.get(groupKey);
+
+    if (!existing) {
+      groupedMap.set(groupKey, {
+        primaryParentId: parent.parentId,
+        allParentIds: [parent.parentId],
+        title: parent.title,
+        department: parent.metadata.department,
+        sourceType: parent.metadata.sourceType,
+        tags: new Set(parent.metadata.tags ?? []),
+        chunks: [
+          {
+            index: parent.parentIndex ?? 0,
+            content: parent.content,
+            childCount: chunkChildCount,
+          },
+        ],
+        totalChildCount: chunkChildCount,
+        createdByEmail: parent.createdByEmail ?? 'governance-board@mindmittel.de',
+        createdByName: parent.createdByName ?? 'Governance Board',
+        createdAtStr,
+      });
+    } else {
+      existing.allParentIds.push(parent.parentId);
+      for (const t of parent.metadata.tags ?? []) {
+        existing.tags.add(t);
+      }
+      existing.chunks.push({
+        index: parent.parentIndex ?? existing.chunks.length,
+        content: parent.content,
+        childCount: chunkChildCount,
+      });
+      existing.totalChildCount += chunkChildCount;
+      if ((parent.parentIndex ?? 999) === 0) {
+        existing.primaryParentId = parent.parentId;
+      }
+    }
+  }
+
+  return Array.from(groupedMap.values()).map((g) => {
+    g.chunks.sort((a, b) => a.index - b.index);
+    const stitchedContent = g.chunks.map((c) => c.content).join('\n\n');
+
     return {
-      parentId: parent.parentId,
-      title: parent.title,
-      department: parent.metadata.department,
-      sourceType: parent.metadata.sourceType,
-      tags: parent.metadata.tags,
-      contentPreview: parent.content,
-      childCount: Math.max(1, parent.childCount ?? memoryChildCount),
-      createdByEmail: parent.createdByEmail ?? 'governance-board@mindmittel.de',
-      createdByName: parent.createdByName ?? 'Governance Board',
-      createdAt: createdAtStr,
+      parentId: g.primaryParentId,
+      allParentIds: g.allParentIds,
+      title: g.title,
+      department: g.department,
+      sourceType: g.sourceType,
+      tags: Array.from(g.tags),
+      contentPreview: stitchedContent,
+      childCount: g.totalChildCount,
+      sectionCount: g.chunks.length,
+      createdByEmail: g.createdByEmail,
+      createdByName: g.createdByName,
+      createdAt: g.createdAtStr,
     };
   });
 }
 
 /**
- * Removes a Parent document and cascades deletion to all of its Child vectors.
+ * Removes a Parent document and cascades deletion to all of its sibling chunks and Child vectors.
  */
-export async function removeBrainDocument(parentId: string): Promise<void> {
+export async function removeBrainDocument(targetId: string): Promise<void> {
   const vault = getMemoryVault();
-  vault.parents = vault.parents.filter((p) => p.parentId !== parentId);
-  vault.children = vault.children.filter((c) => c.parentId !== parentId);
+  const target = vault.parents.find((p) => p.parentId === targetId);
+
+  // Find all sibling chunks of the same document entity so deletion cascades to the whole document
+  const idsToRemove = new Set<string>([targetId]);
+  if (target) {
+    const groupKey = `${target.title.trim().toLowerCase()}:::${target.metadata.department}:::${target.metadata.sourceType}`;
+    for (const p of vault.parents) {
+      const pKey = `${p.title.trim().toLowerCase()}:::${p.metadata.department}:::${p.metadata.sourceType}`;
+      if (pKey === groupKey) {
+        idsToRemove.add(p.parentId);
+      }
+    }
+  }
+
+  vault.parents = vault.parents.filter((p) => !idsToRemove.has(p.parentId));
+  vault.children = vault.children.filter((c) => !idsToRemove.has(c.parentId));
 
   if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
+      const parentIdArray = Array.from(idsToRemove);
       await Promise.all([
-        db.collection(COLLECTIONS.RAW_DOCUMENTS).deleteOne({ parentId }),
-        db.collection(COLLECTIONS.VECTOR_STORE).deleteMany({ parentId }),
+        db
+          .collection(COLLECTIONS.RAW_DOCUMENTS)
+          .deleteMany({ parentId: { $in: parentIdArray } }),
+        db
+          .collection(COLLECTIONS.VECTOR_STORE)
+          .deleteMany({ parentId: { $in: parentIdArray } }),
       ]);
     } catch {
       // Ignore if offline
@@ -611,7 +696,7 @@ export async function removeBrainDocument(parentId: string): Promise<void> {
 
   systemLogger.info(
     'rag.delete',
-    `Cascaded deletion for parentId [${parentId}] and its child vectors`
+    `Cascaded deletion for ${idsToRemove.size} chunk(s) (${Array.from(idsToRemove).join(', ')}) and associated vectors`
   );
 }
 

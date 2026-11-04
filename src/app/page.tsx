@@ -51,12 +51,14 @@ import type { BrainKnowledgeConflictWarning } from '@/core/rag/conflictDetector'
 
 interface StoredBrainDocumentSummary {
   parentId: string;
+  allParentIds?: string[];
   title: string;
   department: string;
   sourceType: string;
   tags: string[];
   contentPreview: string;
   childCount: number;
+  sectionCount?: number;
   createdByEmail?: string;
   createdByName?: string;
   createdAt?: string;
@@ -2600,6 +2602,9 @@ export default function HomePage() {
                           <span>·</span>
                           <span className="text-blue-600 font-medium">
                             {doc.childCount} vectors
+                            {doc.sectionCount && doc.sectionCount > 1
+                              ? ` (${doc.sectionCount} sections)`
+                              : ''}
                           </span>
                           <span>·</span>
                           <span className="text-slate-500 truncate">

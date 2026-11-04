@@ -109,4 +109,40 @@ describe('Parent-Child RAG Chunker & Metadata Normalizer (Functional Core)', () 
     expect(repoSrc).toContain('createdAt?: string | Date');
     expect(pageSrc).toContain('doc.createdAt');
   });
+
+  it('aggregates multi-chunk documents into a single document entity in listBrainDocuments with combined vector count and stitched content', async () => {
+    const {
+      listBrainDocuments,
+      ingestDocumentIntoBrain,
+      removeBrainDocument,
+    } = await import('@/infrastructure/rag/brainRepository');
+
+    // Ingest a 3500-character document which naturally splits into 2 parent chunks
+    const longText =
+      'Hochschule Pforzheim Studienbescheinigung fuer das WS 2026/27. '.repeat(
+        60
+      );
+    const title = 'Unique Test Aggregation Document 2026';
+
+    await ingestDocumentIntoBrain({
+      title,
+      content: longText,
+      department: 'Finance & Legal',
+      sourceType: 'gdrive',
+      createdByEmail: 'amir@mindmittel.de',
+    });
+
+    const docs = await listBrainDocuments();
+    const matched = docs.filter((d) => d.title === title);
+
+    // Must be aggregated into EXACTLY 1 document card, NOT 2 cards!
+    expect(matched).toHaveLength(1);
+    expect(matched[0].childCount).toBeGreaterThanOrEqual(8);
+    expect(matched[0].sectionCount).toBeGreaterThanOrEqual(2);
+
+    // Clean up
+    await removeBrainDocument(matched[0].parentId);
+    const afterDelete = await listBrainDocuments();
+    expect(afterDelete.filter((d) => d.title === title)).toHaveLength(0);
+  });
 });
