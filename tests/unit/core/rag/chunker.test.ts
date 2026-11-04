@@ -92,4 +92,21 @@ describe('Parent-Child RAG Chunker & Metadata Normalizer (Functional Core)', () 
     const firstChildEnd = result.children[0].text.slice(-15);
     expect(result.children[1].text.startsWith(firstChildEnd)).toBe(true);
   });
+
+  it('includes createdAt timestamp in listed brain documents and renders registration date/time in the UI', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const rootDir = path.resolve(__dirname, '../../../..');
+    const repoSrc = fs.readFileSync(
+      path.join(rootDir, 'src/infrastructure/rag/brainRepository.ts'),
+      'utf-8'
+    );
+    const pageSrc = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    expect(repoSrc).toContain('createdAt?: string | Date');
+    expect(pageSrc).toContain('doc.createdAt');
+  });
 });

@@ -59,6 +59,7 @@ interface StoredBrainDocumentSummary {
   childCount: number;
   createdByEmail?: string;
   createdByName?: string;
+  createdAt?: string;
 }
 
 const AUDIT_PIPELINE_STEPS = [
@@ -2604,6 +2605,23 @@ export default function HomePage() {
                           <span className="text-slate-500 truncate">
                             {doc.createdByEmail ?? 'governance-board@mindmittel.de'}
                           </span>
+                          {doc.createdAt && (
+                            <>
+                              <span>·</span>
+                              <span className="text-slate-400">
+                                {new Date(doc.createdAt).toLocaleString(
+                                  locale === 'de' ? 'de-DE' : 'en-US',
+                                  {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  }
+                                )}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -2744,6 +2762,21 @@ export default function HomePage() {
                                   {conn.configured && (
                                     <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-white text-slate-600 border border-slate-200/80">
                                       {conn.maskedCredential}
+                                    </span>
+                                  )}
+                                  {conn.lastSyncedAt && (
+                                    <span className="text-[11px] font-mono text-slate-400">
+                                      · Synced:{' '}
+                                      {new Date(conn.lastSyncedAt).toLocaleString(
+                                        locale === 'de' ? 'de-DE' : 'en-US',
+                                        {
+                                          year: 'numeric',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        }
+                                      )}
                                     </span>
                                   )}
                                 </div>

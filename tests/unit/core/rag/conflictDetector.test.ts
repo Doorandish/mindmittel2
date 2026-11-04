@@ -150,4 +150,69 @@ describe('Company Brain Knowledge Conflict Detector & Online In-Place Editor', (
     const conflicts = detectBrainDocumentConflicts(multiChunkDoc);
     expect(conflicts).toHaveLength(0);
   });
+
+  it('only treats numbers with currency indicators (Euro, EUR, €, USD, $) before or after as monetary amounts and ignores calendar dates or semester years', () => {
+    const studentDocWithDates: BrainDocumentForConflictCheck = {
+      parentId: 'parent_student_cert',
+      title:
+        'Google Drive Sync (/IPM) — Studienbescheinigung-fuer-das-WS-2026-27_IPM-M',
+      department: 'finance-legal',
+      content:
+        'Gem. Art. 130 BayHIG ist Folgendes zu beachten: Fuer die im Sommersemester 2020, Wintersemester 2020/2021 und 10.2020 immatrikulierten Studierenden. Geburtsdatum 09.1989, Immatrikulation 03.2021.',
+      tags: ['google-drive', 'live-sync'],
+      createdByEmail: 'amir@mindmittel.de',
+      createdByName: 'Amir',
+    };
+
+    // Comparing student certificate (which has dates 10.2020, 2020, etc. but NO currency) against Financial Charter (€10,000)
+    const conflicts = detectBrainDocumentConflicts([
+      studentDocWithDates,
+      ...baselineDocs,
+    ]);
+
+    // Should NOT trigger any numeric conflict because dates are not currency amounts
+    const finConflict = conflicts.find(
+      (c) =>
+        (c.newerDocument.parentId === 'parent_student_cert' &&
+          c.existingDocument.parentId === 'parent_fin_charter') ||
+        (c.newerDocument.parentId === 'parent_fin_charter' &&
+          c.existingDocument.parentId === 'parent_student_cert')
+    );
+    expect(finConflict).toBeUndefined();
+
+    // Now test that explicit USD or Euro suffix/prefix IS recognized as currency
+    const usdDoc: BrainDocumentForConflictCheck = {
+      parentId: 'parent_us_subsidiary',
+      title: 'US Subsidiary Vendor Approval Guidelines',
+      department: 'finance-legal',
+      content:
+        'US branch managers may approve vendor software agreements up to 25,000 USD without executive co-signature.',
+      tags: ['procurement', 'vendor-contract'],
+      createdByEmail: 'cfo-office@mindmittel.de',
+      createdByName: 'CFO Office',
+    };
+
+    const euroPrefixDoc: BrainDocumentForConflictCheck = {
+      parentId: 'parent_eu_override',
+      title: 'EU Procurement Override Memo',
+      department: 'finance-legal',
+      content:
+        'EU managers may approve vendor software agreements up to Euro 30.000 without CFO approval.',
+      tags: ['procurement', 'vendor-contract'],
+      createdByEmail: 'cfo-office@mindmittel.de',
+      createdByName: 'CFO Office',
+    };
+
+    const usdConflicts = detectBrainDocumentConflicts([
+      usdDoc,
+      ...baselineDocs,
+    ]);
+    expect(usdConflicts.length).toBeGreaterThan(0);
+
+    const euroConflicts = detectBrainDocumentConflicts([
+      euroPrefixDoc,
+      ...baselineDocs,
+    ]);
+    expect(euroConflicts.length).toBeGreaterThan(0);
+  });
 });

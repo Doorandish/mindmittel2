@@ -63,6 +63,7 @@ interface AttributedParentChunk extends ParentDocumentChunk {
   childCount?: number;
   createdByEmail?: string;
   createdByName?: string;
+  createdAt?: string | Date;
 }
 
 interface InMemoryBrainVault {
@@ -308,6 +309,7 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
           childCount: Math.max(1, pChildCount),
           createdByEmail: 'governance-board@mindmittel.de',
           createdByName: 'Governance Board',
+          createdAt: new Date().toISOString(),
         });
       }
       for (const c of children) {
@@ -333,11 +335,14 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
       if (existingRawCount === 0 && existingVecCount === 0 && vault.parents.length > 0) {
         const now = new Date();
         await rawCol.insertMany(
-          vault.parents.map((p) => ({
-            ...p,
-            createdAt: now,
-            updatedAt: now,
-          }))
+          vault.parents.map((p) => {
+            const { createdAt: _c, ...rest } = p;
+            return {
+              ...rest,
+              createdAt: now,
+              updatedAt: now,
+            };
+          })
         );
         await vecCol.insertMany(
           vault.children.map((c) => ({
@@ -411,6 +416,7 @@ export async function ingestDocumentIntoBrain(params: {
   };
 
   const { parents, children } = createParentChildChunks(rawInput);
+  const nowIso = new Date().toISOString();
   const attributedParents: AttributedParentChunk[] = parents.map((p) => ({
     ...p,
     childCount: Math.max(
@@ -419,6 +425,7 @@ export async function ingestDocumentIntoBrain(params: {
     ),
     createdByEmail: authorEmail,
     createdByName: authorName,
+    createdAt: nowIso,
   }));
 
   const embeddedChildren: EmbeddedChildChunk[] = [];
@@ -453,11 +460,17 @@ export async function ingestDocumentIntoBrain(params: {
       const db = await getMindMittelDb();
       const now = new Date();
 
-      const parentRecords: RawDocumentRecord[] = attributedParents.map((p) => ({
-        ...p,
-        createdAt: now,
-        updatedAt: now,
-      }));
+      const parentRecords: RawDocumentRecord[] = attributedParents.map((p) => {
+        const { createdAt: _c, ...rest } = p;
+        return {
+          ...rest,
+          createdAt:
+            typeof p.createdAt === 'string'
+              ? new Date(p.createdAt)
+              : p.createdAt ?? now,
+          updatedAt: now,
+        };
+      });
 
       const vectorRecords: VectorStoreRecord[] = embeddedChildren.map((c) => ({
         ...c,
@@ -517,6 +530,7 @@ export async function listBrainDocuments(): Promise<
     childCount: number;
     createdByEmail: string;
     createdByName: string;
+    createdAt?: string;
   }>
 > {
   await ensureDefaultPoliciesSeeded();
@@ -550,6 +564,16 @@ export async function listBrainDocuments(): Promise<
       (c) => c.parentId === parent.parentId
     ).length;
 
+    const rawCreatedAt =
+      parent.createdAt ??
+      (parent as unknown as { createdAt?: Date | string }).createdAt;
+    const createdAtStr =
+      rawCreatedAt instanceof Date
+        ? rawCreatedAt.toISOString()
+        : typeof rawCreatedAt === 'string'
+        ? rawCreatedAt
+        : new Date().toISOString();
+
     return {
       parentId: parent.parentId,
       title: parent.title,
@@ -560,6 +584,7 @@ export async function listBrainDocuments(): Promise<
       childCount: Math.max(1, parent.childCount ?? memoryChildCount),
       createdByEmail: parent.createdByEmail ?? 'governance-board@mindmittel.de',
       createdByName: parent.createdByName ?? 'Governance Board',
+      createdAt: createdAtStr,
     };
   });
 }
@@ -686,13 +711,14 @@ export async function updateBrainDocument(params: {
       const db = await getMindMittelDb();
       const now = new Date();
 
+      const { createdAt: _ignoredCreated, ...fieldsToSet } = updatedParent;
       await db
         .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
         .updateOne(
           { parentId: params.parentId },
           {
             $set: {
-              ...updatedParent,
+              ...fieldsToSet,
               updatedAt: now,
             },
             $setOnInsert: {

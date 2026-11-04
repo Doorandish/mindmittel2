@@ -41,18 +41,39 @@ const PERMISSIVE_OVERRIDE_REGEX =
   /\b(cancel|cancelled|canceled|abolish|abolished|optional|voluntary|no longer required|without.*approval|without.*notification|without.*sign-off|exempt|waived|abschaffen|abgeschafft|freiwillig|optional|ohne.*genehmigung)\b/i;
 
 /**
- * Extracts normalized numeric thresholds (currency amounts like €10,000, durations like 15-minute, percentages)
- * from a governance text for discrepancy comparison.
+ * Extracts normalized numeric thresholds (currency amounts strictly with Euro/USD before or after,
+ * durations like 15-minute, or percentages) from a governance text for discrepancy comparison.
+ * Calendar dates (e.g. 10.2020, 2020/2021, 09.1989) are strictly excluded from monetary thresholds.
  */
 function extractKeyNumbers(text: string): string[] {
-  const matches =
-    text.match(
-      /(?:€|\$|EUR\s*)?\b\d{1,3}(?:[.,]\d{3})+(?:\b|\s*(?:EUR|euro|euros))?|\b\d+\s*(?:%|percent|minutes|minute|days|day|hours|hour|months|month)\b/gi
-    ) ?? [];
+  // Currency with indicator BEFORE the number: €10,000 | EUR 10000 | Euro 500 | USD 25,000 | $15,000
+  const currencyPrefixRegex =
+    /(?:€|\$|EUR|Euro|Euros|USD|Dollar|Dollars)\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+)/gi;
+
+  // Currency with indicator AFTER the number: 10,000 € | 25000 EUR | 30.000 Euro | 25,000 USD | 5000 Dollars
+  const currencySuffixRegex =
+    /\b(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+)\s*(?:€|\$|EUR|Euro|Euros|USD|Dollar|Dollars)\b/gi;
+
+  // Percentages and duration thresholds
+  const percentageAndDurationRegex =
+    /\b\d+(?:[.,]\d+)?\s*(?:%|percent|prozent)\b|\b\d+\s*(?:minutes|minute|days|day|hours|hour|months|month|tage|tagen|stunden|stunde)\b/gi;
+
+  const rawMatches: string[] = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = currencyPrefixRegex.exec(text)) !== null) {
+    rawMatches.push(match[0]);
+  }
+  while ((match = currencySuffixRegex.exec(text)) !== null) {
+    rawMatches.push(match[0]);
+  }
+  while ((match = percentageAndDurationRegex.exec(text)) !== null) {
+    rawMatches.push(match[0]);
+  }
 
   return Array.from(
     new Set(
-      matches.map((m) =>
+      rawMatches.map((m) =>
         m
           .toLowerCase()
           .replace(/\s+/g, '')
