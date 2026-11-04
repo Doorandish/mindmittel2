@@ -35,6 +35,7 @@ import {
   BookOpen,
   Pencil,
   Download,
+  Clock,
 } from 'lucide-react';
 import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
 import { SystemObservabilityPanel } from '@/components/system/SystemObservabilityPanel';
@@ -1264,49 +1265,56 @@ export default function HomePage() {
                     <Plug className="w-6 h-6" />
                   </div>
                   <span className="px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-[11px] font-mono font-bold uppercase">
-                    CONNECTORS HUB
+                    7 CONNECTORS + CUSTOM API
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">
                   {locale === 'de'
-                    ? 'Enterprise Connectors (iOS-Schalter)'
-                    : 'iOS-Toggle Enterprise Connectors'}
+                    ? '7 Unternehmens-Konnektoren & Offene API'
+                    : '7 Enterprise Connectors & Custom Extensibility'}
                 </h3>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                   {locale === 'de'
-                    ? 'Verbinden Sie Slack, MS Teams, Confluence, Notion, Google Drive, Zoom und Google Meet per API-Token und schalten Sie Datenquellen jederzeit ein oder aus.'
-                    : 'Connect corporate chat (Slack, Teams), knowledge bases (Confluence, Notion, Drive), and online meetings (Zoom, Meet) with credential-gated iOS toggle switches.'}
+                    ? 'Verbinden Sie Google Drive, Slack, Microsoft Teams, Confluence, Notion, Zoom und Google Meet mit sicheren Schlüsseln. Über die offene API können Sie jederzeit beliebige eigene ERP-, SAP- oder Jira-Systeme als Custom Connector anbinden.'
+                    : 'Live-synchronize Google Drive, Slack, Microsoft Teams, Confluence, Notion, Zoom, and Google Meet with secure credentials. The extensible connector architecture lets any enterprise plug in internal ERPs, SAP, or custom APIs in minutes.'}
                 </p>
-              </div>
 
-              <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600">
-                    <UserCheck className="w-6 h-6" />
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-[11px] font-mono font-bold uppercase">
-                    EMAIL AUTH & LEDGER
+                {/* 7 Connectors Visual Pills Grid */}
+                <div className="pt-2 flex flex-wrap gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Google Drive
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Slack
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Microsoft Teams
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Confluence
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Notion
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Zoom
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] font-medium border border-slate-200/80">
+                    Google Meet
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-mono text-[11px] font-bold border border-blue-200">
+                    + Custom Connector
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {locale === 'de'
-                    ? 'E-Mail-Zuordnung & Audit-Archiv'
-                    : 'Email Attribution & Audit History'}
-                </h3>
-                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-                  {locale === 'de'
-                    ? 'Jedes eingespeiste Dokument und jeder Audit-Bericht wird der E-Mail des Nutzers zugeordnet und im verwaltbaren Audit-Verlauf gespeichert.'
-                    : 'Track exactly which executive email added each policy or requested each decision audit, backed by a searchable and deletable Audit History Ledger.'}
-                </p>
               </div>
 
               <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-                    <Cpu className="w-6 h-6" />
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                    <RefreshCw className="w-6 h-6" />
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-mono font-bold uppercase">
-                    {dict.featuresSection.feat3Badge}
+                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-mono font-bold uppercase">
+                    SMART DELTA SYNC
                   </span>
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">
@@ -1315,14 +1323,22 @@ export default function HomePage() {
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                   {dict.featuresSection.feat3Desc}
                 </p>
+                <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {locale === 'de'
+                      ? '0 Token-Verschwendung bei unveränderten Dateien'
+                      : 'Zero AI token waste on unchanged files'}
+                  </span>
+                </div>
               </div>
 
               <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
-                    <Activity className="w-6 h-6" />
+                  <div className="w-12 h-12 rounded-2xl bg-violet-50 border border-violet-200 flex items-center justify-center text-violet-600">
+                    <UserCheck className="w-6 h-6" />
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-mono font-bold uppercase">
+                  <span className="px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-[11px] font-mono font-bold uppercase">
                     {dict.featuresSection.feat4Badge}
                   </span>
                 </div>
@@ -1331,6 +1347,35 @@ export default function HomePage() {
                 </h3>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                   {dict.featuresSection.feat4Desc}
+                </p>
+                <div className="pt-2 flex items-center gap-2 text-[11px] font-mono text-violet-700 font-semibold bg-violet-50 px-2.5 py-1 rounded-md border border-violet-200">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {locale === 'de'
+                      ? 'Revisionssicher & DSGVO-konform'
+                      : 'Enterprise Audit & DSGVO Verifiable'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                    <BrainCircuit className="w-6 h-6" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-mono font-bold uppercase">
+                    AUTONOMOUS ROUTER & OBSERVE
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {locale === 'de'
+                    ? 'Autonomer Gemini-Router & System-Telemetrie'
+                    : 'Autonomous Gemini Router & System Telemetry'}
+                </h3>
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  {locale === 'de'
+                    ? 'Analysiert die Komplexität jeder Führungsentscheidung und routet dynamisch zwischen Flash- und Pro-Modellen, überwacht durch eine klickbare Architektur-Topologie unter /system.'
+                    : 'Inspects query complexity in real time and routes dynamically between Gemini Flash and Pro models, monitored live via the clickable visual architecture topology console at /system.'}
                 </p>
               </div>
             </div>

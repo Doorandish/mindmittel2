@@ -176,25 +176,25 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
       eyebrow: 'THE PROBLEM VS. THE SOLUTION',
       title: 'Why Traditional Management Falls Short',
       problemHeader: 'THE PROBLEM',
-      prob1Title: 'Post-Mortem Auditing',
+      prob1Title: 'Contradictory Guidelines & Outdated Thresholds',
       prob1Desc:
-        'Traditional governance catches policy violations months after decisions are made, when reversing course is costly and damaging.',
-      prob2Title: 'Scattered Knowledge Across Silos',
+        'Policies evolve over time, leaving outdated budget limits and opposing rules scattered across files—creating compliance violations and costly audit penalties.',
+      prob2Title: 'Scattered Knowledge Across 7 Tool Silos',
       prob2Desc:
-        'Valuable rules in PDFs, board minutes, and Slack channels remain disconnected—keyword search fails when wording differs.',
-      prob3Title: 'Siloed & Context-Blind Decisions',
+        'Crucial decisions and board approvals are fragmented across Google Drive, Slack, Teams, Confluence, Notion, Zoom, and Meet—making verification impossible.',
+      prob3Title: 'Token Burn & Slow Redundant File Uploads',
       prob3Desc:
-        'Managers act on intuition rather than institutional memory, while standard AI tools hallucinate because they lack full document context.',
+        'Standard tools re-upload and re-embed entire directories on every sync, burning thousands of AI tokens on unchanged documents without accountability.',
       solutionHeader: 'THE MINDMITTEL SOLUTION',
-      sol1Title: 'Real-Time AI Gatekeeping',
+      sol1Title: 'Autonomous Knowledge Conflict Guard',
       sol1Desc:
-        'Every proposed decision is evaluated against the full Company Brain before execution—catching misalignment instantly.',
-      sol2Title: 'Parent-Child Vector RAG on Atlas',
+        'Automatically detects contradictory Euro and USD numeric limits and opposing policy mandates in real time, with immediate in-place resolution.',
+      sol2Title: '7 Live Enterprise Connectors & Extensible API',
       sol2Desc:
-        'Matches precise 400-character child vectors by meaning while retrieving the full 2,000-character parent document so context is never lost.',
-      sol3Title: 'Autonomous Gemini Model Routing',
+        'One-click synchronization with Google Drive, Slack, Teams, Confluence, Notion, Zoom, and Meet—with an open extensible connector API for any internal system.',
+      sol3Title: 'Smart Delta Sync with Zero-Token Waste',
       sol3Desc:
-        'Zero manual model picking. The system inspects query complexity and routes dynamically to the optimal Google Gemini model with automatic failover.',
+        'Evaluates cryptographic file timestamps (modifiedTime). Skips unchanged files entirely to eliminate 100% of redundant AI token consumption.',
     },
     howItWorksSection: {
       eyebrow: 'HOW IT WORKS',
@@ -214,26 +214,26 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
         'Receive an immediate, structured compliance evaluation backed by exact parent document citations, risk analysis, and next steps.',
     },
     featuresSection: {
-      eyebrow: 'KEY FEATURES',
+      eyebrow: 'KEY ENTERPRISE VALUE',
       title: 'Built for Enterprise-Grade Governance',
       subtitle:
-        'Every capability is engineered to eliminate the gap between institutional knowledge and executive decision-making.',
-      feat1Badge: 'GOVERNANCE',
-      feat1Title: 'Real-Time Risk Prevention',
+        'Every capability directly eliminates operational risks, stops token waste, and centralizes institutional knowledge.',
+      feat1Badge: 'CONFLICT GUARD',
+      feat1Title: 'Real-Time Policy & Threshold Conflict Guard',
       feat1Desc:
-        'Audit decisions before execution, not months later. Catch misalignment with internal company policies the instant a decision is proposed.',
-      feat2Badge: 'VECTOR RAG',
-      feat2Title: 'Parent-Child Semantic Memory',
+        'Instantly flags contradictory Euro and USD spending limits and opposing policy mandates across your Company Brain, with online in-place resolution.',
+      feat2Badge: '7 CONNECTORS & API',
+      feat2Title: '7 Enterprise Connectors & Custom Extensibility',
       feat2Desc:
-        'Powered by MongoDB Atlas Vector Search (mindmittel_v2). Combines granular 400-char vector matching with full 2,000-char parent context.',
-      feat3Badge: 'AI POWERED',
-      feat3Title: 'Autonomous Gemini Router',
+        'Synchronize Google Drive, Slack, Teams, Confluence, Notion, Zoom, and Google Meet with secure RS256 credentials, plus an extensible connector API for any internal system.',
+      feat3Badge: 'SMART DELTA SYNC',
+      feat3Title: 'Smart Delta Sync & Zero-Token Waste',
       feat3Desc:
-        'Queries the live Google Gemini catalog at runtime, scores version & stability tiers, and automatically routes between Flash and Pro models.',
-      feat4Badge: 'OBSERVABILITY',
-      feat4Title: 'Live System Topology & SSE Logs',
+        'Evaluates Google Drive modifiedTime timestamps before downloading. Skips unchanged files entirely to eliminate 100% of redundant AI token consumption.',
+      feat4Badge: 'ACCOUNTABILITY',
+      feat4Title: 'Immutable Audit History & Timestamp Ledger',
       feat4Desc:
-        'Built-in /system engineering console featuring clickable technical deep-dive documentation and real-time Server-Sent Events log streaming.',
+        'Every ingested policy and decision audit is stamped with verifiable createdAt timestamps and user email attribution for strict regulatory and DSGVO compliance.',
     },
     ctaBanner: {
       badge: 'Live Workspace Available Now',
@@ -319,27 +319,27 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
     },
     problemSolution: {
       eyebrow: 'DAS PROBLEM VS. DIE LÖSUNG',
-      title: 'Warum klassisches Management an Grenzen stößt',
+      title: 'Warum traditionelle Führungsentscheidungen scheitern',
       problemHeader: 'DAS PROBLEM',
-      prob1Title: 'Prüfung erst im Nachhinein',
+      prob1Title: 'Widersprüchliche Richtlinien & Veraltete Grenzwerte',
       prob1Desc:
-        'Klassische Governance entdeckt Richtlinienverstöße oft erst Monate nach einer Entscheidung, wenn Korrekturen teuer und schädlich sind.',
-      prob2Title: 'Verstreutes Wissen in Silos',
+        'Richtlinien ändern sich stetig. Veraltete Budgetgrenzen und gegensätzliche Vorgaben bleiben in Dokumenten unbemerkt und führen zu teuren Compliance-Strafen.',
+      prob2Title: 'Verstreutes Wissen über 7 isolierte Tools',
       prob2Desc:
-        'Wichtige Regeln in PDFs, Protokollen und Slack-Kanälen bleiben getrennt – einfache Stichwortsuche scheitert bei abweichenden Formulierungen.',
-      prob3Title: 'Entscheidungen ohne Gesamtkontext',
+        'Wichtige Beschlüsse sind über Google Drive, Slack, Teams, Confluence, Notion, Zoom und Meet verstreut – eine lückenlose Überprüfung ist unmöglich.',
+      prob3Title: 'Token-Verschwendung & Redundante Downloads',
       prob3Desc:
-        'Führungskräfte entscheiden nach Bauchgefühl statt nach Unternehmenswissen, während Standard-KI-Chatbots ohne Dokumentkontext halluzinieren.',
-      solutionHeader: 'DIE MINDMITTEL LÖSUNG',
-      sol1Title: 'KI-Gatekeeping in Echtzeit',
+        'Herkömmliche Systeme laden bei jeder Synchronisation unveränderte Verzeichnisse komplett neu hoch und verbrennen unnötig Tausende KI-Tokens.',
+      solutionHeader: 'DIE MINDMITTEL-LÖSUNG',
+      sol1Title: 'Autonomer Knowledge Conflict Guard',
       sol1Desc:
-        'Jede Entscheidungsvorlage wird vor der Umsetzung gegen das gesamte Company Brain geprüft – Abweichungen werden sofort erkannt.',
-      sol2Title: 'Parent-Child Vektor-RAG auf Atlas',
+        'Erkennt widersprüchliche Euro- und USD-Grenzwerte sowie kollidierende Vorgaben in Echtzeit und ermöglicht die direkte Online-Bereinigung.',
+      sol2Title: '7 Live-Unternehmenskonnektoren & Offene API',
       sol2Desc:
-        'Findet präzise 400-Zeichen-Vektoren nach Bedeutung und lädt gleichzeitig das vollständige 2.000-Zeichen-Hauptdokument für vollen Kontext.',
-      sol3Title: 'Autonomes Gemini-Modell-Routing',
+        'Nahtlose Anbindung an Google Drive, Slack, Teams, Confluence, Notion, Zoom und Meet – plus erweiterbare API für interne ERP- und Datenbanksysteme.',
+      sol3Title: 'Smart Delta Sync mit 0 Token-Verschwendung',
       sol3Desc:
-        'Keine manuelle Modellauswahl. Das System analysiert die Anfragekomplexität und wählt dynamisch das optimale Google Gemini Modell.',
+        'Prüft Zeitstempel (modifiedTime) vor dem Download. Überspringt unveränderte Dateien vollständig und spart 100 % redundante KI-Tokenkosten.',
     },
     howItWorksSection: {
       eyebrow: 'SO FUNKTIONIERT ES',
@@ -359,26 +359,26 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
         'Erhalten Sie sofort eine strukturierte Bewertung inklusive direktem Quellenverweis auf das Hauptdokument sowie konkreten Handlungsempfehlungen.',
     },
     featuresSection: {
-      eyebrow: 'KERNFUNKTIONEN',
-      title: 'Entwickelt für erstklassige Unternehmensführung',
+      eyebrow: 'ECHTER UNTERNEHMENSWERT',
+      title: 'Entwickelt zur Lösung realer Governance-Herausforderungen',
       subtitle:
-        'Jede Funktion wurde entwickelt, um die Lücke zwischen Unternehmenswissen und Führungsentscheidungen zu schließen.',
-      feat1Badge: 'GOVERNANCE',
-      feat1Title: 'Risikoprävention in Echtzeit',
+        'Jede Funktion eliminiert konkrete Betriebsrisiken, verhindert Token-Verschwendung und sichert institutionelles Wissen.',
+      feat1Badge: 'CONFLICT GUARD',
+      feat1Title: 'Echtzeit-Widerspruchsschutz für Grenzwerte & Richtlinien',
       feat1Desc:
-        'Prüfen Sie Entscheidungen vor der Ausführung statt Monate später. Erkennen Sie Widersprüche zu internen Richtlinien sofort.',
-      feat2Badge: 'VEKTOR-RAG',
-      feat2Title: 'Semantisches Parent-Child Gedächtnis',
+        'Erkennt kollidierende Euro- und USD-Budgets sowie widersprüchliche Richtlinien sofort, inklusive direkter Online-Korrektur und Vektor-Neuindexierung.',
+      feat2Badge: '7 KONNEKTOREN & API',
+      feat2Title: '7 Unternehmens-Konnektoren & Offene Schnittstelle',
       feat2Desc:
-        'Basierend auf MongoDB Atlas Vector Search (mindmittel_v2). Kombiniert präzise Detailtreffer mit dem vollen Kontext des Hauptdokuments.',
-      feat3Badge: 'KI-ENGINE',
-      feat3Title: 'Autonomer Gemini-Router',
+        'Synchronisiert Google Drive, Slack, Teams, Confluence, Notion, Zoom und Google Meet mit RS256-Schlüsseln – plus erweiterbare API für eigene Systeme.',
+      feat3Badge: 'SMART DELTA SYNC',
+      feat3Title: 'Smart Delta Sync & 0 Token-Verschwendung',
       feat3Desc:
-        'Fragt zur Laufzeit verfügbare Google Gemini Modelle ab, bewertet Versionen & Stabilität und routet automatisch zwischen Flash und Pro.',
-      feat4Badge: 'OBSERVABILITY',
-      feat4Title: 'Live-Systemtopologie & SSE-Logs',
+        'Analysiert Google Drive modifiedTime Zeitstempel vor dem Download. Überspringt unveränderte Dateien und eliminiert redundante KI-Tokenkosten zu 100 %.',
+      feat4Badge: 'ACCOUNTABILITY',
+      feat4Title: 'Revisionssicheres Audit-Archiv mit Zeitstempeln',
       feat4Desc:
-        'Integrierte /system Konsole mit interaktiver technischer Architekturdokumentation und Echtzeit-Log-Streaming per Server-Sent Events.',
+        'Jedes Dokument und jedes Audit wird mit exakten createdAt-Zeitstempeln und E-Mail-Zuordnung für revisionssichere DSGVO-Konformität erfasst.',
     },
     ctaBanner: {
       badge: 'Live-Arbeitsbereich jetzt verfügbar',

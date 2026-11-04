@@ -51,4 +51,31 @@ describe('Bilingual Dictionary Integrity (English default & German)', () => {
     const dict = getDictionary('fr' as 'en');
     expect(dict.meta.localeCode).toBe('en');
   });
+
+  it('highlights value-driven governance capabilities including 7 enterprise connectors, Smart Delta Sync, and Knowledge Conflict Guard', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const rootDir = path.resolve(__dirname, '../../../');
+    const pageSrc = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    for (const locale of SUPPORTED_LOCALES) {
+      const dict = getDictionary(locale);
+      const allText = JSON.stringify(dict).toLowerCase();
+      // Must emphasize value propositions:
+      // 1. Conflict guard / contradictions
+      expect(allText).toMatch(/conflict|widerspruch|contradiction/i);
+      // 2. Connectors mentioning 7 tools or extensible connectors
+      expect(allText).toMatch(/google drive|slack|teams|confluence|notion|zoom|meet/i);
+      // 3. Smart Delta Sync / token efficiency
+      expect(allText).toMatch(/delta sync|token/i);
+    }
+
+    // Landing page must explicitly display the 7 connectors and custom extensible indicator
+    expect(pageSrc).toContain('Google Drive');
+    expect(pageSrc).toContain('Microsoft Teams');
+    expect(pageSrc).toContain('Custom Connector');
+  });
 });
