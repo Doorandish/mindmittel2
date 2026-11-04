@@ -23,6 +23,9 @@ export interface GoogleDriveSyncedPayload {
   sourceType: DocumentSourceType;
   tags: string[];
   createdByEmail: string;
+  unchanged?: boolean;
+  matchedFilesCount?: number;
+  latestModifiedTime?: string;
 }
 
 interface GoogleDriveFileEntry {
@@ -31,6 +34,8 @@ interface GoogleDriveFileEntry {
   mimeType: string;
   size?: string;
   description?: string;
+  modifiedTime?: string;
+  md5Checksum?: string;
 }
 
 export interface GoogleServiceAccountKey {
@@ -182,9 +187,15 @@ export async function fetchLiveGoogleDrivePayload(params: {
   targetScope: string;
   userEmail: string;
   defaultDepartment?: string;
+  lastSyncedAt?: string | null;
 }): Promise<GoogleDriveSyncedPayload> {
-  const { rawToken, targetScope, userEmail, defaultDepartment = 'Finance & Legal' } =
-    params;
+  const {
+    rawToken,
+    targetScope,
+    userEmail,
+    defaultDepartment = 'Finance & Legal',
+    lastSyncedAt,
+  } = params;
   const inputString = rawToken.trim();
   const folderScope = parseGoogleDriveFolderScope(targetScope);
 
@@ -279,7 +290,7 @@ export async function fetchLiveGoogleDrivePayload(params: {
   // 2. Query file list from Google Drive API
   const listFilesUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
     fileQuery
-  )}&fields=files(id,name,mimeType,size,description)&pageSize=8`;
+  )}&fields=files(id,name,mimeType,size,description,modifiedTime,md5Checksum)&pageSize=8`;
 
   const filesRes = await fetch(listFilesUrl, {
     method: 'GET',
@@ -317,6 +328,50 @@ export async function fetchLiveGoogleDrivePayload(params: {
         folderScope || targetScope
       }". Please verify the folder name or upload files to that folder.`
     );
+  }
+
+  const primaryTitle = files[0]?.name ? ` — ${files[0].name.replace(/\.[^.]+$/, '')}` : '';
+
+  // Smart Delta Sync: Check if files have been modified since lastSyncedAt
+  if (lastSyncedAt && files.length > 0) {
+    const lastSyncTime = new Date(lastSyncedAt).getTime();
+    if (!isNaN(lastSyncTime) && lastSyncTime > 0) {
+      let allUnchanged = true;
+      let latestModTime = 0;
+
+      for (const f of files) {
+        if (!f.modifiedTime) {
+          allUnchanged = false;
+          break;
+        }
+        const fileModTime = new Date(f.modifiedTime).getTime();
+        if (isNaN(fileModTime) || fileModTime > lastSyncTime) {
+          allUnchanged = false;
+        }
+        if (fileModTime > latestModTime) {
+          latestModTime = fileModTime;
+        }
+      }
+
+      if (allUnchanged) {
+        return {
+          title: `Google Drive Sync (${targetScope})${primaryTitle}`,
+          content: '',
+          department: defaultDepartment,
+          sourceType: 'gdrive',
+          tags: [
+            'google-drive',
+            'live-sync',
+            'cloud-storage',
+            folderScope.toLowerCase() || 'docs',
+          ],
+          createdByEmail: userEmail.trim().toLowerCase(),
+          unchanged: true,
+          matchedFilesCount: files.length,
+          latestModifiedTime: new Date(latestModTime).toISOString(),
+        };
+      }
+    }
   }
 
   // 3. Download / export text from each matched file
@@ -441,7 +496,6 @@ export async function fetchLiveGoogleDrivePayload(params: {
     );
   }
 
-  const primaryTitle = files[0]?.name ? ` — ${files[0].name.replace(/\.[^.]+$/, '')}` : '';
   const fullContent = [
     `[Live Google Drive Sync — Scope: "${targetScope}"]`,
     `Synchronized ${extractedSections.length} document(s) from corporate Google Drive into Company Brain.`,

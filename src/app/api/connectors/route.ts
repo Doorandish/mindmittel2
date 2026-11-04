@@ -82,6 +82,8 @@ export async function POST(request: NextRequest) {
         connectors: syncResult.connectors,
         syncedTitle: syncResult.syncedTitle,
         childVectorCount: syncResult.childVectorCount,
+        unchanged: syncResult.unchanged,
+        message: syncResult.message,
         documents,
         conflicts,
       });

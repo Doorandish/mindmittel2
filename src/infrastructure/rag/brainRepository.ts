@@ -1108,6 +1108,8 @@ export async function syncConnectorDataIntoBrain(params: {
   connectors: EnterpriseConnectorItem[];
   syncedTitle: string;
   childVectorCount: number;
+  unchanged?: boolean;
+  message?: string;
 }> {
   const vault = getMemoryVault();
   const target = vault.connectors.find((c) => c.id === params.connectorId);
@@ -1120,6 +1122,44 @@ export async function syncConnectorDataIntoBrain(params: {
     rawSecret: vault.connectorSecrets[params.connectorId],
     userEmail: params.userEmail,
   });
+
+  const nowIso = new Date().toISOString();
+
+  // Smart Delta Sync: If files have not been modified since last sync, skip redundant download and vector ingestion
+  if (syncPayload.unchanged) {
+    vault.connectors = vault.connectors.map((c) =>
+      c.id === params.connectorId
+        ? {
+            ...c,
+            lastSyncedAt: nowIso,
+            updatedByEmail: params.userEmail.trim().toLowerCase(),
+          }
+        : c
+    );
+
+    const updated = vault.connectors.find((c) => c.id === params.connectorId);
+    if (updated) {
+      await persistConnectorItemToAtlas(updated);
+    }
+
+    const existingCount = vault.parents
+      .filter((p) => p.metadata.sourceType === syncPayload.sourceType)
+      .reduce((sum, p) => sum + (p.childCount ?? 1), 0);
+
+    systemLogger.info(
+      'connectors.sync',
+      `Smart Delta Sync: ${syncPayload.title} is up-to-date (no modifications detected in Google Drive)`
+    );
+
+    return {
+      connectors: vault.connectors,
+      syncedTitle: syncPayload.title,
+      childVectorCount: existingCount,
+      unchanged: true,
+      message:
+        'All files are up-to-date in Google Drive. Redundant download skipped (0 tokens used).',
+    };
+  }
 
   // Clean up any stale or previous sync artifacts from the same connector/scope to avoid duplicate cards
   const staleParentIds = vault.parents
@@ -1145,7 +1185,6 @@ export async function syncConnectorDataIntoBrain(params: {
     createdByName: params.userName,
   });
 
-  const nowIso = new Date().toISOString();
   vault.connectors = vault.connectors.map((c) =>
     c.id === params.connectorId
       ? {

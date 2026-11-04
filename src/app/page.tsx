@@ -746,11 +746,19 @@ export default function HomePage() {
         if (Array.isArray(data.conflicts)) {
           setBrainConflicts(data.conflicts);
         }
-        setConnectorFeedback(
-          locale === 'de'
-            ? `✓ Synchronisiert: "${data.syncedTitle}" (${data.childVectorCount} Vektoren)`
-            : `✓ Synced into Company Brain: "${data.syncedTitle}" (${data.childVectorCount} vectors)`
-        );
+        if (data.unchanged) {
+          setConnectorFeedback(
+            locale === 'de'
+              ? `✓ Alles aktuell: Keine Änderungen in Google Drive erkannt (0 Token verbraucht)`
+              : `✓ Up-to-date: No modifications in Google Drive (0 tokens used)`
+          );
+        } else {
+          setConnectorFeedback(
+            locale === 'de'
+              ? `✓ Synchronisiert: "${data.syncedTitle}" (${data.childVectorCount} Vektoren)`
+              : `✓ Synced into Company Brain: "${data.syncedTitle}" (${data.childVectorCount} vectors)`
+          );
+        }
       } else {
         setConnectorFeedback(data.error ?? 'Sync failed');
       }

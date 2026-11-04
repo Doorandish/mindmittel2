@@ -345,6 +345,9 @@ export async function fetchLiveConnectorPayloadOrFallback(params: {
   sourceType: DocumentSourceType;
   tags: string[];
   createdByEmail: string;
+  unchanged?: boolean;
+  matchedFilesCount?: number;
+  latestModifiedTime?: string;
 }> {
   const { connector, rawSecret, userEmail } = params;
   const fallback = buildConnectorSyncDocument(connector, userEmail);
@@ -419,6 +422,7 @@ export async function fetchLiveConnectorPayloadOrFallback(params: {
         targetScope: connector.targetScope,
         userEmail,
         defaultDepartment: connector.defaultDepartment,
+        lastSyncedAt: connector.lastSyncedAt,
       });
     }
   } catch (err) {

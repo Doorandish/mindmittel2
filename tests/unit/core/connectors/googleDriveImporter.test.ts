@@ -304,4 +304,48 @@ describe('Google Drive Live API Importer & Real Document Extraction', () => {
     expect(result.content).not.toContain('/MediaBox');
     expect(result.content).toContain('Studienbescheinigung fuer das WS 2026/27 IPM-M');
   });
+
+  it('detects when files have not been modified since lastSyncedAt and skips redundant download (Smart Delta Sync)', async () => {
+    const fileLastModified = '2026-11-04T09:00:00.000Z';
+    const lastSyncedAt = '2026-11-04T09:30:00.000Z'; // Synced 30 minutes AFTER file was last modified
+
+    const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/drive/v3/files?') && !url.includes('alt=media')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            files: [
+              {
+                id: 'pdf_file_789',
+                name: 'Studienbescheinigung-fuer-das-WS-2026-27_IPM-M.pdf',
+                mimeType: 'application/pdf',
+                size: '5000',
+                modifiedTime: fileLastModified,
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes('alt=media')) {
+        throw new Error('Should NOT download media when file is unchanged!');
+      }
+      return { ok: false, status: 404 };
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await fetchLiveGoogleDrivePayload({
+      rawToken: 'ya29.mock-drive-token',
+      targetScope: '/IPM',
+      userEmail: 'amir@mindmittel.de',
+      lastSyncedAt,
+    });
+
+    expect(result.unchanged).toBe(true);
+    expect(result.matchedFilesCount).toBe(1);
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('alt=media'),
+      expect.anything()
+    );
+  });
 });
