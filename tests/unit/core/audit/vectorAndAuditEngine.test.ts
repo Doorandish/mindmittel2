@@ -196,4 +196,96 @@ describe('768-d Vector Similarity & Parent-Child Retrieval Engine (Functional Co
     expect(matchBySlug.length).toBe(1);
     expect(matchByLabel[0].title).toBe('Procurement Charter');
   });
+
+  it('deduplicates parent documents by title so multiple chunks from the same document do not appear repeatedly', () => {
+    const multiChunkDoc = createParentChildChunks({
+      orgId: 'org_default',
+      title: 'Google Drive Sync (/IPM) — Studienbescheinigung',
+      content:
+        'A very long university certificate document that is long enough to produce multiple parent chunks across the document. Section 1 contains personal matriculation details. Section 2 contains study program semester dates and fees paid.'.repeat(
+          6
+        ),
+      department: 'Finance & Legal',
+      docType: 'document',
+      language: 'de',
+      accessLevel: 'internal',
+      tags: ['google-drive', 'sync'],
+      source: {
+        type: 'gdrive',
+        connectorId: 'gdrive_test',
+        externalId: 'studien_01',
+      },
+    });
+
+    const embeddedChildren = multiChunkDoc.children.map((c) => ({
+      ...c,
+      embedding: generateDeterministicSemanticEmbedding(c.text),
+    }));
+
+    const queryVec = generateDeterministicSemanticEmbedding(
+      'Approve €18,000 unbudgeted vendor software contract'
+    );
+
+    const matches = rankParentDocumentsByVectorMatch({
+      queryVector: queryVec,
+      children: embeddedChildren,
+      parents: multiChunkDoc.parents,
+      topK: 5,
+    });
+
+    // Even if the document produced multiple parent chunks, it must only appear ONCE in matches
+    const titles = matches.map((m) => m.title);
+    const uniqueTitles = new Set(titles);
+    expect(titles.length).toBe(uniqueTitles.size);
+  });
+
+  it('filters out low-relevance citations when there is a steep similarity drop from the primary governing policy', () => {
+    const report = evaluateDecisionAgainstPoliciesHeuristic({
+      decisionProposal:
+        'Approve an €18,000 unbudgeted software vendor contract immediately without CFO sign-off.',
+      matchedParents: [
+        {
+          parentId: 'parent_charter',
+          title: 'Financial Procurement & Approval Charter 2026',
+          department: 'finance-legal',
+          sourceType: 'upload',
+          similarityScore: 0.96,
+          matchedChildSnippet:
+            'Any unbudgeted expenditure or vendor commitment exceeding €10,000 requires CFO co-signature.',
+          fullParentContent:
+            'Section 4.2: Department heads may approve budgeted software up to €10,000. Unbudgeted > €10,000 requires CFO co-signature.',
+        },
+        {
+          parentId: 'parent_student_cert_1',
+          title: 'Google Drive Sync (/IPM) — Studienbescheinigung',
+          department: 'finance-legal',
+          sourceType: 'gdrive',
+          similarityScore: 0.76, // Steep drop from 0.96 (drop = 0.20)
+          matchedChildSnippet:
+            'Bescheinigung ueber das Studium fuer das Wintersemester 2026/2027.',
+          fullParentContent:
+            'Matrikelnummer 123456 Studiengang Wirtschaftsinformatik Wintersemester.',
+        },
+        {
+          parentId: 'parent_student_cert_2',
+          title: 'Google Drive Sync (/IPM) — Studienbescheinigung',
+          department: 'finance-legal',
+          sourceType: 'gdrive',
+          similarityScore: 0.67, // Even lower
+          matchedChildSnippet: 'Beitrag bezahlt und Rueckmeldung erfolgt.',
+          fullParentContent: 'Beitrag fuer das Studentenwerk bezahlt.',
+        },
+      ],
+      selectedModelId: 'gemini-2.5-pro',
+      inferredProfile: 'reasoning',
+      locale: 'en',
+    });
+
+    expect(report.verdict).toBe('POLICY_CONFLICT');
+    // Only the primary relevant policy (0.96) should be cited, unrelated documents with 0.20 drop should be pruned
+    expect(report.citations.length).toBe(1);
+    expect(report.citations[0].title).toBe(
+      'Financial Procurement & Approval Charter 2026'
+    );
+  });
 });

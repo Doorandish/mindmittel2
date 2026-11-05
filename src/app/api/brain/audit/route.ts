@@ -9,6 +9,7 @@ import { inferProfileFromQuery } from '@/core/ai/modelRanking';
 import { geminiModelSelector } from '@/infrastructure/gemini/modelSelector';
 import {
   evaluateDecisionAgainstPoliciesHeuristic,
+  filterRelevantCitations,
   type AuditVerdict,
   type ExecutiveAuditReport,
 } from '@/core/audit/decisionEvaluator';
@@ -136,11 +137,12 @@ export async function POST(request: NextRequest) {
     const inferredProfile = inferProfileFromQuery(decisionProposal);
 
     // 1. Retrieve matching Parent documents via 768-d Child Vector similarity
-    const matchedParents = await searchBrainByVectorSimilarity({
+    const rawMatchedParents = await searchBrainByVectorSimilarity({
       query: decisionProposal,
       departmentFilter: body.departmentFilter,
       topK: 3,
     });
+    const matchedParents = filterRelevantCitations(rawMatchedParents);
 
     // 2. Select optimal Gemini model dynamically
     let selectedModelId =

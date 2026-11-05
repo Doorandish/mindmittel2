@@ -1175,6 +1175,46 @@ export async function syncConnectorDataIntoBrain(params: {
     await removeBrainDocument(pid);
   }
 
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      const escapedScope = target.targetScope.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      );
+      await Promise.all([
+        db.collection(COLLECTIONS.RAW_DOCUMENTS).deleteMany({
+          $or: [
+            {
+              'metadata.sourceType': syncPayload.sourceType,
+              title: syncPayload.title,
+            },
+            {
+              'metadata.sourceType': syncPayload.sourceType,
+              title: { $regex: `^Google Drive Sync \\(${escapedScope}\\)` },
+            },
+          ],
+        }),
+        db.collection(COLLECTIONS.VECTOR_STORE).deleteMany({
+          $or: [
+            {
+              'metadata.sourceType': syncPayload.sourceType,
+              'metadata.title': syncPayload.title,
+            },
+            {
+              'metadata.sourceType': syncPayload.sourceType,
+              'metadata.title': {
+                $regex: `^Google Drive Sync \\(${escapedScope}\\)`,
+              },
+            },
+          ],
+        }),
+      ]);
+    } catch {
+      // Ignore if offline
+    }
+  }
+
   const ingestion = await ingestDocumentIntoBrain({
     title: syncPayload.title,
     content: syncPayload.content,
@@ -1268,32 +1308,41 @@ export async function searchBrainByVectorSimilarity(params: {
       if (atlasHits.length > 0) {
         const parentIds = Array.from(
           new Set(atlasHits.map((h) => String(h.parentId)))
-        ).slice(0, topK);
+        );
 
         const parentDocs = await rawCol
           .find({ parentId: { $in: parentIds } })
           .toArray();
         const parentMap = new Map(parentDocs.map((p) => [p.parentId, p]));
 
-        const results: MatchedParentDocumentResult[] = [];
-        for (const pid of parentIds) {
+        const bestByTitle = new Map<string, MatchedParentDocumentResult>();
+        for (const hit of atlasHits) {
+          const pid = String(hit.parentId);
           const parent =
             parentMap.get(pid) ??
             vault.parents.find((p) => p.parentId === pid);
-          const bestChild = atlasHits.find((h) => String(h.parentId) === pid);
-          if (parent && bestChild) {
-            results.push({
-              parentId: parent.parentId,
-              title: parent.title,
-              department: parent.metadata.department,
-              sourceType: parent.metadata.sourceType,
-              similarityScore: Number(Number(bestChild.score ?? 0.8).toFixed(4)),
-              matchedChildSnippet: String(bestChild.text),
-              fullParentContent: parent.content,
-              parent,
-            });
+          if (parent) {
+            const titleKey = parent.title.trim().toLowerCase();
+            const score = Number(Number(hit.score ?? 0.8).toFixed(4));
+            const existing = bestByTitle.get(titleKey);
+            if (!existing || score > existing.similarityScore) {
+              bestByTitle.set(titleKey, {
+                parentId: parent.parentId,
+                title: parent.title,
+                department: parent.metadata.department,
+                sourceType: parent.metadata.sourceType,
+                similarityScore: score,
+                matchedChildSnippet: String(hit.text),
+                fullParentContent: parent.content,
+                parent,
+              });
+            }
           }
         }
+
+        const results = Array.from(bestByTitle.values())
+          .sort((a, b) => b.similarityScore - a.similarityScore)
+          .slice(0, topK);
 
         if (results.length > 0) {
           vault.vectorDiagnostic.state = 'ACTIVE_ON_ATLAS';

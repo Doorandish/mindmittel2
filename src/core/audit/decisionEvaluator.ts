@@ -40,7 +40,40 @@ const CONFLICT_TRIGGER_PATTERN =
   /\b(cancel|abolish|without|bypass|skip|ignore|override|unbudgeted|exceed|abschaffen|ohne|umgehen|ignorieren)\b/i;
 
 const MANDATORY_POLICY_PATTERN =
-  /\b(mandatory|require|must|prohibit|capped|sign-off|approval|pflicht|erforderlich|muss|verboten)\b/i;
+  /\b(mandatory|requires?|required|must|prohibits?|prohibited|capped|sign-off|approval|pflicht|erforderlich|muss|verboten)\b/i;
+
+/**
+ * Deduplicates citations by document title and prunes low-relevance results that
+ * experience a steep similarity drop (> 0.15) relative to the primary matched policy.
+ */
+export function filterRelevantCitations(
+  matchedParents: readonly MatchedParentContextInput[],
+  maxDrop = 0.15,
+  minAbsoluteScore = 0.70
+): MatchedParentContextInput[] {
+  if (matchedParents.length <= 1) return [...matchedParents];
+
+  const topScore = matchedParents[0].similarityScore;
+  const seenTitles = new Set<string>();
+  const filtered: MatchedParentContextInput[] = [];
+
+  for (const match of matchedParents) {
+    const titleKey = match.title.trim().toLowerCase();
+    if (seenTitles.has(titleKey)) continue;
+    seenTitles.add(titleKey);
+
+    if (match !== matchedParents[0]) {
+      const drop = topScore - match.similarityScore;
+      if (drop > maxDrop || match.similarityScore < minAbsoluteScore) {
+        continue;
+      }
+    }
+
+    filtered.push(match);
+  }
+
+  return filtered;
+}
 
 /**
  * Pure deterministic evaluator that synthesizes a structured Executive Audit Report
@@ -62,8 +95,9 @@ export function evaluateDecisionAgainstPoliciesHeuristic(params: {
     locale = 'en',
   } = params;
 
-  const topMatch = matchedParents[0];
-  const combinedPolicyText = matchedParents
+  const relevantParents = filterRelevantCitations(matchedParents);
+  const topMatch = relevantParents[0] ?? matchedParents[0];
+  const combinedPolicyText = relevantParents
     .map((m) => m.fullParentContent)
     .join(' ');
 
@@ -126,7 +160,7 @@ export function evaluateDecisionAgainstPoliciesHeuristic(params: {
         '2. Entscheidungsvorlage mit messbaren Erfolgskriterien (KPIs) für 30 Tage versehen.',
         '3. Nach Freigabe durch die zuständige Abteilung im Company Brain protokollieren.',
       ],
-      citations: matchedParents.map((m) => ({
+      citations: relevantParents.map((m) => ({
         parentId: m.parentId,
         title: m.title,
         department: m.department,
@@ -172,7 +206,7 @@ export function evaluateDecisionAgainstPoliciesHeuristic(params: {
       '2. Run a time-boxed 30-day pilot rather than a permanent policy override.',
       '3. Record the final signed resolution back into the MindMittel Company Brain.',
     ],
-    citations: matchedParents.map((m) => ({
+    citations: relevantParents.map((m) => ({
       parentId: m.parentId,
       title: m.title,
       department: m.department,
