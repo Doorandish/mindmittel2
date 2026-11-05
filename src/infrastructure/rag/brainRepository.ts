@@ -1111,6 +1111,9 @@ export async function syncConnectorDataIntoBrain(params: {
   unchanged?: boolean;
   message?: string;
 }> {
+  // Always hydrate connectors and lastSyncedAt timestamps from MongoDB Atlas first
+  await getConnectorsList();
+
   const vault = getMemoryVault();
   const target = vault.connectors.find((c) => c.id === params.connectorId);
   if (!target) {
