@@ -42,4 +42,12 @@ describe('Deployment Blueprint (render.yaml), Package Scripts & Git Hooks', () =
     const huskyContent = fs.readFileSync(huskyPath, 'utf-8');
     expect(huskyContent).toContain('npm test');
   });
+
+  it('defines a valid Heroku Procfile declaring web dyno startup command with dynamic $PORT binding', () => {
+    const procfilePath = path.join(rootDir, 'Procfile');
+    expect(fs.existsSync(procfilePath)).toBe(true);
+
+    const procfileContent = fs.readFileSync(procfilePath, 'utf-8').trim();
+    expect(procfileContent).toMatch(/^web:\s+npm\s+run\s+start\s+--\s+-p\s+\$PORT$/m);
+  });
 });
