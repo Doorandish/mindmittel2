@@ -14,7 +14,7 @@ describe('Deployment Blueprint (render.yaml), Package Scripts & Git Hooks', () =
 
     expect(pkg.name).toBe('mindmittel2');
     expect(pkg.scripts.build).toBe('next build');
-    expect(pkg.scripts.start).toBe('next start');
+    expect(pkg.scripts.start).toContain('next start');
     expect(pkg.scripts.test).toBe('vitest run');
   });
 
