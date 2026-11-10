@@ -48,6 +48,6 @@ describe('Deployment Blueprint (render.yaml), Package Scripts & Git Hooks', () =
     expect(fs.existsSync(procfilePath)).toBe(true);
 
     const procfileContent = fs.readFileSync(procfilePath, 'utf-8').trim();
-    expect(procfileContent).toMatch(/^web:\s+npm\s+run\s+start\s+--\s+-p\s+\$PORT$/m);
+    expect(procfileContent).toMatch(/^web:\s+npm\s+start$/m);
   });
 });
