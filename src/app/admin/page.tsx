@@ -6,6 +6,8 @@ import {
   Building2,
   CheckCircle2,
   Database,
+  Eye,
+  EyeOff,
   KeyRound,
   Lock,
   LogOut,
@@ -39,6 +41,7 @@ export default function SuperAdminConsolePage() {
   const [customDbName, setCustomDbName] = useState<string>('');
   const [mongoUri, setMongoUri] = useState<string>('');
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
+  const [showGeminiKey, setShowGeminiKey] = useState<boolean>(false);
   const [formFeedback, setFormFeedback] = useState<{
     type: 'ok' | 'err';
     message: string;
@@ -346,13 +349,21 @@ export default function SuperAdminConsolePage() {
               </div>
             </div>
 
-            <form onSubmit={handleCreateTenant} className="space-y-4">
+            <form
+              onSubmit={handleCreateTenant}
+              autoComplete="off"
+              className="space-y-4"
+            >
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Company Name *
                 </label>
                 <input
                   type="text"
+                  name="tenant_company_name"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   required
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
@@ -368,6 +379,10 @@ export default function SuperAdminConsolePage() {
                 <div className="flex items-center rounded-xl border border-slate-300 overflow-hidden focus-within:border-blue-600">
                   <input
                     type="text"
+                    name="tenant_slug"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     required
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
@@ -389,6 +404,10 @@ export default function SuperAdminConsolePage() {
                 </label>
                 <input
                   type="text"
+                  name="tenant_email_domains"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   value={allowedEmailDomains}
                   onChange={(e) => setAllowedEmailDomains(e.target.value)}
                   placeholder="bosch.de, bosch.com"
@@ -405,6 +424,10 @@ export default function SuperAdminConsolePage() {
                 </label>
                 <input
                   type="text"
+                  name="tenant_allowed_emails"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   value={allowedEmails}
                   onChange={(e) => setAllowedEmails(e.target.value)}
                   placeholder="exec-advisor@partner.de"
@@ -425,6 +448,10 @@ export default function SuperAdminConsolePage() {
                   </label>
                   <input
                     type="text"
+                    name="tenant_db_name"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     value={customDbName}
                     onChange={(e) => setCustomDbName(e.target.value)}
                     placeholder={autoDbPreview}
@@ -439,6 +466,10 @@ export default function SuperAdminConsolePage() {
                   </label>
                   <input
                     type="text"
+                    name="tenant_mongo_uri"
+                    autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
                     value={mongoUri}
                     onChange={(e) => setMongoUri(e.target.value)}
                     placeholder={`mongodb+srv://.../${autoDbPreview}?appName=Doorandish`}
@@ -450,13 +481,36 @@ export default function SuperAdminConsolePage() {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
                     Dedicated Gemini API Key (optional — defaults to platform key)
                   </label>
-                  <input
-                    type="password"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="w-full px-3.5 py-2 text-xs font-mono rounded-xl border border-slate-300 focus:outline-none focus:border-blue-600"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      name="tenant_gemini_override"
+                      autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      value={geminiApiKey}
+                      onChange={(e) => setGeminiApiKey(e.target.value)}
+                      placeholder="Leave blank to use Heroku GEMINI_API_KEY"
+                      style={
+                        showGeminiKey
+                          ? undefined
+                          : ({ WebkitTextSecurity: 'disc' } as React.CSSProperties)
+                      }
+                      className="w-full px-3.5 py-2 pr-9 text-xs font-mono rounded-xl border border-slate-300 focus:outline-none focus:border-blue-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGeminiKey((v) => !v)}
+                      className="absolute right-2.5 text-slate-400 hover:text-slate-700"
+                      title={showGeminiKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showGeminiKey ? (
+                        <EyeOff className="w-3.5 h-3.5" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -53,4 +53,20 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(layoutSource).toContain('Inter');
     expect(layoutSource).toContain('JetBrains_Mono');
   });
+
+  it('prevents browser password-manager autofill on the Super-Admin tenant provisioning form', () => {
+    const adminSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/admin/page.tsx'),
+      'utf-8'
+    );
+
+    const provisioningSection = adminSource.slice(
+      adminSource.indexOf('Register New Customer Tenant')
+    );
+
+    expect(provisioningSection).toContain('autoComplete="off"');
+    expect(provisioningSection).toContain('data-lpignore="true"');
+    expect(provisioningSection).toContain('data-1p-ignore="true"');
+    expect(provisioningSection).not.toContain('type="password"');
+  });
 });
