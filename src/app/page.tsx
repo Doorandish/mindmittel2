@@ -153,7 +153,7 @@ export default function HomePage() {
     isDemo: boolean;
     allowedEmailDomains: string[];
   } | null>(null);
-  const [tenantAuthenticated, setTenantAuthenticated] = useState<boolean>(true);
+  const [tenantAuthenticated, setTenantAuthenticated] = useState<boolean>(false);
   const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
   const [otpCodeInput, setOtpCodeInput] = useState<string>('');
   const [sandboxOtpCode, setSandboxOtpCode] = useState<string | null>(null);
@@ -917,6 +917,19 @@ export default function HomePage() {
     } finally {
       setSyncingConnectorId(null);
     }
+  }
+
+  if (tenantStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <span className="text-xs font-mono font-medium">
+            Loading workspace...
+          </span>
+        </div>
+      </div>
+    );
   }
 
   if (tenantStatus === 'not_found' || tenantStatus === 'suspended') {

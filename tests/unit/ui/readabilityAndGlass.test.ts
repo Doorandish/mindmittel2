@@ -81,4 +81,17 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(adminSource).toContain('deleteTargetSlug');
     expect(adminSource).toContain('deleteConfirmInput');
   });
+
+  it('prevents flashing the overview landing page on tenant subdomains while resolving /api/tenant/context', () => {
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    expect(pageSource).toContain("useState<boolean>(false);");
+    expect(pageSource).toContain("if (tenantStatus === 'loading')");
+    expect(pageSource.indexOf("if (tenantStatus === 'loading')")).toBeLessThan(
+      pageSource.indexOf('<AppShell')
+    );
+  });
 });
