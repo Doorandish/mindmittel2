@@ -94,3 +94,45 @@ export async function verifyOtpChallenge(
   await store.remove(params.scope);
   return 'ok';
 }
+
+export function buildOtpEmailContent(params: {
+  companyName: string;
+  tenantSlug: string;
+  code: string;
+}): { subject: string; text: string; html: string } {
+  const host = `${params.tenantSlug}.mindmittel.de`;
+  const subject = `Your MindMittel Sign-In Code for ${params.companyName}`;
+  const text = [
+    `${params.companyName} Workspace Sign-In`,
+    '',
+    `Use the 6-digit verification code below to access ${host}:`,
+    '',
+    `Code: ${params.code}`,
+    '',
+    'This code expires in 10 minutes. If you did not request this login, you can safely ignore this message.',
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:24px;background-color:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <div style="max-width:480px;margin:0 auto;padding:24px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;">
+    <h2 style="margin:0 0 12px 0;font-size:18px;color:#0f172a;">${params.companyName} Workspace Sign-In</h2>
+    <p style="margin:0 0 16px 0;font-size:14px;line-height:1.5;color:#475569;">
+      Use the 6-digit verification code below to access <strong>${host}</strong>:
+    </p>
+    <div style="font-size:30px;font-weight:700;letter-spacing:6px;padding:14px;text-align:center;background-color:#f1f5f9;border-radius:8px;color:#1d4ed8;margin:16px 0;">
+      ${params.code}
+    </div>
+    <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#64748b;">
+      This code expires in 10 minutes. If you did not request this login, you can safely ignore this email.
+    </p>
+  </div>
+</body>
+</html>`;
+
+  return { subject, text, html };
+}

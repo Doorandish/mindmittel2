@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   generateOtpCode,
   buildOtpScope,
+  buildOtpEmailContent,
   createMemoryOtpStore,
   issueOtpChallenge,
   verifyOtpChallenge,
@@ -74,5 +75,23 @@ describe('demo document protection', () => {
     expect(isProtectedDemoDocument({ createdByEmail: 'governance-board@mindmittel.de' })).toBe(true);
     expect(isProtectedDemoDocument({ createdByEmail: 'guest-1@demo.mindmittel.de' })).toBe(false);
     expect(isProtectedDemoDocument({})).toBe(false);
+  });
+});
+
+describe('OTP email formatting (anti-spam compliance)', () => {
+  it('includes a clean subject without leading digits, a full HTML document, and a plain-text body', () => {
+    const email = buildOtpEmailContent({
+      companyName: 'HS Ansbach',
+      tenantSlug: 'hsansbach',
+      code: '764608',
+    });
+
+    expect(email.subject).not.toMatch(/^\d/);
+    expect(email.subject).toContain('HS Ansbach');
+    expect(email.html).toContain('<!DOCTYPE html>');
+    expect(email.html).toContain('<html>');
+    expect(email.html).toContain('764608');
+    expect(email.text).toContain('764608');
+    expect(email.text).toContain('hsansbach.mindmittel.de');
   });
 });

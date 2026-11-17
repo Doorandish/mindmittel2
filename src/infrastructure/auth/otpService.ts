@@ -1,4 +1,5 @@
 import {
+  buildOtpEmailContent,
   buildOtpScope,
   createMemoryOtpStore,
   issueOtpChallenge,
@@ -118,6 +119,11 @@ export async function issueAndSendTenantOtp(params: {
 
   if (resendApiKey) {
     try {
+      const emailContent = buildOtpEmailContent({
+        companyName: params.companyName,
+        tenantSlug: params.tenantSlug,
+        code,
+      });
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -126,14 +132,11 @@ export async function issueAndSendTenantOtp(params: {
         },
         body: JSON.stringify({
           from: resendFrom,
+          reply_to: 'security@mindmittel.de',
           to: [params.email.trim().toLowerCase()],
-          subject: `${code} is your ${params.companyName} verification code — MindMittel`,
-          html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #e2e8f0;border-radius:16px">
-            <h2 style="margin:0 0 8px;color:#0f172a">${params.companyName} Workspace Sign-In</h2>
-            <p style="color:#475569;font-size:14px">Enter the 6-digit verification code below to access <strong>${params.tenantSlug}.mindmittel.de</strong>:</p>
-            <div style="font-size:32px;font-weight:800;letter-spacing:6px;padding:16px;text-align:center;background:#f8fafc;border-radius:12px;color:#1d4ed8;margin:16px 0">${code}</div>
-            <p style="color:#64748b;font-size:12px">This code expires in 10 minutes.</p>
-          </div>`,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
         }),
       });
       if (response.ok) {
