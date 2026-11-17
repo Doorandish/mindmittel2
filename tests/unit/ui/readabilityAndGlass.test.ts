@@ -69,4 +69,16 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(provisioningSection).toContain('data-1p-ignore="true"');
     expect(provisioningSection).not.toContain('type="password"');
   });
+
+  it('supports editing existing tenants and requires typed subdomain confirmation before deleting', () => {
+    const adminSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/admin/page.tsx'),
+      'utf-8'
+    );
+
+    expect(adminSource).toContain('editingSlug');
+    expect(adminSource).toContain('startEditingTenant');
+    expect(adminSource).toContain('deleteTargetSlug');
+    expect(adminSource).toContain('deleteConfirmInput');
+  });
 });

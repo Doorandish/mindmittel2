@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowUpRight,
   Building2,
   CheckCircle2,
@@ -12,10 +13,12 @@ import {
   Lock,
   LogOut,
   Mail,
+  Pencil,
   Plus,
   RefreshCw,
   Shield,
   Trash2,
+  X,
 } from 'lucide-react';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 import { deriveTenantDbName } from '@/core/tenancy/tenantModel';
@@ -42,6 +45,11 @@ export default function SuperAdminConsolePage() {
   const [mongoUri, setMongoUri] = useState<string>('');
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
   const [showGeminiKey, setShowGeminiKey] = useState<boolean>(false);
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const [clearMongoUri, setClearMongoUri] = useState<boolean>(false);
+  const [clearGeminiApiKey, setClearGeminiApiKey] = useState<boolean>(false);
+  const [deleteTargetSlug, setDeleteTargetSlug] = useState<string | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState<string>('');
   const [formFeedback, setFormFeedback] = useState<{
     type: 'ok' | 'err';
     message: string;
@@ -112,31 +120,80 @@ export default function SuperAdminConsolePage() {
     setTenants([]);
   }
 
+  function startEditingTenant(tenant: AdminTenantView) {
+    setFormFeedback(null);
+    setEditingSlug(tenant.slug);
+    setSlug(tenant.slug);
+    setCompanyName(tenant.companyName);
+    setAllowedEmailDomains(tenant.allowedEmailDomains.join(', '));
+    setAllowedEmails(tenant.allowedEmails.join(', '));
+    setCustomDbName(tenant.dbName);
+    setMongoUri('');
+    setGeminiApiKey('');
+    setClearMongoUri(false);
+    setClearGeminiApiKey(false);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function cancelEditingTenant() {
+    setEditingSlug(null);
+    setSlug('');
+    setCompanyName('');
+    setAllowedEmailDomains('');
+    setAllowedEmails('');
+    setCustomDbName('');
+    setMongoUri('');
+    setGeminiApiKey('');
+    setClearMongoUri(false);
+    setClearGeminiApiKey(false);
+    setFormFeedback(null);
+  }
+
   async function handleCreateTenant(e: React.FormEvent) {
     e.preventDefault();
     setFormFeedback(null);
     setIsSaving(true);
     try {
+      const isEdit = Boolean(editingSlug);
       const res = await fetch('/api/admin/tenants', {
-        method: 'POST',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug,
-          companyName,
-          allowedEmailDomains,
-          allowedEmails,
-          dbName: customDbName.trim() || undefined,
-          mongoUri: mongoUri.trim() || null,
-          geminiApiKey: geminiApiKey.trim() || null,
-        }),
+        body: JSON.stringify(
+          isEdit
+            ? {
+                slug: editingSlug,
+                companyName,
+                allowedEmailDomains,
+                allowedEmails,
+                dbName: customDbName.trim() || undefined,
+                mongoUri: mongoUri.trim() || undefined,
+                clearMongoUri,
+                geminiApiKey: geminiApiKey.trim() || undefined,
+                clearGeminiApiKey,
+              }
+            : {
+                slug,
+                companyName,
+                allowedEmailDomains,
+                allowedEmails,
+                dbName: customDbName.trim() || undefined,
+                mongoUri: mongoUri.trim() || null,
+                geminiApiKey: geminiApiKey.trim() || null,
+              }
+        ),
       });
       const data = await res.json();
       if (data.ok) {
         setTenants(data.tenants ?? []);
         setFormFeedback({
           type: 'ok',
-          message: `Provisioned ${data.tenant.companyName} at ${data.tenant.slug}.mindmittel.de (DB: ${data.tenant.dbName})`,
+          message: isEdit
+            ? `Updated ${data.tenant.companyName} (${data.tenant.slug}.mindmittel.de)`
+            : `Provisioned ${data.tenant.companyName} at ${data.tenant.slug}.mindmittel.de (DB: ${data.tenant.dbName})`,
         });
+        setEditingSlug(null);
         setSlug('');
         setCompanyName('');
         setAllowedEmailDomains('');
@@ -144,10 +201,14 @@ export default function SuperAdminConsolePage() {
         setCustomDbName('');
         setMongoUri('');
         setGeminiApiKey('');
+        setClearMongoUri(false);
+        setClearGeminiApiKey(false);
       } else {
         setFormFeedback({
           type: 'err',
-          message: data.error ?? 'Failed to provision tenant',
+          message:
+            data.error ??
+            (isEdit ? 'Failed to update tenant' : 'Failed to provision tenant'),
         });
       }
     } catch (err) {
@@ -184,7 +245,12 @@ export default function SuperAdminConsolePage() {
     const data = await res.json();
     if (data.ok && Array.isArray(data.tenants)) {
       setTenants(data.tenants);
+      if (editingSlug === targetSlug) {
+        cancelEditingTenant();
+      }
     }
+    setDeleteTargetSlug(null);
+    setDeleteConfirmInput('');
   }
 
   function openSubdomain(targetSlug: string | null) {
@@ -335,18 +401,38 @@ export default function SuperAdminConsolePage() {
         {/* Left 5 Columns: Provision New Customer Form */}
         <div className="lg:col-span-5">
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 space-y-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
-                <Plus className="w-5 h-5" />
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
+                  {editingSlug ? (
+                    <Pencil className="w-4 h-4" />
+                  ) : (
+                    <Plus className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    {editingSlug
+                      ? `Edit Tenant: ${editingSlug}.mindmittel.de`
+                      : 'Register New Customer Tenant'}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {editingSlug
+                      ? 'Update allowed emails, domains, DB, or Gemini key.'
+                      : 'Creates an isolated subdomain, database & corporate email gate.'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">
-                  Register New Customer Tenant
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Creates an isolated subdomain, database & corporate email gate.
-                </p>
-              </div>
+              {editingSlug && (
+                <button
+                  type="button"
+                  onClick={cancelEditingTenant}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+              )}
             </div>
 
             <form
@@ -384,10 +470,13 @@ export default function SuperAdminConsolePage() {
                     data-lpignore="true"
                     data-1p-ignore="true"
                     required
+                    readOnly={Boolean(editingSlug)}
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
                     placeholder="bosch"
-                    className="flex-1 px-3.5 py-2 text-sm font-mono focus:outline-none"
+                    className={`flex-1 px-3.5 py-2 text-sm font-mono focus:outline-none ${
+                      editingSlug ? 'bg-slate-50 text-slate-500' : ''
+                    }`}
                   />
                   <span className="px-3 py-2 text-xs font-mono bg-slate-100 text-slate-600 border-l border-slate-200">
                     .mindmittel.de
@@ -531,7 +620,13 @@ export default function SuperAdminConsolePage() {
                 disabled={isSaving}
                 className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold shadow-sm transition-colors"
               >
-                {isSaving ? 'Provisioning Tenant...' : 'Provision Customer Tenant'}
+                {isSaving
+                  ? editingSlug
+                    ? 'Saving Changes...'
+                    : 'Provisioning Tenant...'
+                  : editingSlug
+                  ? 'Save Tenant Changes'
+                  : 'Provision Customer Tenant'}
               </button>
             </form>
           </div>
@@ -621,6 +716,14 @@ export default function SuperAdminConsolePage() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
+                          onClick={() => startEditingTenant(t)}
+                          className="px-2.5 py-1 rounded-lg border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-xs font-semibold text-blue-700 flex items-center gap-1"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleToggleStatus(t)}
                           className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700"
                         >
@@ -628,7 +731,10 @@ export default function SuperAdminConsolePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteTenant(t.slug)}
+                          onClick={() => {
+                            setDeleteTargetSlug(t.slug);
+                            setDeleteConfirmInput('');
+                          }}
                           className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600"
                           title="Delete tenant"
                         >
@@ -685,6 +791,67 @@ export default function SuperAdminConsolePage() {
           </div>
         </div>
       </main>
+
+      {/* Strict Typed-Slug Confirmation Modal for Deleting a Tenant */}
+      {deleteTargetSlug && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl border border-rose-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Delete Tenant Profile: {deleteTargetSlug}.mindmittel.de
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Removing this tenant profile immediately disables{' '}
+                  <strong>{deleteTargetSlug}.mindmittel.de</strong>, revokes
+                  employee logins, and removes stored custom keys. (The
+                  underlying MongoDB database is preserved for safety.)
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Type <code className="font-mono text-rose-600">{deleteTargetSlug}</code> to confirm deletion:
+              </label>
+              <input
+                type="text"
+                autoComplete="off"
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder={deleteTargetSlug}
+                className="w-full px-3.5 py-2 text-sm font-mono rounded-xl border border-slate-300 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTargetSlug(null);
+                  setDeleteConfirmInput('');
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  deleteConfirmInput.trim().toLowerCase() !== deleteTargetSlug
+                }
+                onClick={() => handleDeleteTenant(deleteTargetSlug)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-xs font-bold"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
