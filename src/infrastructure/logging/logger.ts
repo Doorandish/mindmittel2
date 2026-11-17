@@ -1,3 +1,5 @@
+import { getActiveTenant } from '@/infrastructure/tenancy/tenantContext';
+
 export type LogLevel = 'info' | 'warn' | 'error';
 
 export interface SystemLogEntry {
@@ -6,6 +8,7 @@ export interface SystemLogEntry {
   level: LogLevel;
   module: string;
   message: string;
+  tenant?: string;
   meta?: Record<string, unknown>;
 }
 
@@ -38,14 +41,17 @@ export function redactSensitiveMetadata(
 
 export interface RingBufferLoggerOptions {
   maxEntries?: number;
+  resolveTenant?: () => string | undefined;
 }
 
 /**
  * Creates a bounded in-memory Ring Buffer Logger with real-time pub/sub
- * for live Server-Sent Events (SSE) debugging in `/system`.
+ * and optional tenant tagging for multi-tenant isolation.
  */
 export function createRingBufferLogger(options: RingBufferLoggerOptions = {}) {
   const maxEntries = options.maxEntries ?? 250;
+  const resolveTenant =
+    options.resolveTenant ?? (() => getActiveTenant()?.slug);
   const buffer: SystemLogEntry[] = [];
   const subscribers = new Set<LogSubscriber>();
   let sequence = 0;
@@ -57,12 +63,14 @@ export function createRingBufferLogger(options: RingBufferLoggerOptions = {}) {
     meta?: Record<string, unknown>
   ): SystemLogEntry {
     sequence += 1;
+    const tenant = resolveTenant();
     const entry: SystemLogEntry = {
       id: `log_${Date.now()}_${sequence}`,
       timestamp: new Date().toISOString(),
       level,
       module: moduleName,
       message,
+      ...(tenant ? { tenant } : {}),
       meta: meta ? redactSensitiveMetadata(meta) : undefined,
     };
 
@@ -98,11 +106,14 @@ export function createRingBufferLogger(options: RingBufferLoggerOptions = {}) {
       message: string,
       meta?: Record<string, unknown>
     ) => emit('error', moduleName, message, meta),
-    getRecentLogs: (limit?: number): SystemLogEntry[] => {
-      if (!limit || limit >= buffer.length) {
-        return [...buffer];
+    getRecentLogs: (limit?: number, tenantFilter?: string): SystemLogEntry[] => {
+      const source = tenantFilter
+        ? buffer.filter((e) => e.tenant === tenantFilter)
+        : buffer;
+      if (!limit || limit >= source.length) {
+        return [...source];
       }
-      return buffer.slice(buffer.length - limit);
+      return source.slice(source.length - limit);
     },
     subscribe: (listener: LogSubscriber): (() => void) => {
       subscribers.add(listener);

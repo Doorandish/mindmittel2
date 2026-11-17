@@ -272,9 +272,59 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       envVars: ['SYSTEM_DASHBOARD_TOKEN'],
     },
   },
+  {
+    id: 'multi-tenant-control-plane',
+    title: 'Multi-Tenant Subdomain Router, Control Plane & 6-Digit OTP Gate',
+    category: 'api',
+    status: 'healthy',
+    technical: {
+      architecturePattern:
+        'Edge Subdomain Zone Router (mindmittel.de / admin.mindmittel.de / demo.mindmittel.de / <company>.mindmittel.de) + AES-256-GCM Secret Box + AsyncLocalStorage Tenant Isolation + Corporate Domain 6-Digit OTP Verification',
+      stack: [
+        'Next.js Edge Middleware (src/middleware.ts)',
+        'Node AsyncLocalStorage Tenant Context (src/infrastructure/tenancy/tenantContext.ts)',
+        'AES-256-GCM & HMAC-SHA256 Session Signer (src/core/security/secretBox.ts, sessionToken.ts)',
+      ],
+      sourceFiles: [
+        'src/middleware.ts',
+        'src/core/tenancy/hostResolver.ts',
+        'src/core/tenancy/tenantModel.ts',
+        'src/infrastructure/tenancy/tenantRepository.ts',
+        'src/infrastructure/http/tenantRequestGuard.ts',
+        'src/app/admin/page.tsx',
+        'src/app/marketing/page.tsx',
+      ],
+      apiContracts: [
+        'GET /api/tenant/context (Active Subdomain & Session Resolution)',
+        'POST /api/auth/otp/request & POST /api/auth/otp/verify (Corporate Email 6-Digit OTP)',
+        'POST /api/admin/session & GET/POST/PUT/DELETE /api/admin/tenants (Product Owner Console)',
+      ],
+      dataPipeline:
+        'Incoming request host is classified into marketing, admin, or tenant (<slug>) -> withTenantApi verifies signed HttpOnly cookie locked to <slug> -> runWithTenantContext binds MongoDB database (mindmittel_<slug> or custom URI) and tenant Gemini API key.',
+      errorHandlingAndFallbacks:
+        'Shared MongoClient connection pool for default-cluster tenants prevents Heroku 512MB RAM exhaustion; bounded LRU pool for custom URIs; sandbox OTP fallback when RESEND_API_KEY is not set.',
+      envVars: [
+        'NEXT_PUBLIC_ROOT_DOMAIN',
+        'SUPER_ADMIN_EMAIL',
+        'SUPER_ADMIN_PASSWORD',
+        'MASTER_ENCRYPTION_KEY',
+        'RESEND_API_KEY',
+      ],
+    },
+  },
 ];
 
 export const ARCHITECTURE_EDGES: readonly TopologyEdge[] = [
+  {
+    from: 'multi-tenant-control-plane',
+    to: 'enterprise-light-ui',
+    protocol: 'Subdomain Routing & Signed Tenant Session',
+  },
+  {
+    from: 'multi-tenant-control-plane',
+    to: 'mongodb-atlas-vector',
+    protocol: 'Per-Tenant Database Isolation (mindmittel_<slug>)',
+  },
   {
     from: 'enterprise-light-ui',
     to: 'multimodal-ingestion-engine',

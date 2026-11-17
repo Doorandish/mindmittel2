@@ -18,6 +18,8 @@ import {
   evaluateGermanRegulatoryAdvisory,
 } from '@/core/audit/germanRegulatoryAdvisor';
 import { systemLogger } from '@/infrastructure/logging/logger';
+import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
+import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +33,7 @@ async function callGeminiAuditSynthesis(params: {
   modelId: string;
   locale: 'en' | 'de';
 }): Promise<Partial<ExecutiveAuditReport> | null> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey = resolveGeminiApiKey();
   if (!apiKey) return null;
 
   const langInstruction =
@@ -104,186 +106,195 @@ Return ONLY valid JSON with this exact structure:
   return parsed;
 }
 
-export async function GET() {
-  const history = await listAuditHistory();
-  return NextResponse.json({
-    ok: true,
-    history,
+export async function GET(request: NextRequest) {
+  return withTenantApi(request, async () => {
+    const history = await listAuditHistory();
+    return NextResponse.json({
+      ok: true,
+      history,
+    });
   });
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as {
-      decisionProposal?: string;
-      departmentFilter?: string;
-      locale?: 'en' | 'de';
-      auditedByEmail?: string;
-      auditedByName?: string;
-    };
+  return withTenantApi(request, async ({ session }) => {
+    try {
+      const body = (await request.json()) as {
+        decisionProposal?: string;
+        departmentFilter?: string;
+        locale?: 'en' | 'de';
+        auditedByEmail?: string;
+        auditedByName?: string;
+      };
 
-    const decisionProposal = body.decisionProposal?.trim();
-    if (!decisionProposal) {
+      const decisionProposal = body.decisionProposal?.trim();
+      if (!decisionProposal) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Please enter a management decision or policy question to audit.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const locale = body.locale === 'de' ? 'de' : 'en';
+      const inferredProfile = inferProfileFromQuery(decisionProposal);
+
+      // 1. Retrieve matching Parent documents via 768-d Child Vector similarity
+      const rawMatchedParents = await searchBrainByVectorSimilarity({
+        query: decisionProposal,
+        departmentFilter: body.departmentFilter,
+        topK: 3,
+      });
+      const matchedParents = filterRelevantCitations(rawMatchedParents);
+
+      // 2. Select optimal Gemini model dynamically
+      let selectedModelId =
+        inferredProfile === 'reasoning' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+      try {
+        const selection = await geminiModelSelector.selectModel(inferredProfile);
+        selectedModelId = selection.selectedModel.modelId;
+      } catch {
+        // Fallback to canonical model ID if offline
+      }
+
+      // 3. Build baseline deterministic report
+      const baselineReport = evaluateDecisionAgainstPoliciesHeuristic({
+        decisionProposal,
+        matchedParents,
+        selectedModelId,
+        inferredProfile,
+        locale,
+      });
+
+      // 4. Enhance with live Gemini synthesis if API key is present
+      if (resolveGeminiApiKey()) {
+        try {
+          const contextText = matchedParents
+            .map(
+              (m, i) =>
+                `[Document ${i + 1}: ${m.title} | Dept: ${m.department}]\n${m.fullParentContent}`
+            )
+            .join('\n\n');
+
+          const { output: llmPartial, usedModelId } =
+            await geminiModelSelector.executeWithFallback(
+              inferredProfile,
+              async (modelId) =>
+                callGeminiAuditSynthesis({
+                  decisionProposal,
+                  matchedContextText: contextText,
+                  modelId,
+                  locale,
+                })
+            );
+
+          if (llmPartial && llmPartial.executiveSummary) {
+            baselineReport.verdict =
+              llmPartial.verdict ?? baselineReport.verdict;
+            baselineReport.alignmentScore =
+              typeof llmPartial.alignmentScore === 'number'
+                ? llmPartial.alignmentScore
+                : baselineReport.alignmentScore;
+            baselineReport.executiveSummary = llmPartial.executiveSummary;
+            baselineReport.strategicEvaluation =
+              llmPartial.strategicEvaluation ??
+              baselineReport.strategicEvaluation;
+            baselineReport.pros =
+              Array.isArray(llmPartial.pros) && llmPartial.pros.length > 0
+                ? llmPartial.pros
+                : baselineReport.pros;
+            baselineReport.cons =
+              Array.isArray(llmPartial.cons) && llmPartial.cons.length > 0
+                ? llmPartial.cons
+                : baselineReport.cons;
+            baselineReport.roadmap =
+              Array.isArray(llmPartial.roadmap) && llmPartial.roadmap.length > 0
+                ? llmPartial.roadmap
+                : baselineReport.roadmap;
+            baselineReport.selectedModelId = usedModelId;
+          }
+        } catch (err) {
+          systemLogger.warn(
+            'audit.engine',
+            'Live Gemini synthesis fallback to deterministic policy audit engine',
+            { error: err instanceof Error ? err.message : String(err) }
+          );
+        }
+      }
+
+      // 5. German Regulatory & Betriebsrat Advisory (applied after LLM synthesis so it cannot be overridden)
+      const germanAdvisory = evaluateGermanRegulatoryAdvisory({
+        decisionProposal,
+        matchedParents,
+      });
+      const finalReport = applyGermanAdvisoryToReport(
+        baselineReport,
+        germanAdvisory,
+        locale
+      );
+
+      const savedEntry = await saveAuditReportToHistory({
+        decisionProposal,
+        departmentFilter: body.departmentFilter ?? 'all',
+        auditedByEmail: session?.sub ?? body.auditedByEmail,
+        auditedByName: session?.name ?? body.auditedByName,
+        report: finalReport,
+      });
+
+      const history = await listAuditHistory();
+
+      systemLogger.info(
+        'audit.engine',
+        `Completed Executive Audit by [${savedEntry.auditedByEmail}] -> Verdict: ${finalReport.verdict} (${finalReport.alignmentScore}%) via ${finalReport.selectedModelId}`,
+        {
+          auditId: savedEntry.auditId,
+          verdict: finalReport.verdict,
+          alignmentScore: finalReport.alignmentScore,
+          model: finalReport.selectedModelId,
+          matchedDocs: matchedParents.length,
+          betriebsratRequired: germanAdvisory.betriebsratInvolvementRequired,
+          knowledgeCoverage: germanAdvisory.knowledgeCoverage.status,
+        }
+      );
+
+      return NextResponse.json({
+        ok: true,
+        report: finalReport,
+        entry: savedEntry,
+        history,
+      });
+    } catch (err) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Please enter a management decision or policy question to audit.',
+          error:
+            err instanceof Error ? err.message : 'Audit evaluation failed',
         },
+        { status: 500 }
+      );
+    }
+  });
+}
+
+export async function DELETE(request: NextRequest) {
+  return withTenantApi(request, async () => {
+    const auditId = request.nextUrl.searchParams.get('auditId');
+    if (!auditId) {
+      return NextResponse.json(
+        { ok: false, error: 'auditId query parameter is required.' },
         { status: 400 }
       );
     }
 
-    const locale = body.locale === 'de' ? 'de' : 'en';
-    const inferredProfile = inferProfileFromQuery(decisionProposal);
-
-    // 1. Retrieve matching Parent documents via 768-d Child Vector similarity
-    const rawMatchedParents = await searchBrainByVectorSimilarity({
-      query: decisionProposal,
-      departmentFilter: body.departmentFilter,
-      topK: 3,
-    });
-    const matchedParents = filterRelevantCitations(rawMatchedParents);
-
-    // 2. Select optimal Gemini model dynamically
-    let selectedModelId =
-      inferredProfile === 'reasoning' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-    try {
-      const selection = await geminiModelSelector.selectModel(inferredProfile);
-      selectedModelId = selection.selectedModel.modelId;
-    } catch {
-      // Fallback to canonical model ID if offline
-    }
-
-    // 3. Build baseline deterministic report
-    const baselineReport = evaluateDecisionAgainstPoliciesHeuristic({
-      decisionProposal,
-      matchedParents,
-      selectedModelId,
-      inferredProfile,
-      locale,
-    });
-
-    // 4. Enhance with live Gemini synthesis if API key is present
-    if (process.env.GEMINI_API_KEY?.trim()) {
-      try {
-        const contextText = matchedParents
-          .map(
-            (m, i) =>
-              `[Document ${i + 1}: ${m.title} | Dept: ${m.department}]\n${m.fullParentContent}`
-          )
-          .join('\n\n');
-
-        const { output: llmPartial, usedModelId } =
-          await geminiModelSelector.executeWithFallback(
-            inferredProfile,
-            async (modelId) =>
-              callGeminiAuditSynthesis({
-                decisionProposal,
-                matchedContextText: contextText,
-                modelId,
-                locale,
-              })
-          );
-
-        if (llmPartial && llmPartial.executiveSummary) {
-          baselineReport.verdict =
-            llmPartial.verdict ?? baselineReport.verdict;
-          baselineReport.alignmentScore =
-            typeof llmPartial.alignmentScore === 'number'
-              ? llmPartial.alignmentScore
-              : baselineReport.alignmentScore;
-          baselineReport.executiveSummary = llmPartial.executiveSummary;
-          baselineReport.strategicEvaluation =
-            llmPartial.strategicEvaluation ?? baselineReport.strategicEvaluation;
-          baselineReport.pros =
-            Array.isArray(llmPartial.pros) && llmPartial.pros.length > 0
-              ? llmPartial.pros
-              : baselineReport.pros;
-          baselineReport.cons =
-            Array.isArray(llmPartial.cons) && llmPartial.cons.length > 0
-              ? llmPartial.cons
-              : baselineReport.cons;
-          baselineReport.roadmap =
-            Array.isArray(llmPartial.roadmap) && llmPartial.roadmap.length > 0
-              ? llmPartial.roadmap
-              : baselineReport.roadmap;
-          baselineReport.selectedModelId = usedModelId;
-        }
-      } catch (err) {
-        systemLogger.warn(
-          'audit.engine',
-          'Live Gemini synthesis fallback to deterministic policy audit engine',
-          { error: err instanceof Error ? err.message : String(err) }
-        );
-      }
-    }
-
-    // 5. German Regulatory & Betriebsrat Advisory (applied after LLM synthesis so it cannot be overridden)
-    const germanAdvisory = evaluateGermanRegulatoryAdvisory({
-      decisionProposal,
-      matchedParents,
-    });
-    const finalReport = applyGermanAdvisoryToReport(
-      baselineReport,
-      germanAdvisory,
-      locale
-    );
-
-    const savedEntry = await saveAuditReportToHistory({
-      decisionProposal,
-      departmentFilter: body.departmentFilter ?? 'all',
-      auditedByEmail: body.auditedByEmail,
-      auditedByName: body.auditedByName,
-      report: finalReport,
-    });
-
+    await removeAuditHistoryEntry(auditId);
     const history = await listAuditHistory();
-
-    systemLogger.info(
-      'audit.engine',
-      `Completed Executive Audit by [${savedEntry.auditedByEmail}] -> Verdict: ${finalReport.verdict} (${finalReport.alignmentScore}%) via ${finalReport.selectedModelId}`,
-      {
-        auditId: savedEntry.auditId,
-        verdict: finalReport.verdict,
-        alignmentScore: finalReport.alignmentScore,
-        model: finalReport.selectedModelId,
-        matchedDocs: matchedParents.length,
-        betriebsratRequired: germanAdvisory.betriebsratInvolvementRequired,
-        knowledgeCoverage: germanAdvisory.knowledgeCoverage.status,
-      }
-    );
 
     return NextResponse.json({
       ok: true,
-      report: finalReport,
-      entry: savedEntry,
       history,
     });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: err instanceof Error ? err.message : 'Audit evaluation failed',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  const auditId = request.nextUrl.searchParams.get('auditId');
-  if (!auditId) {
-    return NextResponse.json(
-      { ok: false, error: 'auditId query parameter is required.' },
-      { status: 400 }
-    );
-  }
-
-  await removeAuditHistoryEntry(auditId);
-  const history = await listAuditHistory();
-
-  return NextResponse.json({
-    ok: true,
-    history,
   });
 }

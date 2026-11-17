@@ -141,6 +141,25 @@ export default function HomePage() {
     useState<string>('Executive Board');
   const [authFeedback, setAuthFeedback] = useState<string | null>(null);
 
+  // Multi-Tenant Subdomain & Corporate OTP Gate State
+  const [tenantStatus, setTenantStatus] = useState<
+    'loading' | 'active' | 'suspended' | 'not_found'
+  >('loading');
+  const [tenantInfo, setTenantInfo] = useState<{
+    slug: string;
+    companyName: string;
+    dbName: string;
+    authMode: 'otp' | 'open';
+    isDemo: boolean;
+    allowedEmailDomains: string[];
+  } | null>(null);
+  const [tenantAuthenticated, setTenantAuthenticated] = useState<boolean>(true);
+  const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
+  const [otpCodeInput, setOtpCodeInput] = useState<string>('');
+  const [sandboxOtpCode, setSandboxOtpCode] = useState<string | null>(null);
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
+
   // Company Brain Documents & Multimodal Ingestion State
   const [documents, setDocuments] = useState<StoredBrainDocumentSummary[]>([]);
   const [brainConflicts, setBrainConflicts] = useState<
@@ -281,14 +300,146 @@ export default function HomePage() {
         setActiveTab('vault');
         setWorkspaceSubTab(requestedTab);
       }
+
+      // When accessed on a tenant subdomain (e.g. demo.mindmittel.de or bosch.mindmittel.de), open workspace directly
+      const host = window.location.hostname.toLowerCase();
+      if (
+        host.endsWith('.mindmittel.de') ||
+        host.endsWith('.localhost') ||
+        params.get('tenant')
+      ) {
+        setActiveTab('vault');
+      }
     } catch {
       // Ignore storage access errors
     }
 
-    fetchBrainDocuments();
-    fetchAuditHistory();
-    fetchConnectors();
+    async function bootstrapTenantWorkspace() {
+      try {
+        const res = await fetch('/api/tenant/context');
+        const data = await res.json();
+        if (!res.ok || data.status === 'not_found') {
+          setTenantStatus('not_found');
+          return;
+        }
+        if (data.status === 'suspended') {
+          setTenantInfo(data.tenant ?? null);
+          setTenantStatus('suspended');
+          return;
+        }
+        setTenantInfo(data.tenant ?? null);
+        setTenantStatus('active');
+
+        if (data.user) {
+          setUserEmail(data.user.email);
+          setUserFullName(data.user.fullName);
+          setUserDepartment(data.user.department);
+          setAuthEmailInput(data.user.email);
+          setAuthNameInput(data.user.fullName);
+          setAuthDeptInput(data.user.department);
+        } else if (
+          data.tenant?.allowedEmailDomains?.length > 0 &&
+          authEmailInput === 'amir@mindmittel.de'
+        ) {
+          setAuthEmailInput(`executive@${data.tenant.allowedEmailDomains[0]}`);
+        }
+
+        const isAuthed = Boolean(data.authenticated);
+        setTenantAuthenticated(isAuthed);
+        if (isAuthed) {
+          fetchBrainDocuments();
+          fetchAuditHistory();
+          fetchConnectors();
+        }
+      } catch {
+        setTenantStatus('active');
+        setTenantAuthenticated(true);
+        fetchBrainDocuments();
+        fetchAuditHistory();
+        fetchConnectors();
+      }
+    }
+
+    bootstrapTenantWorkspace();
   }, []);
+
+  async function handleRequestOtpCode(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthFeedback(null);
+    setSandboxOtpCode(null);
+    setIsSendingOtp(true);
+    try {
+      const res = await fetch('/api/auth/otp/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmailInput }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setOtpStep('code');
+        if (data.sandboxCode) {
+          setSandboxOtpCode(data.sandboxCode);
+        }
+      } else {
+        setAuthFeedback(data.error ?? 'Could not send verification code.');
+      }
+    } catch (err) {
+      setAuthFeedback(
+        err instanceof Error ? err.message : 'Failed to request OTP code'
+      );
+    } finally {
+      setIsSendingOtp(false);
+    }
+  }
+
+  async function handleVerifyOtpCode(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthFeedback(null);
+    setIsVerifyingOtp(true);
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: authEmailInput,
+          code: otpCodeInput,
+          fullName: authNameInput,
+          department: authDeptInput,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.user) {
+        setUserEmail(data.user.email);
+        setUserFullName(data.user.fullName);
+        setUserDepartment(data.user.department);
+        setTenantAuthenticated(true);
+        setShowAuthModal(false);
+        setOtpCodeInput('');
+        setSandboxOtpCode(null);
+        fetchBrainDocuments();
+        fetchAuditHistory();
+        fetchConnectors();
+      } else {
+        setAuthFeedback(data.error ?? 'Invalid verification code.');
+      }
+    } catch (err) {
+      setAuthFeedback(
+        err instanceof Error ? err.message : 'OTP verification failed'
+      );
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  }
+
+  async function handleTenantSignOut() {
+    await fetch('/api/auth/session', { method: 'DELETE' });
+    setTenantAuthenticated(false);
+    setOtpStep('email');
+    setOtpCodeInput('');
+    setSandboxOtpCode(null);
+    setDocuments([]);
+    setAuditHistory([]);
+  }
 
   async function handleEmailSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -766,6 +917,199 @@ export default function HomePage() {
     } finally {
       setSyncingConnectorId(null);
     }
+  }
+
+  if (tenantStatus === 'not_found' || tenantStatus === 'suspended') {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-7 space-y-5 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-extrabold text-slate-900">
+              {tenantStatus === 'suspended'
+                ? 'Company Workspace Suspended'
+                : 'Company Workspace Not Registered'}
+            </h1>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {tenantStatus === 'suspended'
+                ? 'This company subdomain has been temporarily suspended by the platform administrator.'
+                : 'This subdomain has not been provisioned yet. Please ask the product owner to register your company on admin.mindmittel.de.'}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+            <a
+              href="https://mindmittel.de"
+              className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700"
+            >
+              mindmittel.de
+            </a>
+            <a
+              href="https://demo.mindmittel.de"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-bold text-white"
+            >
+              Open Live Demo
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (tenantInfo?.authMode === 'otp' && !tenantAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[11px] font-mono font-bold text-blue-600 uppercase">
+                {tenantInfo.slug}.mindmittel.de · DB: {tenantInfo.dbName}
+              </div>
+              <h1 className="text-lg font-extrabold text-slate-900">
+                {tenantInfo.companyName}
+              </h1>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            This workspace is strictly isolated. Sign in with your authorized{' '}
+            <strong>
+              {tenantInfo.allowedEmailDomains.length > 0
+                ? tenantInfo.allowedEmailDomains.map((d) => `@${d}`).join(' or ')
+                : 'corporate'}
+            </strong>{' '}
+            email address to receive a 6-digit verification code.
+          </p>
+
+          {otpStep === 'email' ? (
+            <form onSubmit={handleRequestOtpCode} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Corporate Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={authEmailInput}
+                  onChange={(e) => setAuthEmailInput(e.target.value)}
+                  placeholder={
+                    tenantInfo.allowedEmailDomains[0]
+                      ? `name@${tenantInfo.allowedEmailDomains[0]}`
+                      : 'name@company.de'
+                  }
+                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={authNameInput}
+                  onChange={(e) => setAuthNameInput(e.target.value)}
+                  placeholder="Executive Name"
+                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Department / Role
+                </label>
+                <select
+                  value={authDeptInput}
+                  onChange={(e) => setAuthDeptInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
+                >
+                  <option value="Executive Board">Executive Board</option>
+                  <option value="Finance & Legal">Finance & Legal</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="HR & Legal">HR & Legal</option>
+                </select>
+              </div>
+
+              {authFeedback && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
+                  {authFeedback}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSendingOtp}
+                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm"
+              >
+                {isSendingOtp
+                  ? 'Sending 6-Digit Code...'
+                  : 'Send 6-Digit Verification Code'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtpCode} className="space-y-4">
+              {sandboxOtpCode && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                  <div className="font-bold">
+                    Sandbox Verification Code (RESEND_API_KEY not set yet):
+                  </div>
+                  <div className="font-mono text-lg font-extrabold tracking-widest text-blue-700">
+                    {sandboxOtpCode}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  6-Digit Code sent to {authEmailInput}
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpCodeInput}
+                  onChange={(e) =>
+                    setOtpCodeInput(e.target.value.replace(/\D/g, ''))
+                  }
+                  placeholder="123456"
+                  className="w-full px-3.5 py-2.5 text-center text-lg tracking-widest font-mono font-bold liquid-glass-input"
+                />
+              </div>
+
+              {authFeedback && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
+                  {authFeedback}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpStep('email');
+                    setAuthFeedback(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingOtp || otpCodeInput.length !== 6}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm"
+                >
+                  {isVerifyingOtp ? 'Verifying...' : 'Verify & Open Workspace'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1612,6 +1956,31 @@ export default function HomePage() {
       {/* VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS (Evaluate Decision + Stacked Audit History, Company Brain, Connectors) */}
       {activeTab === 'vault' && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
+          {tenantInfo && (
+            <div className="bg-white rounded-xl border border-slate-200/85 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 font-extrabold text-slate-900">
+                  <Database className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{tenantInfo.companyName}</span>
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[11px] font-semibold">
+                  {tenantInfo.slug}.mindmittel.de
+                </span>
+                <span className="text-slate-500 font-mono text-[11px]">
+                  DB: <strong>{tenantInfo.dbName}</strong>
+                </span>
+              </div>
+              {tenantInfo.authMode === 'otp' && (
+                <button
+                  type="button"
+                  onClick={handleTenantSignOut}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700"
+                >
+                  Sign Out ({userEmail})
+                </button>
+              )}
+            </div>
+          )}
           {/* Mobile-Only Compact User Identity Bar (Desktop uses the Left Sidebar) */}
           <div className="md:hidden bg-white rounded-xl border border-slate-200/85 px-3.5 py-2.5 flex items-center justify-between gap-3">
             <span className="text-xs font-mono text-slate-700 truncate">

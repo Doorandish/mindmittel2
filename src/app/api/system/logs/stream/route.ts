@@ -3,27 +3,30 @@ import {
   systemLogger,
   type LogLevel,
 } from '@/infrastructure/logging/logger';
+import { resolveRequestZone } from '@/infrastructure/http/tenantRequestGuard';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Server-Sent Events (SSE) endpoint streaming real-time logs from the in-memory Ring Buffer.
+ * When accessed on a tenant subdomain, filters logs strictly to that tenant.
  */
 export async function GET(request: NextRequest) {
+  const zone = resolveRequestZone(request);
+  const tenantFilter = zone.zone === 'tenant' ? zone.slug : undefined;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
-      // Send initial snapshot of recent logs
-      const recent = systemLogger.getRecentLogs(50);
+      const recent = systemLogger.getRecentLogs(50, tenantFilter);
       for (const item of recent) {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify(item)}\n\n`)
         );
       }
 
-      // Subscribe to new live log emissions
       const unsubscribe = systemLogger.subscribe((entry) => {
+        if (tenantFilter && entry.tenant !== tenantFilter) return;
         try {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(entry)}\n\n`)

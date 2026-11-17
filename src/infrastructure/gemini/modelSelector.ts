@@ -4,6 +4,7 @@ import {
   type RankedGeminiModel,
   type RawGeminiModelInfo,
 } from '@/core/ai/modelRanking';
+import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 
 export interface ModelSelectionResult {
   selectedModel: RankedGeminiModel;
@@ -79,7 +80,7 @@ export function createDynamicModelSelector(
   const fetcher =
     options.fetchAvailableModels ??
     (() => {
-      const key = options.apiKey ?? process.env.GEMINI_API_KEY ?? '';
+      const key = resolveGeminiApiKey(options.apiKey);
       return fetchModelsFromGeminiApi(key);
     });
 

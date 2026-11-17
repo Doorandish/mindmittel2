@@ -1,6 +1,7 @@
 import { EMBEDDING_DIMENSIONS } from '@/infrastructure/db/schemas';
 import { generateDeterministicSemanticEmbedding } from '@/core/rag/vectorMath';
 import { systemLogger } from '@/infrastructure/logging/logger';
+import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 
 /**
  * Generates a 768-dimensional embedding vector using Google Gemini (`text-embedding-004`).
@@ -10,7 +11,7 @@ import { systemLogger } from '@/infrastructure/logging/logger';
 export async function generateGeminiEmbedding768(
   text: string
 ): Promise<{ vector: number[]; modelUsed: string }> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey = resolveGeminiApiKey();
 
   if (apiKey) {
     try {

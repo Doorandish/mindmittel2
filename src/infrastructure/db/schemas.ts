@@ -14,6 +14,8 @@ export const COLLECTIONS = {
   SYSTEM_LOGS: 'system_logs',
   AUDIT_HISTORY: 'audit_history',
   CONNECTORS: 'connectors',
+  TENANTS: 'tenants',
+  OTP_CHALLENGES: 'otp_challenges',
 } as const;
 
 /**

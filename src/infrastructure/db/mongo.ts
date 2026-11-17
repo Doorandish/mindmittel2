@@ -1,11 +1,18 @@
 import { MongoClient, type Db } from 'mongodb';
 import { COLLECTIONS, type RawDocumentRecord, type VectorStoreRecord } from './schemas';
+import { getActiveTenant } from '@/infrastructure/tenancy/tenantContext';
+import {
+  DEFAULT_CONTROL_PLANE_DB,
+  resolveDatabaseTarget,
+} from './databaseTarget';
 
-const DEFAULT_DB_NAME = 'mindmittel_v2';
+const MAX_ISOLATED_CLIENTS = 5;
 
 interface GlobalMongoCache {
   client: MongoClient | null;
   promise: Promise<MongoClient> | null;
+  uri: string | null;
+  isolated: Map<string, Promise<MongoClient>>;
 }
 
 declare global {
@@ -16,27 +23,33 @@ declare global {
 const globalCache: GlobalMongoCache = globalThis.__mindmittelMongoCache ?? {
   client: null,
   promise: null,
+  uri: null,
+  isolated: new Map(),
 };
+
+if (!globalCache.isolated) {
+  globalCache.isolated = new Map();
+}
 
 globalThis.__mindmittelMongoCache = globalCache;
 
 /**
- * Establishes or reuses a singleton MongoClient connection to MongoDB Atlas.
- * Safe across Next.js hot reloads and serverless invocations.
+ * Establishes or reuses a singleton MongoClient connection to the primary MongoDB Atlas cluster.
  */
 export async function getMongoClient(): Promise<MongoClient> {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     throw new Error(
-      'MONGODB_URI is not configured. Set it in .env.local or Render environment settings.'
+      'MONGODB_URI is not configured. Set it in .env.local or Heroku Config Vars.'
     );
   }
 
-  if (globalCache.client) {
+  if (globalCache.client && globalCache.uri === uri) {
     return globalCache.client;
   }
 
-  if (!globalCache.promise) {
+  if (!globalCache.promise || globalCache.uri !== uri) {
+    globalCache.uri = uri;
     const client = new MongoClient(uri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
@@ -48,13 +61,56 @@ export async function getMongoClient(): Promise<MongoClient> {
   return globalCache.client;
 }
 
+async function getIsolatedClient(customUri: string): Promise<MongoClient> {
+  const existing = globalCache.isolated.get(customUri);
+  if (existing) return existing;
+
+  if (globalCache.isolated.size >= MAX_ISOLATED_CLIENTS) {
+    const oldestKey = globalCache.isolated.keys().next().value;
+    if (oldestKey) {
+      const evicted = globalCache.isolated.get(oldestKey);
+      globalCache.isolated.delete(oldestKey);
+      evicted?.then((c) => c.close().catch(() => undefined)).catch(() => undefined);
+    }
+  }
+
+  const client = new MongoClient(customUri, {
+    maxPoolSize: 3,
+    serverSelectionTimeoutMS: 5000,
+  });
+  const promise = client.connect().catch((err) => {
+    globalCache.isolated.delete(customUri);
+    throw err;
+  });
+  globalCache.isolated.set(customUri, promise);
+  return promise;
+}
+
 /**
- * Returns a handle to the `mindmittel_v2` database on MongoDB Atlas.
+ * Returns a handle to the central Control-Plane database (`mindmittel_v2` / `MONGODB_DB_NAME`)
+ * where tenant definitions and OTP challenges live.
+ */
+export async function getControlPlaneDb(): Promise<Db> {
+  const client = await getMongoClient();
+  const dbName = process.env.MONGODB_DB_NAME || DEFAULT_CONTROL_PLANE_DB;
+  return client.db(dbName);
+}
+
+/**
+ * Returns a handle to the active tenant's database (`mindmittel_<slug>` or custom URI),
+ * or falls back to the default database when called outside a tenant request context.
  */
 export async function getMindMittelDb(): Promise<Db> {
+  const tenant = getActiveTenant();
+  const target = resolveDatabaseTarget(tenant, process.env);
+
+  if (target.mode === 'isolated') {
+    const isolatedClient = await getIsolatedClient(target.uri);
+    return isolatedClient.db(target.dbName);
+  }
+
   const client = await getMongoClient();
-  const dbName = process.env.MONGODB_DB_NAME || DEFAULT_DB_NAME;
-  return client.db(dbName);
+  return client.db(target.dbName);
 }
 
 /**

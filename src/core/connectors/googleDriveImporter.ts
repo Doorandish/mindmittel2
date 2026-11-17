@@ -4,6 +4,7 @@ import {
   extractTextFromPdfBuffer,
   extractTextFromPptxBuffer,
 } from '@/core/rag/multimodalExtractor';
+import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 
 /**
  * Normalizes folder path inputs like "/IPM", "Folder: /Board-Charters-2026", or direct IDs.
@@ -424,7 +425,7 @@ export async function fetchLiveGoogleDrivePayload(params: {
             const buf = Buffer.from(arrBuf);
 
             // High-fidelity Gemini Multimodal OCR if GEMINI_API_KEY is configured
-            const apiKey = process.env.GEMINI_API_KEY?.trim();
+            const apiKey = resolveGeminiApiKey();
             if (isPdf && apiKey && buf.length <= 15 * 1024 * 1024) {
               try {
                 const base64Data = buf.toString('base64');

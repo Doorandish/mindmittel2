@@ -36,6 +36,11 @@ import {
   validateEmailIdentity,
   type AuthenticatedUserIdentity,
 } from '@/core/auth/userSession';
+import {
+  getActiveTenant,
+  getActiveTenantKey,
+} from '@/infrastructure/tenancy/tenantContext';
+import { isProtectedDemoDocument } from '@/core/demo/demoPolicy';
 
 export interface VectorSearchDiagnosticStatus {
   state:
@@ -80,7 +85,7 @@ interface InMemoryBrainVault {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __mindmittelBrainVault: InMemoryBrainVault | undefined;
+  var __mindmittelBrainVaultMap: Map<string, InMemoryBrainVault> | undefined;
 }
 
 const DEFAULT_SAMPLE_POLICIES: RawGovernanceDocumentInput[] = [
@@ -135,15 +140,22 @@ const DEFAULT_SAMPLE_POLICIES: RawGovernanceDocumentInput[] = [
 ];
 
 function isMongoConfigured(): boolean {
-  const uri = process.env.MONGODB_URI;
+  const tenantUri = getActiveTenant()?.mongoUri;
+  const uri = tenantUri || process.env.MONGODB_URI;
   return Boolean(
     uri && (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://'))
   );
 }
 
 function getMemoryVault(): InMemoryBrainVault {
-  if (!globalThis.__mindmittelBrainVault) {
-    globalThis.__mindmittelBrainVault = {
+  if (!globalThis.__mindmittelBrainVaultMap) {
+    globalThis.__mindmittelBrainVaultMap = new Map();
+  }
+  const key = getActiveTenantKey();
+  const tenant = getActiveTenant();
+  let vault = globalThis.__mindmittelBrainVaultMap.get(key);
+  if (!vault) {
+    vault = {
       parents: [],
       children: [],
       auditHistory: [],
@@ -155,13 +167,14 @@ function getMemoryVault(): InMemoryBrainVault {
       vectorDiagnostic: {
         state: 'MEMORY_FALLBACK',
         indexName: VECTOR_INDEX_DEFINITION.name,
-        databaseName: 'mindmittel_v2',
+        databaseName: tenant?.dbName ?? 'mindmittel_v2',
         collectionName: COLLECTIONS.VECTOR_STORE,
         message: 'Awaiting MongoDB Atlas connection...',
       },
     };
+    globalThis.__mindmittelBrainVaultMap.set(key, vault);
   }
-  return globalThis.__mindmittelBrainVault;
+  return vault;
 }
 
 export function getVectorSearchDiagnosticStatus(): VectorSearchDiagnosticStatus {
@@ -295,28 +308,32 @@ export async function ensureAtlasVectorIndexProvisioned(): Promise<VectorSearchD
  */
 async function ensureDefaultPoliciesSeeded(): Promise<void> {
   const vault = getMemoryVault();
+  const tenant = getActiveTenant();
+  const shouldSeed = !tenant || tenant.seedSamplePolicies;
 
   if (!vault.seeded) {
     vault.seeded = true;
-    for (const policy of DEFAULT_SAMPLE_POLICIES) {
-      const { parents, children } = createParentChildChunks(policy);
-      for (const p of parents) {
-        const pChildCount = children.filter(
-          (c) => c.parentId === p.parentId
-        ).length;
-        vault.parents.push({
-          ...p,
-          childCount: Math.max(1, pChildCount),
-          createdByEmail: 'governance-board@mindmittel.de',
-          createdByName: 'Governance Board',
-          createdAt: new Date().toISOString(),
-        });
-      }
-      for (const c of children) {
-        const { vector } = await generateGeminiEmbedding768(
-          `${c.metadata.department} ${c.metadata.tags.join(' ')} ${c.text}`
-        );
-        vault.children.push({ ...c, embedding: vector });
+    if (shouldSeed) {
+      for (const policy of DEFAULT_SAMPLE_POLICIES) {
+        const { parents, children } = createParentChildChunks(policy);
+        for (const p of parents) {
+          const pChildCount = children.filter(
+            (c) => c.parentId === p.parentId
+          ).length;
+          vault.parents.push({
+            ...p,
+            childCount: Math.max(1, pChildCount),
+            createdByEmail: 'governance-board@mindmittel.de',
+            createdByName: 'Governance Board',
+            createdAt: new Date().toISOString(),
+          });
+        }
+        for (const c of children) {
+          const { vector } = await generateGeminiEmbedding768(
+            `${c.metadata.department} ${c.metadata.tags.join(' ')} ${c.text}`
+          );
+          vault.children.push({ ...c, embedding: vector });
+        }
       }
     }
   }
@@ -661,6 +678,11 @@ export async function listBrainDocuments(): Promise<
 export async function removeBrainDocument(targetId: string): Promise<void> {
   const vault = getMemoryVault();
   const target = vault.parents.find((p) => p.parentId === targetId);
+  if (getActiveTenant()?.isDemo && target && isProtectedDemoDocument(target)) {
+    throw new Error(
+      'Baseline demo policies are protected and cannot be deleted in the public live demo.'
+    );
+  }
 
   // Find all sibling chunks of the same document entity so deletion cascades to the whole document
   const idsToRemove = new Set<string>([targetId]);
