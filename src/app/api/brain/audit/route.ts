@@ -149,24 +149,31 @@ export async function POST(request: NextRequest) {
           )
         : undefined;
 
-      // 1. Retrieve matching Parent documents via 768-d Child Vector similarity
-      const rawMatchedParents = await searchBrainByVectorSimilarity({
-        query: decisionProposal,
-        departmentFilter: body.departmentFilter,
-        topK: 3,
-        excludedParentIds,
-      });
-      const matchedParents = filterRelevantCitations(rawMatchedParents);
+      const hasGeminiKey = Boolean(resolveGeminiApiKey());
 
-      // 2. Select optimal Gemini model dynamically
-      let selectedModelId =
-        inferredProfile === 'reasoning' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-      try {
-        const selection = await geminiModelSelector.selectModel(inferredProfile);
-        selectedModelId = selection.selectedModel.modelId;
-      } catch {
-        // Fallback to canonical model ID if offline
-      }
+      // 1 & 2. Retrieve matching Parent documents, resolve optimal Gemini model, and fetch excluded doc metadata in parallel
+      const [rawMatchedParents, modelSelection, allDocsForDisclosure] =
+        await Promise.all([
+          searchBrainByVectorSimilarity({
+            query: decisionProposal,
+            departmentFilter: body.departmentFilter,
+            topK: 3,
+            excludedParentIds,
+          }),
+          hasGeminiKey
+            ? geminiModelSelector.selectModel(inferredProfile).catch(() => null)
+            : Promise.resolve(null),
+          excludedParentIds && excludedParentIds.length > 0
+            ? listBrainDocuments()
+            : Promise.resolve([]),
+        ]);
+
+      const matchedParents = filterRelevantCitations(rawMatchedParents);
+      const selectedModelId =
+        modelSelection?.selectedModel.modelId ??
+        (inferredProfile === 'reasoning'
+          ? 'gemini-2.5-pro'
+          : 'gemini-2.5-flash');
 
       // 3. Build baseline deterministic report
       const baselineReport = evaluateDecisionAgainstPoliciesHeuristic({
@@ -177,8 +184,8 @@ export async function POST(request: NextRequest) {
         locale,
       });
 
-      // 4. Enhance with live Gemini synthesis if API key is present
-      if (resolveGeminiApiKey()) {
+      // 4. Enhance with live Gemini synthesis only if model catalog selection succeeded in this request
+      if (hasGeminiKey && modelSelection) {
         try {
           const contextText = matchedParents
             .map(
@@ -231,6 +238,11 @@ export async function POST(request: NextRequest) {
             { error: err instanceof Error ? err.message : String(err) }
           );
         }
+      } else if (hasGeminiKey && !modelSelection) {
+        systemLogger.warn(
+          'audit.engine',
+          'Gemini model selection unavailable; skipped duplicate retry and used deterministic policy audit engine'
+        );
       }
 
       // 5. German Regulatory & Betriebsrat Advisory (applied after LLM synthesis so it cannot be overridden)
@@ -247,8 +259,7 @@ export async function POST(request: NextRequest) {
       // 6. Record any intentionally excluded documents in the report for immutable audit transparency
       if (excludedParentIds && excludedParentIds.length > 0) {
         const excludedSet = new Set(excludedParentIds);
-        const allDocs = await listBrainDocuments();
-        const excludedDocs = allDocs
+        const excludedDocs = allDocsForDisclosure
           .filter(
             (doc) =>
               excludedSet.has(doc.parentId) ||

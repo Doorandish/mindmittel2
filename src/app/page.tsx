@@ -879,13 +879,33 @@ export default function HomePage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
       stepTimers.forEach((timer) => clearTimeout(timer));
 
       // Sequentially check off any remaining steps so the user sees every task ticked
       setAuditCompletedSteps(AUDIT_PIPELINE_STEPS.length);
 
-      if (data.ok && data.report) {
+      let data: {
+        ok?: boolean;
+        report?: ExecutiveAuditReport;
+        entry?: { auditedByEmail?: string };
+        history?: StoredAuditHistoryEntry[];
+        error?: string;
+      } | null = null;
+
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = null;
+      }
+
+      if (!data) {
+        setAuditError(
+          locale === 'de'
+            ? 'Der Server ist vorübergehend ausgelastet. Bitte versuchen Sie es in wenigen Sekunden erneut.'
+            : 'The server is temporarily busy. Please try again in a few seconds.'
+        );
+      } else if (data.ok && data.report) {
         setAuditReport(data.report);
         setLastAuditedByEmail(
           data.entry?.auditedByEmail ?? userEmail

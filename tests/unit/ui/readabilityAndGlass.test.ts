@@ -237,4 +237,20 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(pageSource).toContain('window.print()');
     expect(cssSource).toContain('@media print');
   });
+
+  it('parallelizes vector search and model selection without duplicate failed retries and safely parses non-JSON audit responses in UI', () => {
+    const auditRouteSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/api/brain/audit/route.ts'),
+      'utf-8'
+    );
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    expect(auditRouteSource).toContain('Promise.all');
+    expect(auditRouteSource).toContain('modelSelection');
+    expect(pageSource).toContain('await res.text()');
+    expect(pageSource).toContain('JSON.parse(rawText)');
+  });
 });
