@@ -426,14 +426,14 @@ export default function MarketingLandingPage() {
           <div className="flex items-center gap-3">
             <a
               href="#"
-              className="flex items-center gap-2.5 focus:outline-none"
+              className="flex items-center gap-3 focus:outline-none"
             >
               <img
-                src="/images/mindmittel-logo.jpg"
+                src="/images/mindmittel-logo.svg"
                 alt="MindMittel Logo"
-                className="h-8 w-8 rounded-md object-contain"
+                className="h-10 w-10 object-contain"
               />
-              <span className="text-base font-bold tracking-tight text-[#131b2e]">
+              <span className="text-xl font-extrabold tracking-tight text-[#131b2e]">
                 MindMittel
               </span>
             </a>
@@ -1055,13 +1055,13 @@ export default function MarketingLandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-8">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <img
-                  src="/images/mindmittel-logo.jpg"
+                  src="/images/mindmittel-logo.svg"
                   alt="MindMittel Logo"
-                  className="h-6 w-6 rounded object-contain"
+                  className="h-8 w-8 object-contain"
                 />
-                <span className="text-sm font-bold text-[#131b2e]">
+                <span className="text-base font-extrabold tracking-tight text-[#131b2e]">
                   MindMittel
                 </span>
               </div>

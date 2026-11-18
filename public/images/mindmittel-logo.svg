@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <clipPath id="leftHalf">
+      <rect x="0" y="0" width="50" height="100" />
+    </clipPath>
+    <clipPath id="rightHalf">
+      <rect x="50" y="0" width="50" height="100" />
+    </clipPath>
+  </defs>
+
+  <!-- Left Half (Deep Navy #0B3B59) -->
+  <g clip-path="url(#leftHalf)">
+    <path
+      d="M50 8 L16 26 L22 72 L50 92 L50 8 Z"
+      stroke="#0B3B59"
+      stroke-width="6.5"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <path
+      d="M16 26 L33 52 L50 26"
+      stroke="#0B3B59"
+      stroke-width="6.5"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <circle cx="50" cy="8" r="5.5" fill="#0B3B59" />
+    <circle cx="50" cy="26" r="5.5" fill="#0B3B59" />
+    <circle cx="50" cy="92" r="5.5" fill="#0B3B59" />
+    <circle cx="16" cy="26" r="5.5" fill="#0B3B59" />
+    <circle cx="33" cy="52" r="5.5" fill="#0B3B59" />
+    <circle cx="22" cy="72" r="5.5" fill="#0B3B59" />
+  </g>
+
+  <!-- Right Half (Emerald Green #10B981) -->
+  <g clip-path="url(#rightHalf)">
+    <path
+      d="M50 8 L84 26 L78 72 L50 92 L50 8 Z"
+      stroke="#10B981"
+      stroke-width="6.5"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <path
+      d="M84 26 L67 52 L50 26"
+      stroke="#10B981"
+      stroke-width="6.5"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <circle cx="50" cy="8" r="5.5" fill="#10B981" />
+    <circle cx="50" cy="26" r="5.5" fill="#10B981" />
+    <circle cx="50" cy="92" r="5.5" fill="#10B981" />
+    <circle cx="84" cy="26" r="5.5" fill="#10B981" />
+    <circle cx="67" cy="52" r="5.5" fill="#10B981" />
+    <circle cx="78" cy="72" r="5.5" fill="#10B981" />
+  </g>
+</svg>
