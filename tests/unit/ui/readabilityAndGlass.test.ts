@@ -207,4 +207,34 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(auditRouteSource).toContain('excludedDocuments');
     expect(evaluatorSource).toContain('excludedDocuments?:');
   });
+
+  it('replaces Switch Profile with Sign Out in sidebar, hides top-bar domain/signout and KI-Routing badge, and provides native browser PDF print export for audit reports', () => {
+    const shellSource = fs.readFileSync(
+      path.join(rootDir, 'src/components/layout/AppShell.tsx'),
+      'utf-8'
+    );
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+    const cssSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/globals.css'),
+      'utf-8'
+    );
+
+    expect(shellSource).not.toContain('Switch Profile');
+    expect(shellSource).toContain('onSignOut');
+    expect(shellSource).toContain('print:hidden');
+
+    const workspaceSection = pageSource.slice(
+      pageSource.indexOf('VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS')
+    );
+
+    expect(pageSource).not.toContain('Auto-Routed:');
+    expect(pageSource).not.toContain('KI-Routing:');
+    expect(workspaceSection).not.toContain('{tenantInfo.slug}.mindmittel.de');
+    expect(workspaceSection).not.toContain('Abmelden (${userEmail})');
+    expect(pageSource).toContain('window.print()');
+    expect(cssSource).toContain('@media print');
+  });
 });

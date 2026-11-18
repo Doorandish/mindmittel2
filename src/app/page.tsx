@@ -17,7 +17,7 @@ import {
   BrainCircuit,
   Trash2,
   Play,
-  Sparkles,
+  Printer,
   Check,
   XCircle,
   Upload,
@@ -44,7 +44,6 @@ import {
   DEFAULT_LOCALE,
   type SupportedLocale,
 } from '@/i18n/dictionaries';
-import { inferProfileFromQuery } from '@/core/ai/modelRanking';
 import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
 import type { EnterpriseConnectorItem } from '@/core/connectors/connectorRegistry';
 import type { StoredAuditHistoryEntry } from '@/infrastructure/rag/brainRepository';
@@ -236,7 +235,6 @@ export default function HomePage() {
   );
 
   const dict = getDictionary(locale);
-  const inferredProfile = inferProfileFromQuery(decisionProposal);
 
   function syncDocumentsAndConflicts(
     rawDocs?: StoredBrainDocumentSummary[],
@@ -1338,7 +1336,7 @@ export default function HomePage() {
       auditHistoryCount={auditHistory.length}
       enabledConnectorsCount={connectors.filter((c) => c.enabled).length}
       totalConnectorsCount={connectors.length || 7}
-      onOpenAuthModal={() => setShowAuthModal(true)}
+      onSignOut={tenantInfo?.authMode === 'otp' ? handleTenantSignOut : undefined}
     >
       {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated with Multimodal & Tabbed Workspace Capabilities) */}
       {activeTab === 'overview' && (
@@ -2183,52 +2181,40 @@ export default function HomePage() {
 
       {/* VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS (Evaluate Decision + Stacked Audit History, Company Brain, Connectors) */}
       {activeTab === 'vault' && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-4 print:max-w-none print:p-0 print:space-y-0">
           {tenantInfo && (
-            <div className="bg-white rounded-xl border border-slate-200/85 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="bg-white rounded-xl border border-slate-200/85 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 font-extrabold text-slate-900">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
                   <span>{tenantInfo.companyName}</span>
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[11px] font-semibold">
-                  {tenantInfo.slug}.mindmittel.de
-                </span>
               </div>
-              {tenantInfo.authMode === 'otp' && (
-                <button
-                  type="button"
-                  onClick={handleTenantSignOut}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700"
-                >
-                  {locale === 'de'
-                    ? `Abmelden (${userEmail})`
-                    : `Sign Out (${userEmail})`}
-                </button>
-              )}
             </div>
           )}
           {/* Mobile-Only Compact User Identity Bar (Desktop uses the Left Sidebar) */}
-          <div className="md:hidden bg-white rounded-xl border border-slate-200/85 px-3.5 py-2.5 flex items-center justify-between gap-3">
+          <div className="md:hidden bg-white rounded-xl border border-slate-200/85 px-3.5 py-2.5 flex items-center justify-between gap-3 print:hidden">
             <span className="text-xs font-mono text-slate-700 truncate">
               {locale === 'de' ? 'Angemeldet:' : 'Signed in:'}{' '}
               <strong>{userEmail}</strong>
             </span>
-            <button
-              type="button"
-              onClick={() => setShowAuthModal(true)}
-              className="text-xs font-semibold text-blue-600 underline shrink-0"
-            >
-              {locale === 'de' ? 'Profil wechseln' : 'Switch Profile'}
-            </button>
+            {tenantInfo?.authMode === 'otp' && (
+              <button
+                type="button"
+                onClick={handleTenantSignOut}
+                className="text-xs font-semibold text-rose-600 underline shrink-0"
+              >
+                {locale === 'de' ? 'Abmelden' : 'Sign Out'}
+              </button>
+            )}
           </div>
 
           {/* SECTION 1: EVALUATE DECISION (Input Form on Top + Previous Audit Reports Stacked Directly Below) */}
           {workspaceSubTab === 'evaluate' && (
-            <div className="space-y-5">
+            <div className="space-y-5 print:space-y-0">
               {/* Top Card: Decision Proposal Input + Live Pipeline Checklist + Active Audit Report */}
-              <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4 print:shadow-none print:border-none print:p-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
                   <div>
                     <h1 className="text-[16px] sm:text-[17px] font-semibold tracking-[-0.02em] text-slate-900">
                       {locale === 'de'
@@ -2264,7 +2250,7 @@ export default function HomePage() {
                 </div>
 
                 {nextAuditExcludedIds.length > 0 && (
-                  <div className="p-3.5 rounded-lg bg-amber-50/90 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
+                  <div className="p-3.5 rounded-lg bg-amber-50/90 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950 print:hidden">
                     <div className="flex items-start gap-2.5 min-w-0">
                       <EyeOff className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                       <div className="space-y-0.5 min-w-0">
@@ -2298,7 +2284,10 @@ export default function HomePage() {
                   </div>
                 )}
 
-                <form onSubmit={handleRunExecutiveAudit} className="space-y-3">
+                <form
+                  onSubmit={handleRunExecutiveAudit}
+                  className="space-y-3 print:hidden"
+                >
                   <textarea
                     rows={3}
                     required
@@ -2310,18 +2299,6 @@ export default function HomePage() {
 
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
                     <div className="flex flex-wrap items-center gap-2.5 text-[12px]">
-                      <span className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-slate-100 border border-slate-200/80 font-medium text-slate-700">
-                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                        <span>
-                          {locale === 'de' ? 'KI-Routing:' : 'Auto-Routed:'}{' '}
-                          <strong className="font-mono font-semibold text-slate-900">
-                            {inferredProfile === 'reasoning'
-                              ? 'Gemini Pro'
-                              : 'Gemini Flash'}
-                          </strong>
-                        </span>
-                      </span>
-
                       <select
                         aria-label="Department Scope"
                         value={auditDepartmentFilter}
@@ -2374,7 +2351,7 @@ export default function HomePage() {
 
                 {/* LIVE STEP-BY-STEP AUDIT PIPELINE PROGRESS CHECKLIST */}
                 {showAuditChecklist && (
-                  <div className="p-3.5 rounded-lg bg-slate-50/90 border border-slate-200/80 space-y-2">
+                  <div className="p-3.5 rounded-lg bg-slate-50/90 border border-slate-200/80 space-y-2 print:hidden">
                     <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-slate-600">
                       <span>
                         {locale === 'de'
@@ -2453,7 +2430,38 @@ export default function HomePage() {
 
                 {/* LIVE CERTIFIED EXECUTIVE AUDIT REPORT CARD */}
                 {auditReport && (
-                  <div className="pt-4 border-t border-slate-200/80 space-y-3.5">
+                  <div className="pt-4 border-t border-slate-200/80 space-y-3.5 print:border-none print:pt-0">
+                    {/* Dedicated Official Executive Print Header (Visible only in Print/PDF) */}
+                    <div className="hidden print:flex items-center justify-between pb-4 mb-2 border-b-2 border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src="/images/mindmittel-logo.svg"
+                          alt="MindMittel Logo"
+                          className="w-9 h-9 object-contain"
+                        />
+                        <div>
+                          <div className="text-base font-bold text-slate-900">
+                            {tenantInfo?.companyName || 'MindMittel'} —{' '}
+                            {locale === 'de'
+                              ? 'Vorstands-Prüfbericht'
+                              : 'Executive Governance Audit Report'}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {locale === 'de' ? 'Geprüfte Vorlage:' : 'Proposal:'}{' '}
+                            &ldquo;{decisionProposal}&rdquo;
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right text-[11px] font-mono text-slate-500">
+                        <div>
+                          {new Date(auditReport.evaluatedAt).toLocaleString(
+                            locale === 'de' ? 'de-DE' : 'en-US'
+                          )}
+                        </div>
+                        <div>{lastAuditedByEmail}</div>
+                      </div>
+                    </div>
+
                     <div
                       className={`p-4 rounded-lg border flex flex-wrap items-center justify-between gap-4 ${
                         auditReport.verdict === 'POLICY_CONFLICT'
@@ -2486,13 +2494,33 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      <div className="text-right font-mono">
-                        <div className="text-lg font-bold">
-                          {auditReport.alignmentScore}%
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right font-mono">
+                          <div className="text-lg font-bold">
+                            {auditReport.alignmentScore}%
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {locale === 'de' ? 'Übereinstimmung' : 'Alignment'}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-500">
-                          {locale === 'de' ? 'Übereinstimmung' : 'Alignment'}
-                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="h-8 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-[12px] font-semibold text-slate-700 inline-flex items-center gap-1.5 shadow-sm transition-colors print:hidden"
+                          title={
+                            locale === 'de'
+                              ? 'Prüfbericht als PDF speichern'
+                              : 'Save Audit Report as PDF'
+                          }
+                        >
+                          <Printer className="w-3.5 h-3.5 text-blue-600" />
+                          <span>
+                            {locale === 'de'
+                              ? 'PDF herunterladen'
+                              : 'Download PDF'}
+                          </span>
+                        </button>
                       </div>
                     </div>
 
@@ -2751,7 +2779,7 @@ export default function HomePage() {
               </div>
 
               {/* Bottom Card (Stacked Directly Below Evaluate Decision): Previous Executive Audit Reports */}
-              <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4">
+              <div className="bg-white rounded-xl border border-slate-200/85 shadow-[0_1px_3px_rgba(15,23,42,0.03)] p-5 sm:p-6 space-y-4 print:hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-slate-900 flex items-center gap-2">

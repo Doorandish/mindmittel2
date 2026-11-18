@@ -135,7 +135,7 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     expect(shellSource).toContain('WORKSPACE_SIDEBAR_SECTIONS');
     expect(shellSource).toContain('Workspace Sidebar Navigation');
     expect(shellSource).toContain('Sidebar Language Selector');
-    expect(shellSource).toContain('Switch Profile');
+    expect(shellSource).toContain('Sign Out');
 
     // Audit History is stacked directly inside Evaluate Decision (no separate 'history' tab)
     expect(pageSource).not.toContain("workspaceSubTab === 'history'");

@@ -6,7 +6,7 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Plug,
-  Settings2,
+  LogOut,
 } from 'lucide-react';
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
@@ -72,7 +72,7 @@ export interface AppShellProps {
   auditHistoryCount?: number;
   enabledConnectorsCount?: number;
   totalConnectorsCount?: number;
-  onOpenAuthModal?: () => void;
+  onSignOut?: () => void;
 }
 
 /**
@@ -98,7 +98,7 @@ export function AppShell({
   auditHistoryCount = 0,
   enabledConnectorsCount = 0,
   totalConnectorsCount = 7,
-  onOpenAuthModal,
+  onSignOut,
 }: AppShellProps) {
   const [landingHref, setLandingHref] = useState<string>('https://mindmittel.de');
 
@@ -231,7 +231,7 @@ export function AppShell({
       {activeTab === 'vault' ? (
         <div className="flex-1 w-full flex flex-col md:flex-row min-h-screen">
           {/* Mobile-Only Compact Bar (since Left Sidebar is hidden on <md screens) */}
-          <div className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 h-13 flex items-center justify-between">
+          <div className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 h-13 flex items-center justify-between print:hidden">
             <a
               href={landingHref}
               className="flex items-center gap-2 text-left"
@@ -275,7 +275,7 @@ export function AppShell({
           {/* FULL-HEIGHT ARCHITECTURAL LEFT SIDEBAR (248px width, Linear/Stripe-grade proportions) */}
           <aside
             aria-label="Workspace Sidebar Navigation"
-            className="hidden md:flex md:w-[248px] shrink-0 bg-[#FCFCFD] border-r border-slate-200/80 flex-col justify-between md:sticky md:top-0 md:h-screen select-none"
+            className="hidden md:flex md:w-[248px] shrink-0 bg-[#FCFCFD] border-r border-slate-200/80 flex-col justify-between md:sticky md:top-0 md:h-screen select-none print:hidden"
           >
             {/* Top Area: Brand Identity + Language Switcher + Sectioned Navigation */}
             <div>
@@ -414,15 +414,15 @@ export function AppShell({
                   {currentUserDepartment}
                 </span>
 
-                {onOpenAuthModal && (
+                {onSignOut && (
                   <button
                     type="button"
-                    onClick={onOpenAuthModal}
-                    className="h-6 px-2 rounded bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 text-[11px] font-medium text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1 shrink-0 shadow-sm"
+                    onClick={onSignOut}
+                    className="h-6 px-2 rounded bg-white hover:bg-rose-50 border border-slate-200/90 hover:border-rose-200 text-[11px] font-medium text-slate-700 hover:text-rose-700 transition-colors inline-flex items-center gap-1 shrink-0 shadow-sm"
                   >
-                    <Settings2 className="w-3 h-3 text-slate-400" />
+                    <LogOut className="w-3 h-3 text-slate-400" />
                     <span>
-                      {locale === 'de' ? 'Profil wechseln' : 'Switch Profile'}
+                      {locale === 'de' ? 'Abmelden' : 'Sign Out'}
                     </span>
                   </button>
                 )}
@@ -440,7 +440,7 @@ export function AppShell({
       {/* Mobile Bottom Navigation Bar */}
       <nav
         aria-label="Mobile Bottom Navigation"
-        className="md:hidden fixed bottom-3 inset-x-4 z-50"
+        className="md:hidden fixed bottom-3 inset-x-4 z-50 print:hidden"
       >
         <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-full px-3 py-2 flex items-center justify-around">
           <button

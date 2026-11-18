@@ -49,3 +49,17 @@ code, pre, .font-mono {
     @apply bg-white focus:bg-white border border-slate-200/95 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10 rounded-lg text-slate-900 placeholder-slate-400 outline-none shadow-[0_1px_2px_rgba(15,23,42,0.02)] transition-all duration-150;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
