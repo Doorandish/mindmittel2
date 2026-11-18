@@ -15,7 +15,6 @@ import {
   Globe,
   Lock,
   BrainCircuit,
-  Activity,
   Trash2,
   Play,
   Sparkles,
@@ -38,7 +37,6 @@ import {
   Clock,
 } from 'lucide-react';
 import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
-import { SystemObservabilityPanel } from '@/components/system/SystemObservabilityPanel';
 import {
   getDictionary,
   DEFAULT_LOCALE,
@@ -194,7 +192,9 @@ export default function HomePage() {
 
   // Decision Audit & History Ledger State
   const [decisionProposal, setDecisionProposal] = useState<string>(
-    QUICK_DECISION_PRESETS[0].proposalEn
+    DEFAULT_LOCALE === 'de'
+      ? QUICK_DECISION_PRESETS[0].proposalDe
+      : QUICK_DECISION_PRESETS[0].proposalEn
   );
   const [auditDepartmentFilter, setAuditDepartmentFilter] =
     useState<string>('all');
@@ -294,8 +294,7 @@ export default function HomePage() {
       if (
         requestedTab === 'evaluate' ||
         requestedTab === 'brain' ||
-        requestedTab === 'connectors' ||
-        requestedTab === 'system'
+        requestedTab === 'connectors'
       ) {
         setActiveTab('vault');
         setWorkspaceSubTab(requestedTab);
@@ -925,7 +924,9 @@ export default function HomePage() {
         <div className="flex flex-col items-center gap-3 text-slate-500">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
           <span className="text-xs font-mono font-medium">
-            Loading workspace...
+            {locale === 'de'
+              ? 'Arbeitsbereich wird geladen...'
+              : 'Loading workspace...'}
           </span>
         </div>
       </div>
@@ -942,12 +943,20 @@ export default function HomePage() {
           <div className="space-y-1.5">
             <h1 className="text-lg font-extrabold text-slate-900">
               {tenantStatus === 'suspended'
-                ? 'Company Workspace Suspended'
+                ? locale === 'de'
+                  ? 'Unternehmens-Workspace gesperrt'
+                  : 'Company Workspace Suspended'
+                : locale === 'de'
+                ? 'Unternehmens-Workspace nicht registriert'
                 : 'Company Workspace Not Registered'}
             </h1>
             <p className="text-xs text-slate-600 leading-relaxed">
               {tenantStatus === 'suspended'
-                ? 'This company subdomain has been temporarily suspended by the platform administrator.'
+                ? locale === 'de'
+                  ? 'Diese Unternehmens-Subdomain wurde vorübergehend vom Plattform-Administrator deaktiviert.'
+                  : 'This company subdomain has been temporarily suspended by the platform administrator.'
+                : locale === 'de'
+                ? 'Diese Subdomain wurde noch nicht eingerichtet. Bitte bitten Sie die Systemadministration, Ihr Unternehmen unter admin.mindmittel.de zu registrieren.'
                 : 'This subdomain has not been provisioned yet. Please ask the product owner to register your company on admin.mindmittel.de.'}
             </p>
           </div>
@@ -962,7 +971,7 @@ export default function HomePage() {
               href="https://demo.mindmittel.de"
               className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-bold text-white"
             >
-              Open Live Demo
+              {locale === 'de' ? 'Live-Demo öffnen' : 'Open Live Demo'}
             </a>
           </div>
         </div>
@@ -974,39 +983,88 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
-              <img
-                src="/images/mindmittel-logo.svg"
-                alt="MindMittel Logo"
-                className="w-7 h-7 object-contain"
-              />
-            </div>
-            <div>
-              <div className="text-[11px] font-mono font-bold text-blue-600 uppercase">
-                {tenantInfo.slug}.mindmittel.de
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
+                <img
+                  src="/images/mindmittel-logo.svg"
+                  alt="MindMittel Logo"
+                  className="w-7 h-7 object-contain"
+                />
               </div>
-              <h1 className="text-lg font-extrabold text-slate-900">
-                {tenantInfo.companyName}
-              </h1>
+              <div className="min-w-0">
+                <div className="text-[11px] font-mono font-bold text-blue-600 uppercase truncate">
+                  {tenantInfo.slug}.mindmittel.de
+                </div>
+                <h1 className="text-lg font-extrabold text-slate-900 truncate">
+                  {tenantInfo.companyName}
+                </h1>
+              </div>
+            </div>
+
+            <div className="inline-flex items-center bg-slate-100 border border-slate-200 rounded-md p-0.5 text-[11px] font-medium shrink-0">
+              <button
+                type="button"
+                onClick={() => setLocale('de')}
+                className={`px-2 py-0.5 rounded ${
+                  locale === 'de'
+                    ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                    : 'text-slate-500'
+                }`}
+              >
+                DE
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale('en')}
+                className={`px-2 py-0.5 rounded ${
+                  locale === 'en'
+                    ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                    : 'text-slate-500'
+                }`}
+              >
+                EN
+              </button>
             </div>
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed">
-            This workspace is strictly isolated. Sign in with your authorized{' '}
-            <strong>
-              {tenantInfo.allowedEmailDomains.length > 0
-                ? tenantInfo.allowedEmailDomains.map((d) => `@${d}`).join(' or ')
-                : 'corporate'}
-            </strong>{' '}
-            email address to receive a 6-digit verification code.
+            {locale === 'de' ? (
+              <>
+                Dieser Workspace ist strikt isoliert. Melden Sie sich mit Ihrer
+                autorisierten{' '}
+                <strong>
+                  {tenantInfo.allowedEmailDomains.length > 0
+                    ? tenantInfo.allowedEmailDomains
+                        .map((d) => `@${d}`)
+                        .join(' oder ')
+                    : 'Firmen'}
+                </strong>
+                -E-Mail-Adresse an, um einen 6-stelligen Einmalcode zu erhalten.
+              </>
+            ) : (
+              <>
+                This workspace is strictly isolated. Sign in with your
+                authorized{' '}
+                <strong>
+                  {tenantInfo.allowedEmailDomains.length > 0
+                    ? tenantInfo.allowedEmailDomains
+                        .map((d) => `@${d}`)
+                        .join(' or ')
+                    : 'corporate'}
+                </strong>{' '}
+                email address to receive a 6-digit verification code.
+              </>
+            )}
           </p>
 
           {otpStep === 'email' ? (
             <form onSubmit={handleRequestOtpCode} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Corporate Email Address *
+                  {locale === 'de'
+                    ? 'Firmen-E-Mail-Adresse *'
+                    : 'Corporate Email Address *'}
                 </label>
                 <input
                   type="email"
@@ -1024,30 +1082,38 @@ export default function HomePage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Full Name
+                  {locale === 'de' ? 'Vollständiger Name' : 'Full Name'}
                 </label>
                 <input
                   type="text"
                   value={authNameInput}
                   onChange={(e) => setAuthNameInput(e.target.value)}
-                  placeholder="Executive Name"
+                  placeholder={locale === 'de' ? 'Vor- und Nachname' : 'Executive Name'}
                   className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Department / Role
+                  {locale === 'de' ? 'Abteilung / Rolle' : 'Department / Role'}
                 </label>
                 <select
                   value={authDeptInput}
                   onChange={(e) => setAuthDeptInput(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
                 >
-                  <option value="Executive Board">Executive Board</option>
-                  <option value="Finance & Legal">Finance & Legal</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="HR & Legal">HR & Legal</option>
+                  <option value="Executive Board">
+                    {locale === 'de' ? 'Vorstand / Geschäftsführung' : 'Executive Board'}
+                  </option>
+                  <option value="Finance & Legal">
+                    {locale === 'de' ? 'Finanzen & Recht' : 'Finance & Legal'}
+                  </option>
+                  <option value="Engineering">
+                    {locale === 'de' ? 'Engineering & IT' : 'Engineering'}
+                  </option>
+                  <option value="HR & Legal">
+                    {locale === 'de' ? 'Personal & Recht' : 'HR & Legal'}
+                  </option>
                 </select>
               </div>
 
@@ -1063,7 +1129,11 @@ export default function HomePage() {
                 className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm"
               >
                 {isSendingOtp
-                  ? 'Sending 6-Digit Code...'
+                  ? locale === 'de'
+                    ? '6-stelligen Code senden...'
+                    : 'Sending 6-Digit Code...'
+                  : locale === 'de'
+                  ? '6-stelligen Bestätigungscode senden'
                   : 'Send 6-Digit Verification Code'}
               </button>
             </form>
@@ -1072,7 +1142,9 @@ export default function HomePage() {
               {sandboxOtpCode && (
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
                   <div className="font-bold">
-                    Sandbox Verification Code (RESEND_API_KEY not set yet):
+                    {locale === 'de'
+                      ? 'Sandbox-Bestätigungscode (Entwicklungsmodus):'
+                      : 'Sandbox Verification Code (Development Mode):'}
                   </div>
                   <div className="font-mono text-lg font-extrabold tracking-widest text-blue-700">
                     {sandboxOtpCode}
@@ -1082,7 +1154,9 @@ export default function HomePage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  6-Digit Code sent to {authEmailInput}
+                  {locale === 'de'
+                    ? `6-stelliger Code gesendet an ${authEmailInput}`
+                    : `6-Digit Code sent to ${authEmailInput}`}
                 </label>
                 <input
                   type="text"
@@ -1112,14 +1186,20 @@ export default function HomePage() {
                   }}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
                 >
-                  Back
+                  {locale === 'de' ? 'Zurück' : 'Back'}
                 </button>
                 <button
                   type="submit"
                   disabled={isVerifyingOtp || otpCodeInput.length !== 6}
                   className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm"
                 >
-                  {isVerifyingOtp ? 'Verifying...' : 'Verify & Open Workspace'}
+                  {isVerifyingOtp
+                    ? locale === 'de'
+                      ? 'Wird geprüft...'
+                      : 'Verifying...'
+                    : locale === 'de'
+                    ? 'Bestätigen & Workspace öffnen'
+                    : 'Verify & Open Workspace'}
                 </button>
               </div>
             </form>
@@ -1735,8 +1815,8 @@ export default function HomePage() {
                 </h3>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                   {locale === 'de'
-                    ? 'Analysiert die Komplexität jeder Führungsentscheidung und routet dynamisch zwischen Flash- und Pro-Modellen, überwacht durch eine klickbare Architektur-Topologie unter /system.'
-                    : 'Inspects query complexity in real time and routes dynamically between Gemini Flash and Pro models, monitored live via the clickable visual architecture topology console at /system.'}
+                    ? 'Analysiert die Komplexität jeder Führungsentscheidung und wählt automatisch das passende KI-Modell für Tempo oder tiefgehende Compliance-Prüfungen.'
+                    : 'Inspects query complexity in real time and automatically routes between fast synthesis and deep multi-policy reasoning.'}
                 </p>
               </div>
             </div>
@@ -1821,19 +1901,23 @@ export default function HomePage() {
                   <li>
                     <button
                       type="button"
-                      onClick={() => openLiveWorkspace('system')}
+                      onClick={() => openLiveWorkspace('evaluate')}
                       className="hover:text-blue-600 text-left"
                     >
-                      Interactive System Topology (/system)
+                      {locale === 'de'
+                        ? 'Entscheidungen prüfen'
+                        : 'Decision Audit Console'}
                     </button>
                   </li>
                   <li>
                     <button
                       type="button"
-                      onClick={() => openLiveWorkspace('system')}
+                      onClick={() => openLiveWorkspace('brain')}
                       className="hover:text-blue-600 text-left"
                     >
-                      Live SSE Telemetry Stream
+                      {locale === 'de'
+                        ? 'Unternehmenswissen (Company Brain)'
+                        : 'Company Brain Knowledge Vault'}
                     </button>
                   </li>
                 </ul>
@@ -1847,19 +1931,19 @@ export default function HomePage() {
                   <li>
                     <button
                       type="button"
-                      onClick={() => setLocale('en')}
+                      onClick={() => setLocale('de')}
                       className="hover:text-blue-600"
                     >
-                      English (Default)
+                      Deutsch (Standard)
                     </button>
                   </li>
                   <li>
                     <button
                       type="button"
-                      onClick={() => setLocale('de')}
+                      onClick={() => setLocale('en')}
                       className="hover:text-blue-600"
                     >
-                      Deutsch (DE)
+                      English (EN)
                     </button>
                   </li>
                 </ul>
@@ -1903,21 +1987,23 @@ export default function HomePage() {
             <form onSubmit={handleEmailSignIn} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Corporate Email Address *
+                  {locale === 'de'
+                    ? 'Firmen-E-Mail-Adresse *'
+                    : 'Corporate Email Address *'}
                 </label>
                 <input
                   type="email"
                   required
                   value={authEmailInput}
                   onChange={(e) => setAuthEmailInput(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder="name@company.de"
                   className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Full Name
+                  {locale === 'de' ? 'Vollständiger Name' : 'Full Name'}
                 </label>
                 <input
                   type="text"
@@ -1930,17 +2016,27 @@ export default function HomePage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Department / Role
+                  {locale === 'de' ? 'Abteilung / Rolle' : 'Department / Role'}
                 </label>
                 <select
                   value={authDeptInput}
                   onChange={(e) => setAuthDeptInput(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
                 >
-                  <option value="Executive Board">Executive Board</option>
-                  <option value="Finance & Legal">Finance & Legal</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="HR & Legal">HR & Legal</option>
+                  <option value="Executive Board">
+                    {locale === 'de'
+                      ? 'Vorstand / Geschäftsführung'
+                      : 'Executive Board'}
+                  </option>
+                  <option value="Finance & Legal">
+                    {locale === 'de' ? 'Finanzen & Recht' : 'Finance & Legal'}
+                  </option>
+                  <option value="Engineering">
+                    {locale === 'de' ? 'Engineering & IT' : 'Engineering'}
+                  </option>
+                  <option value="HR & Legal">
+                    {locale === 'de' ? 'Personal & Recht' : 'HR & Legal'}
+                  </option>
                 </select>
               </div>
 
@@ -1956,13 +2052,15 @@ export default function HomePage() {
                   onClick={() => setShowAuthModal(false)}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
-                  Cancel
+                  {locale === 'de' ? 'Abbrechen' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm"
                 >
-                  Save & Authenticate Email
+                  {locale === 'de'
+                    ? 'Speichern & E-Mail bestätigen'
+                    : 'Save & Authenticate Email'}
                 </button>
               </div>
             </form>
@@ -1990,7 +2088,9 @@ export default function HomePage() {
                   onClick={handleTenantSignOut}
                   className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700"
                 >
-                  Sign Out ({userEmail})
+                  {locale === 'de'
+                    ? `Abmelden (${userEmail})`
+                    : `Sign Out (${userEmail})`}
                 </button>
               )}
             </div>
@@ -1998,14 +2098,15 @@ export default function HomePage() {
           {/* Mobile-Only Compact User Identity Bar (Desktop uses the Left Sidebar) */}
           <div className="md:hidden bg-white rounded-xl border border-slate-200/85 px-3.5 py-2.5 flex items-center justify-between gap-3">
             <span className="text-xs font-mono text-slate-700 truncate">
-              Signed in: <strong>{userEmail}</strong>
+              {locale === 'de' ? 'Angemeldet:' : 'Signed in:'}{' '}
+              <strong>{userEmail}</strong>
             </span>
             <button
               type="button"
               onClick={() => setShowAuthModal(true)}
               className="text-xs font-semibold text-blue-600 underline shrink-0"
             >
-              Switch Profile
+              {locale === 'de' ? 'Profil wechseln' : 'Switch Profile'}
             </button>
           </div>
 
@@ -2064,7 +2165,7 @@ export default function HomePage() {
                       <span className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-slate-100 border border-slate-200/80 font-medium text-slate-700">
                         <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                         <span>
-                          Auto-Routed:{' '}
+                          {locale === 'de' ? 'KI-Routing:' : 'Auto-Routed:'}{' '}
                           <strong className="font-mono font-semibold text-slate-900">
                             {inferredProfile === 'reasoning'
                               ? 'Gemini Pro'
@@ -2081,14 +2182,22 @@ export default function HomePage() {
                         }
                         className="h-8 px-2.5 rounded-md bg-white border border-slate-200/90 text-slate-700 font-medium text-[12px]"
                       >
-                        <option value="all">Scope: All Departments</option>
-                        <option value="finance-legal">Finance & Legal</option>
+                        <option value="all">
+                          {locale === 'de'
+                            ? 'Bereich: Alle Abteilungen'
+                            : 'Scope: All Departments'}
+                        </option>
+                        <option value="finance-legal">
+                          {locale === 'de' ? 'Finanzen & Recht' : 'Finance & Legal'}
+                        </option>
                         <option value="engineering">Engineering</option>
-                        <option value="hr-legal">HR & Legal</option>
+                        <option value="hr-legal">
+                          {locale === 'de' ? 'Personal & Recht' : 'HR & Legal'}
+                        </option>
                       </select>
 
                       <span className="text-slate-400 font-mono text-[11.5px] hidden sm:inline">
-                        Auditor: {userEmail}
+                        {locale === 'de' ? 'Prüfer:' : 'Auditor:'} {userEmail}
                       </span>
                     </div>
 
@@ -2126,7 +2235,7 @@ export default function HomePage() {
                       </span>
                       <span className="text-blue-600">
                         {auditCompletedSteps}/{AUDIT_PIPELINE_STEPS.length}{' '}
-                        Completed
+                        {locale === 'de' ? 'Abgeschlossen' : 'Completed'}
                       </span>
                     </div>
 
@@ -2170,9 +2279,15 @@ export default function HomePage() {
                               }`}
                             >
                               {isDone
-                                ? '✓ Done'
+                                ? locale === 'de'
+                                  ? '✓ Fertig'
+                                  : '✓ Done'
                                 : isCurrent
-                                ? 'Running...'
+                                ? locale === 'de'
+                                  ? 'Läuft...'
+                                  : 'Running...'
+                                : locale === 'de'
+                                ? 'Wartend'
                                 : 'Queued'}
                             </span>
                           </div>
@@ -2210,8 +2325,11 @@ export default function HomePage() {
                         )}
                         <div>
                           <div className="text-[11px] font-mono font-semibold text-slate-600">
-                            VERDICT: {auditReport.verdict} · MODEL:{' '}
-                            {auditReport.selectedModelId} · AUDITED BY:{' '}
+                            {locale === 'de' ? 'URTEIL:' : 'VERDICT:'}{' '}
+                            {auditReport.verdict} ·{' '}
+                            {locale === 'de' ? 'MODELL:' : 'MODEL:'}{' '}
+                            {auditReport.selectedModelId} ·{' '}
+                            {locale === 'de' ? 'PRÜFER:' : 'AUDITED BY:'}{' '}
                             {lastAuditedByEmail}
                           </div>
                           <div className="text-[14px] font-semibold tracking-[-0.01em] mt-0.5">
@@ -2225,14 +2343,16 @@ export default function HomePage() {
                           {auditReport.alignmentScore}%
                         </div>
                         <div className="text-[10px] text-slate-500">
-                          Alignment
+                          {locale === 'de' ? 'Übereinstimmung' : 'Alignment'}
                         </div>
                       </div>
                     </div>
 
                     <div className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-200/80 text-[13px] text-slate-700 leading-relaxed">
                       <strong className="block text-[11px] font-mono font-semibold text-slate-500 uppercase mb-1">
-                        Strategic Policy Cross-Examination
+                        {locale === 'de'
+                          ? 'Strategische Richtlinien-Prüfung'
+                          : 'Strategic Policy Cross-Examination'}
                       </strong>
                       {auditReport.strategicEvaluation}
                     </div>
@@ -2332,10 +2452,16 @@ export default function HomePage() {
                               <div className="text-[11px] font-mono font-semibold text-slate-600 uppercase">
                                 {auditReport.germanAdvisory.knowledgeCoverage.status ===
                                 'COVERED_BY_BRAIN'
-                                  ? 'Company Brain Coverage'
+                                  ? locale === 'de'
+                                    ? 'Abdeckung im Company Brain'
+                                    : 'Company Brain Coverage'
                                   : auditReport.germanAdvisory.knowledgeCoverage.status ===
                                     'PARTIAL_COVERAGE'
-                                  ? 'Partial Company Brain Coverage'
+                                  ? locale === 'de'
+                                    ? 'Teilweise Abdeckung im Company Brain'
+                                    : 'Partial Company Brain Coverage'
+                                  : locale === 'de'
+                                  ? 'Wissenslücke im Company Brain'
                                   : 'Company Brain Knowledge Gap'}
                               </div>
                               <p className="text-[12px] text-slate-700 leading-relaxed">
@@ -2372,7 +2498,7 @@ export default function HomePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       <div className="p-3.5 rounded-lg bg-emerald-50/40 border border-emerald-200/80 space-y-1.5">
                         <div className="text-[11px] font-mono font-semibold text-emerald-800 uppercase">
-                          Pros
+                          {locale === 'de' ? 'Vorteile' : 'Pros'}
                         </div>
                         <ul className="space-y-1 text-[12.5px] text-slate-700">
                           {auditReport.pros.map((pro, i) => (
@@ -2386,7 +2512,9 @@ export default function HomePage() {
 
                       <div className="p-3.5 rounded-lg bg-rose-50/40 border border-rose-200/80 space-y-1.5">
                         <div className="text-[11px] font-mono font-semibold text-rose-800 uppercase">
-                          Risks & Policy Conflicts
+                          {locale === 'de'
+                            ? 'Risiken & Richtlinienkonflikte'
+                            : 'Risks & Policy Conflicts'}
                         </div>
                         <ul className="space-y-1 text-[12.5px] text-slate-700">
                           {auditReport.cons.map((con, i) => (
@@ -2402,7 +2530,9 @@ export default function HomePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       <div className="p-3.5 rounded-lg bg-blue-50/40 border border-blue-200/80 space-y-1.5">
                         <div className="text-[11px] font-mono font-semibold text-blue-800 uppercase">
-                          Recommended Actionable Roadmap
+                          {locale === 'de'
+                            ? 'Empfohlener Maßnahmenplan'
+                            : 'Recommended Actionable Roadmap'}
                         </div>
                         <ul className="space-y-1 text-[12.5px] text-slate-800 font-medium">
                           {auditReport.roadmap.map((step, i) => (
@@ -2413,7 +2543,9 @@ export default function HomePage() {
 
                       <div className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-200/80 space-y-1.5">
                         <div className="text-[11px] font-mono font-semibold text-slate-600 uppercase">
-                          Cited Company Brain Policies
+                          {locale === 'de'
+                            ? 'Zitierte Company-Brain-Richtlinien'
+                            : 'Cited Company Brain Policies'}
                         </div>
                         <div className="space-y-1.5">
                           {auditReport.citations.map((cit) => (
@@ -2457,7 +2589,8 @@ export default function HomePage() {
                   </div>
 
                   <span className="text-[11.5px] font-mono font-medium text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-md">
-                    {auditHistory.length} Saved
+                    {auditHistory.length}{' '}
+                    {locale === 'de' ? 'Gespeichert' : 'Saved'}
                   </span>
                 </div>
 
@@ -2491,10 +2624,14 @@ export default function HomePage() {
                               {item.report.alignmentScore}%)
                             </span>
                             <span className="text-[11.5px] font-mono text-slate-500">
-                              By: <strong>{item.auditedByEmail}</strong>
+                              {locale === 'de' ? 'Von:' : 'By:'}{' '}
+                              <strong>{item.auditedByEmail}</strong>
                             </span>
                             <span className="text-[11px] font-mono text-slate-400">
-                              · {new Date(item.createdAt).toLocaleString()}
+                              ·{' '}
+                              {new Date(item.createdAt).toLocaleString(
+                                locale === 'de' ? 'de-DE' : 'en-US'
+                              )}
                             </span>
                           </div>
 
@@ -2517,7 +2654,7 @@ export default function HomePage() {
                             }}
                             className="h-8 px-3 rounded-md bg-white hover:bg-slate-100 border border-slate-200/90 text-[12px] font-medium text-slate-700 transition-colors shadow-sm"
                           >
-                            View Report
+                            {locale === 'de' ? 'Bericht öffnen' : 'View Report'}
                           </button>
 
                           <button
@@ -2583,7 +2720,11 @@ export default function HomePage() {
                       }`}
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      <span>PDF / PPTX / Image / Audio</span>
+                      <span>
+                        {locale === 'de'
+                          ? 'PDF / PPTX / Bild / Audio'
+                          : 'PDF / PPTX / Image / Audio'}
+                      </span>
                     </button>
 
                     <button
@@ -2596,7 +2737,9 @@ export default function HomePage() {
                       }`}
                     >
                       <Mic className="w-3.5 h-3.5" />
-                      <span>Live Voice</span>
+                      <span>
+                        {locale === 'de' ? 'Sprachaufnahme' : 'Live Voice'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -2608,16 +2751,28 @@ export default function HomePage() {
                       <FileAudio className="w-5 h-5 text-blue-600 shrink-0" />
                       <div>
                         <div className="font-semibold text-slate-900">
-                          Upload PDF, PowerPoint (.pptx), Image, Audio (.mp3/.wav), or Text
+                          {locale === 'de'
+                            ? 'PDF, PowerPoint (.pptx), Bild, Audio (.mp3/.wav) oder Text hochladen'
+                            : 'Upload PDF, PowerPoint (.pptx), Image, Audio (.mp3/.wav), or Text'}
                         </div>
                         <div className="text-slate-500 text-[12px]">
-                          Gemini Multimodal automatically extracts text or transcribes audio into the editor below.
+                          {locale === 'de'
+                            ? 'Texte und Sprachinhalte werden automatisch extrahiert und unten eingefügt.'
+                            : 'Multimodal extraction automatically transcribes text and audio into the editor below.'}
                         </div>
                       </div>
                     </div>
 
                     <label className="h-8 px-3.5 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-[12px] font-medium cursor-pointer shrink-0 transition-colors inline-flex items-center">
-                      <span>{isExtractingMedia ? 'Processing...' : 'Choose File'}</span>
+                      <span>
+                        {isExtractingMedia
+                          ? locale === 'de'
+                            ? 'Verarbeitung...'
+                            : 'Processing...'
+                          : locale === 'de'
+                          ? 'Datei auswählen'
+                          : 'Choose File'}
+                      </span>
                       <input
                         type="file"
                         accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.webp,.ppt,.pptx,.mp3,.wav,.webm,.ogg,.m4a"
@@ -2649,11 +2804,17 @@ export default function HomePage() {
                       <div>
                         <div className="font-semibold text-slate-900">
                           {isRecording
-                            ? 'Recording Live Voice Dictation...'
+                            ? locale === 'de'
+                              ? 'Live-Sprachaufnahme läuft...'
+                              : 'Recording Live Voice Dictation...'
+                            : locale === 'de'
+                            ? 'Richtlinie oder Besprechungsnotiz per Sprache diktieren'
                             : 'Record Policy or Meeting Note by Voice'}
                         </div>
                         <div className="text-slate-500 text-[12px]">
-                          Audio is automatically transcribed into structured text for Company Brain indexing.
+                          {locale === 'de'
+                            ? 'Die Aufnahme wird automatisch als strukturierter Text für Ihr Company Brain transkribiert.'
+                            : 'Audio is automatically transcribed into structured text for Company Brain indexing.'}
                         </div>
                       </div>
                     </div>
@@ -2665,7 +2826,11 @@ export default function HomePage() {
                         className="h-8 px-3.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-medium flex items-center gap-1.5 shrink-0"
                       >
                         <Mic className="w-3.5 h-3.5" />
-                        <span>Start Recording</span>
+                        <span>
+                          {locale === 'de'
+                            ? 'Aufnahme starten'
+                            : 'Start Recording'}
+                        </span>
                       </button>
                     ) : (
                       <button
@@ -2674,7 +2839,11 @@ export default function HomePage() {
                         className="h-8 px-3.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium flex items-center gap-1.5 shrink-0"
                       >
                         <Square className="w-3.5 h-3.5 fill-current" />
-                        <span>Stop & Transcribe</span>
+                        <span>
+                          {locale === 'de'
+                            ? 'Stoppen & transkribieren'
+                            : 'Stop & Transcribe'}
+                        </span>
                       </button>
                     )}
                   </div>
@@ -2711,16 +2880,24 @@ export default function HomePage() {
                         className="w-full h-9 px-3 text-[13px] liquid-glass-input"
                       >
                         <option value="Finance & Legal">
-                          Department: Finance & Legal
+                          {locale === 'de'
+                            ? 'Abteilung: Finanzen & Recht'
+                            : 'Department: Finance & Legal'}
                         </option>
                         <option value="Engineering">
-                          Department: Engineering
+                          {locale === 'de'
+                            ? 'Abteilung: Engineering & IT'
+                            : 'Department: Engineering'}
                         </option>
                         <option value="HR & Legal">
-                          Department: HR & Legal
+                          {locale === 'de'
+                            ? 'Abteilung: Personal & Recht'
+                            : 'Department: HR & Legal'}
                         </option>
                         <option value="Executive Board">
-                          Department: Executive Board
+                          {locale === 'de'
+                            ? 'Abteilung: Vorstand / Geschäftsführung'
+                            : 'Department: Executive Board'}
                         </option>
                       </select>
                     </div>
@@ -2756,7 +2933,17 @@ export default function HomePage() {
                       </span>
                     ) : (
                       <span className="text-[12px] text-slate-500">
-                        Author attribution: <strong>{userEmail}</strong> · Isolated Company Brain
+                        {locale === 'de' ? (
+                          <>
+                            Autor: <strong>{userEmail}</strong> · Isolierter
+                            Company Brain
+                          </>
+                        ) : (
+                          <>
+                            Author attribution: <strong>{userEmail}</strong> ·
+                            Isolated Company Brain
+                          </>
+                        )}
                       </span>
                     )}
 
@@ -2768,7 +2955,9 @@ export default function HomePage() {
                       <Database className="w-3.5 h-3.5" />
                       <span>
                         {isIngesting
-                          ? 'Saving...'
+                          ? locale === 'de'
+                            ? 'Wird gespeichert...'
+                            : 'Saving...'
                           : locale === 'de'
                           ? 'Ins Company Brain speichern'
                           : 'Save to Company Brain'}
@@ -2802,7 +2991,13 @@ export default function HomePage() {
 
                     <span className="px-2.5 py-1 rounded-md bg-rose-100 border border-rose-200 text-[11px] font-mono font-semibold text-rose-800">
                       {brainConflicts.length}{' '}
-                      {brainConflicts.length === 1 ? 'Conflict' : 'Conflicts'}
+                      {locale === 'de'
+                        ? brainConflicts.length === 1
+                          ? 'Konflikt'
+                          : 'Konflikte'
+                        : brainConflicts.length === 1
+                        ? 'Conflict'
+                        : 'Conflicts'}
                     </span>
                   </div>
 
@@ -2819,7 +3014,9 @@ export default function HomePage() {
                               : conflict.conflictReasonEn}
                           </span>
                           <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                            Topic Similarity:{' '}
+                            {locale === 'de'
+                              ? 'Themen-Ähnlichkeit:'
+                              : 'Topic Similarity:'}{' '}
                             {Math.round(conflict.similarityScore * 100)}%
                           </span>
                         </div>
@@ -2945,7 +3142,9 @@ export default function HomePage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
-                            Document Title
+                            {locale === 'de'
+                              ? 'Dokumenttitel'
+                              : 'Document Title'}
                           </label>
                           <input
                             type="text"
@@ -2958,7 +3157,7 @@ export default function HomePage() {
 
                         <div>
                           <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
-                            Department
+                            {locale === 'de' ? 'Abteilung' : 'Department'}
                           </label>
                           <input
                             type="text"
@@ -2971,7 +3170,9 @@ export default function HomePage() {
 
                       <div>
                         <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
-                          Policy Content (Fix conflicting numbers or clauses here)
+                          {locale === 'de'
+                            ? 'Richtlinientext (widersprüchliche Zahlen oder Klauseln direkt korrigieren)'
+                            : 'Policy Content (Fix conflicting numbers or clauses here)'}
                         </label>
                         <textarea
                           rows={6}
@@ -2988,7 +3189,7 @@ export default function HomePage() {
                           onClick={() => setEditingDocId(null)}
                           className="h-8 px-3.5 rounded-md text-[12.5px] font-medium text-slate-600 hover:bg-slate-100"
                         >
-                          Cancel
+                          {locale === 'de' ? 'Abbrechen' : 'Cancel'}
                         </button>
                         <button
                           type="submit"
@@ -2996,7 +3197,9 @@ export default function HomePage() {
                           className="h-8 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-medium shadow-sm"
                         >
                           {isUpdatingDoc
-                            ? 'Saving...'
+                            ? locale === 'de'
+                              ? 'Wird gespeichert...'
+                              : 'Saving...'
                             : locale === 'de'
                             ? 'Änderungen speichern'
                             : 'Save Changes'}
@@ -3019,7 +3222,8 @@ export default function HomePage() {
                     </span>
                   </h3>
                   <span className="text-[11.5px] font-mono font-medium text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-md">
-                    {documents.length} Indexed
+                    {documents.length}{' '}
+                    {locale === 'de' ? 'Gespeichert' : 'Indexed'}
                   </span>
                 </div>
 
@@ -3038,8 +3242,8 @@ export default function HomePage() {
                           <span>·</span>
                           <span className="text-blue-600 font-medium">
                             {doc.sectionCount && doc.sectionCount > 1
-                              ? `${doc.sectionCount} sections`
-                              : `${doc.childCount} sections`}
+                              ? `${doc.sectionCount} ${locale === 'de' ? 'Abschnitte' : 'sections'}`
+                              : `${doc.childCount} ${locale === 'de' ? 'Abschnitte' : 'sections'}`}
                           </span>
                           <span>·</span>
                           <span className="text-slate-500 truncate">
@@ -3206,7 +3410,10 @@ export default function HomePage() {
                                   )}
                                   {conn.lastSyncedAt && (
                                     <span className="text-[11px] font-mono text-slate-400">
-                                      · Synced:{' '}
+                                      ·{' '}
+                                      {locale === 'de'
+                                        ? 'Synchronisiert:'
+                                        : 'Synced:'}{' '}
                                       {new Date(conn.lastSyncedAt).toLocaleString(
                                         locale === 'de' ? 'de-DE' : 'en-US',
                                         {
@@ -3267,7 +3474,11 @@ export default function HomePage() {
                                 <KeyRound className="w-3.5 h-3.5" />
                                 <span>
                                   {conn.configured
-                                    ? 'Update Credentials'
+                                    ? locale === 'de'
+                                      ? 'Zugangsdaten aktualisieren'
+                                      : 'Update Credentials'
+                                    : locale === 'de'
+                                    ? 'Zugangsdaten eingeben'
                                     : 'Enter Auth Credentials'}
                                 </span>
                               </button>
@@ -3288,7 +3499,11 @@ export default function HomePage() {
                                   />
                                   <span>
                                     {syncingConnectorId === conn.id
-                                      ? 'Syncing...'
+                                      ? locale === 'de'
+                                        ? 'Synchronisiere...'
+                                        : 'Syncing...'
+                                      : locale === 'de'
+                                      ? 'Jetzt synchronisieren'
                                       : 'Sync Now'}
                                   </span>
                                 </button>
@@ -3316,14 +3531,20 @@ export default function HomePage() {
                                     onChange={(e) =>
                                       setConnectorApiSecret(e.target.value)
                                     }
-                                    placeholder="Paste API Token / OAuth Secret..."
+                                    placeholder={
+                                      locale === 'de'
+                                        ? 'API-Token / OAuth-Schlüssel einfügen...'
+                                        : 'Paste API Token / OAuth Secret...'
+                                    }
                                     className="w-full h-8 px-2.5 text-xs font-mono liquid-glass-input"
                                   />
                                 </div>
 
                                 <div>
                                   <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                                    Target Channel / Space / Meeting Series
+                                    {locale === 'de'
+                                      ? 'Ziel-Kanal / Bereich / Ordner'
+                                      : 'Target Channel / Space / Meeting Series'}
                                   </label>
                                   <input
                                     type="text"
@@ -3344,13 +3565,15 @@ export default function HomePage() {
                                     }
                                     className="h-7 px-2.5 rounded-md text-xs font-medium text-slate-500 hover:bg-slate-100"
                                   >
-                                    Cancel
+                                    {locale === 'de' ? 'Abbrechen' : 'Cancel'}
                                   </button>
                                   <button
                                     type="submit"
                                     className="h-7 px-3 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-xs font-medium"
                                   >
-                                    Save & Switch ON
+                                    {locale === 'de'
+                                      ? 'Speichern & aktivieren'
+                                      : 'Save & Switch ON'}
                                   </button>
                                 </div>
                               </form>
@@ -3364,9 +3587,6 @@ export default function HomePage() {
               })}
             </div>
           )}
-
-          {/* SECTION 4: SYSTEM ARCHITECTURE & LIVE TELEMETRY (With Left Sidebar) */}
-          {workspaceSubTab === 'system' && <SystemObservabilityPanel />}
         </div>
       )}
     </AppShell>

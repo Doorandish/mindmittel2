@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Database,
-  Activity,
   ArrowUpRight,
   ShieldCheck,
   Plug,
@@ -12,7 +11,7 @@ import {
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 
-export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors' | 'system';
+export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors';
 
 export interface WorkspaceSidebarSection {
   id: string;
@@ -55,18 +54,6 @@ export const WORKSPACE_SIDEBAR_SECTIONS: WorkspaceSidebarSection[] = [
       },
     ],
   },
-  {
-    id: 'observability',
-    titleEn: 'Observability',
-    titleDe: 'System & Telemetrie',
-    items: [
-      {
-        subTab: 'system',
-        labelEn: 'System & Logs',
-        labelDe: 'System & Logs',
-      },
-    ],
-  },
 ];
 
 export interface AppShellProps {
@@ -92,7 +79,7 @@ export interface AppShellProps {
  * MindMittel V2 Precision Enterprise Layout Shell:
  * - Landing Page ('overview'): Top marketing header with anchor links, language switcher, and Launch CTA.
  * - Workspace ('vault'): Headerless full-height architectural layout with a 248px Left Sidebar
- *   housing the Brand Mark, Language Switcher (EN | DE), single-line navigation items (including System & Logs),
+ *   housing the Brand Mark, Language Switcher (EN | DE), single-line navigation items,
  *   and pinned User Profile.
  */
 export function AppShell({
@@ -135,10 +122,7 @@ export function AppShell({
     if (subTab === 'brain') {
       return `${brainCount}`;
     }
-    if (subTab === 'connectors') {
-      return `${enabledConnectorsCount}/${totalConnectorsCount}`;
-    }
-    return 'LIVE';
+    return `${enabledConnectorsCount}/${totalConnectorsCount}`;
   }
 
   const userInitials =
@@ -198,14 +182,6 @@ export function AppShell({
               >
                 {dict.nav.features}
               </a>
-              <button
-                type="button"
-                onClick={() => navigateToWorkspaceSubTab('system')}
-                className="text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1.5 whitespace-nowrap"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>{dict.nav.systemCenter}</span>
-              </button>
             </nav>
 
             <div className="flex items-center gap-3 shrink-0">
@@ -367,9 +343,7 @@ export function AppShell({
                             ? ShieldCheck
                             : item.subTab === 'brain'
                             ? Database
-                            : item.subTab === 'connectors'
-                            ? Plug
-                            : Activity;
+                            : Plug;
 
                         return (
                           <button
@@ -399,19 +373,15 @@ export function AppShell({
                               </span>
                             </span>
 
-                            {item.subTab === 'system' ? (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                            ) : (
-                              <span
-                                className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
-                                  isActive
-                                    ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
-                                    : 'text-slate-400 group-hover:text-slate-600'
-                                }`}
-                              >
-                                {getBadgeText(item.subTab)}
-                              </span>
-                            )}
+                            <span
+                              className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                                isActive
+                                  ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
+                                  : 'text-slate-400 group-hover:text-slate-600'
+                              }`}
+                            >
+                              {getBadgeText(item.subTab)}
+                            </span>
                           </button>
                         );
                       })}
@@ -510,19 +480,6 @@ export function AppShell({
           >
             <Plug className="w-4 h-4" />
             <span>Connectors</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigateToWorkspaceSubTab('system')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
-              activeTab === 'vault' && workspaceSubTab === 'system'
-                ? 'text-blue-600'
-                : 'text-emerald-600'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span>System</span>
           </button>
         </div>
       </nav>

@@ -1,6 +1,6 @@
 export type SupportedLocale = 'en' | 'de';
 
-export const DEFAULT_LOCALE: SupportedLocale = 'en';
+export const DEFAULT_LOCALE: SupportedLocale = 'de';
 export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['en', 'de'];
 
 export interface AppDictionary {
@@ -419,8 +419,8 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
 };
 
 export function getDictionary(locale?: string): AppDictionary {
-  if (locale === 'de') {
-    return dictionaries.de;
+  if (locale === 'en') {
+    return dictionaries.en;
   }
-  return dictionaries.en;
+  return dictionaries.de;
 }

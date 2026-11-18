@@ -19,9 +19,9 @@ function collectKeyPaths(obj: Record<string, unknown>, prefix = ''): string[] {
   return keys.sort();
 }
 
-describe('Bilingual Dictionary Integrity (English default & German)', () => {
-  it('sets English (en) as the default locale and supports en and de', () => {
-    expect(DEFAULT_LOCALE).toBe('en');
+describe('Bilingual Dictionary Integrity (German default & English)', () => {
+  it('sets German (de) as the default locale and supports en and de', () => {
+    expect(DEFAULT_LOCALE).toBe('de');
     expect(SUPPORTED_LOCALES).toEqual(['en', 'de']);
   });
 
@@ -47,9 +47,9 @@ describe('Bilingual Dictionary Integrity (English default & German)', () => {
     }
   });
 
-  it('falls back safely to English if an unknown locale is requested', () => {
-    const dict = getDictionary('fr' as 'en');
-    expect(dict.meta.localeCode).toBe('en');
+  it('falls back safely to the default locale (de) if an unknown locale is requested', () => {
+    const dict = getDictionary('fr' as 'de');
+    expect(dict.meta.localeCode).toBe('de');
   });
 
   it('highlights value-driven governance capabilities including 7 enterprise connectors, Smart Delta Sync, and Knowledge Conflict Guard', async () => {

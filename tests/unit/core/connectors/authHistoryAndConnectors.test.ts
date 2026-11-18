@@ -145,17 +145,15 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     expect(pageSource).toContain('createdByEmail');
     expect(pageSource).toContain('auditedByEmail');
 
-    // System & Logs is integrated inside the Left Sidebar workspace and has no back button in its header
+    // System & Logs is removed from customer/demo AppShell and /system is locked to admin session
     const systemPageSource = fs.readFileSync(
       path.join(rootDir, 'src/app/system/page.tsx'),
       'utf-8'
     );
-    expect(shellSource).toContain("subTab: 'system'");
-    expect(pageSource).toContain("workspaceSubTab === 'system'");
-    expect(pageSource).toContain("openLiveWorkspace('system')");
-    expect(systemPageSource).toContain('AppShell');
-    expect(systemPageSource).toContain('onOpenAuthModal');
-    expect(systemPageSource).not.toContain('ArrowLeft');
-    expect(systemPageSource).not.toContain('Back to Landing Page');
+    expect(shellSource).not.toContain("id: 'observability'");
+    expect(shellSource).not.toContain("subTab: 'system'");
+    expect(pageSource).not.toContain("workspaceSubTab === 'system'");
+    expect(systemPageSource).toContain('/api/admin/session');
+    expect(systemPageSource).not.toContain('/api/brain/documents');
   });
 });

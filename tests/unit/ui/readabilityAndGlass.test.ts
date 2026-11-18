@@ -142,4 +142,31 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(iconSource).toContain('#0B3B59');
     expect(iconSource).toContain('#10B981');
   });
+
+  it('hydrates vectors from MongoDB after restarts, defaults platform HTML lang to de, and isolates /system to admin', () => {
+    const repoSource = fs.readFileSync(
+      path.join(rootDir, 'src/infrastructure/rag/brainRepository.ts'),
+      'utf-8'
+    );
+    const layoutSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/layout.tsx'),
+      'utf-8'
+    );
+    const appShellSource = fs.readFileSync(
+      path.join(rootDir, 'src/components/layout/AppShell.tsx'),
+      'utf-8'
+    );
+    const systemPageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/system/page.tsx'),
+      'utf-8'
+    );
+
+    expect(repoSource).toContain('hydrateVaultFromMongo');
+    expect(repoSource).toContain('COLLECTIONS.VECTOR_STORE');
+    expect(repoSource).toContain("getActiveTenant()?.slug ?? 'org_default'");
+    expect(layoutSource).toContain('<html lang="de"');
+    expect(appShellSource).not.toContain('System & Logs');
+    expect(systemPageSource).toContain('/api/admin/session');
+    expect(systemPageSource).toContain('/admin');
+  });
 });

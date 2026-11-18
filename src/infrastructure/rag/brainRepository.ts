@@ -212,7 +212,7 @@ export async function upsertAuthenticatedUser(input: {
             updatedAt: new Date(),
           },
           $setOnInsert: {
-            orgId: 'org_default',
+            orgId: getActiveTenant()?.slug ?? 'org_default',
             createdAt: new Date(),
           },
         },
@@ -314,8 +314,12 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
   if (!vault.seeded) {
     vault.seeded = true;
     if (shouldSeed) {
+      const activeOrgId = getActiveTenant()?.slug ?? 'org_default';
       for (const policy of DEFAULT_SAMPLE_POLICIES) {
-        const { parents, children } = createParentChildChunks(policy);
+        const { parents, children } = createParentChildChunks({
+          ...policy,
+          orgId: activeOrgId,
+        });
         for (const p of parents) {
           const pChildCount = children.filter(
             (c) => c.parentId === p.parentId
@@ -387,6 +391,60 @@ async function ensureDefaultPoliciesSeeded(): Promise<void> {
 }
 
 /**
+ * Hydrates persisted Parent documents (`raw_documents`) and 768-d Child vectors (`vector_store`)
+ * from MongoDB into the tenant's in-memory vault so queries and edits work seamlessly after dyno restarts.
+ */
+async function hydrateVaultFromMongo(): Promise<void> {
+  if (!isMongoConfigured()) return;
+  const vault = getMemoryVault();
+
+  try {
+    const db = await getMindMittelDb();
+    const [remoteDocs, remoteVectors] = await Promise.all([
+      db
+        .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
+        .find({})
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .toArray(),
+      db
+        .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
+        .find({})
+        .limit(500)
+        .toArray(),
+    ]);
+
+    if (remoteDocs.length > 0) {
+      const existingParentIds = new Set(vault.parents.map((p) => p.parentId));
+      for (const rawDoc of remoteDocs) {
+        const { _id: _omit, ...cleanParent } = rawDoc as RawDocumentRecord & {
+          _id?: unknown;
+        };
+        if (!existingParentIds.has(cleanParent.parentId)) {
+          vault.parents.push(cleanParent);
+          existingParentIds.add(cleanParent.parentId);
+        }
+      }
+    }
+
+    if (remoteVectors.length > 0) {
+      const existingChildIds = new Set(vault.children.map((c) => c.childId));
+      for (const rawVec of remoteVectors) {
+        const { _id: _omit, ...cleanChild } = rawVec as VectorStoreRecord & {
+          _id?: unknown;
+        };
+        if (!existingChildIds.has(cleanChild.childId)) {
+          vault.children.push(cleanChild);
+          existingChildIds.add(cleanChild.childId);
+        }
+      }
+    }
+  } catch {
+    // Fallback silently to memory vault when offline
+  }
+}
+
+/**
  * Ingests a document into the Company Brain with user attribution (`createdByEmail` & `createdByName`).
  */
 export async function ingestDocumentIntoBrain(params: {
@@ -413,8 +471,10 @@ export async function ingestDocumentIntoBrain(params: {
     params.createdByEmail?.trim().toLowerCase() || 'executive@mindmittel.de';
   const authorName = params.createdByName?.trim() || 'Executive User';
 
+  const activeOrgId = getActiveTenant()?.slug ?? 'org_default';
+
   const rawInput: RawGovernanceDocumentInput = {
-    orgId: 'org_default',
+    orgId: activeOrgId,
     title: params.title.trim(),
     content: params.content.trim(),
     department: params.department.trim() || 'General',
@@ -553,30 +613,8 @@ export async function listBrainDocuments(): Promise<
   }>
 > {
   await ensureDefaultPoliciesSeeded();
+  await hydrateVaultFromMongo();
   const vault = getMemoryVault();
-
-  if (isMongoConfigured()) {
-    try {
-      const db = await getMindMittelDb();
-      const remoteDocs = await db
-        .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
-        .find({})
-        .sort({ createdAt: -1 })
-        .limit(30)
-        .toArray();
-
-      if (remoteDocs.length > 0) {
-        const existingIds = new Set(vault.parents.map((p) => p.parentId));
-        for (const doc of remoteDocs) {
-          if (!existingIds.has(doc.parentId)) {
-            vault.parents.unshift(doc);
-          }
-        }
-      }
-    } catch {
-      // Fallback silently to memory vault
-    }
-  }
 
   // Aggregate multi-chunk parents belonging to the same logical document entity
   interface GroupedDocEntity {
@@ -676,6 +714,8 @@ export async function listBrainDocuments(): Promise<
  * Removes a Parent document and cascades deletion to all of its sibling chunks and Child vectors.
  */
 export async function removeBrainDocument(targetId: string): Promise<void> {
+  await ensureDefaultPoliciesSeeded();
+  await hydrateVaultFromMongo();
   const vault = getMemoryVault();
   const target = vault.parents.find((p) => p.parentId === targetId);
   if (getActiveTenant()?.isDemo && target && isProtectedDemoDocument(target)) {
@@ -739,6 +779,7 @@ export async function updateBrainDocument(params: {
   updatedByEmail: string;
 }> {
   await ensureDefaultPoliciesSeeded();
+  await hydrateVaultFromMongo();
   const vault = getMemoryVault();
 
   const existing = vault.parents.find((p) => p.parentId === params.parentId);
@@ -752,7 +793,7 @@ export async function updateBrainDocument(params: {
     'Executive User';
 
   const rawInput: RawGovernanceDocumentInput = {
-    orgId: existing?.metadata.orgId ?? 'org_default',
+    orgId: existing?.metadata.orgId ?? (getActiveTenant()?.slug ?? 'org_default'),
     title: params.title.trim(),
     content: params.content.trim(),
     department: params.department.trim() || existing?.metadata.department || 'General',
@@ -1378,6 +1419,9 @@ export async function searchBrainByVectorSimilarity(params: {
       // Seamless fallback to in-memory cosine similarity while Atlas index builds
     }
   }
+
+  // Ensure both Parent documents and Child vectors are hydrated from MongoDB before fallback cosine ranking
+  await hydrateVaultFromMongo();
 
   return rankParentDocumentsByVectorMatch({
     queryVector,

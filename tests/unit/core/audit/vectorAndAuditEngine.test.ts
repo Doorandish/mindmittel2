@@ -206,7 +206,7 @@ describe('768-d Vector Similarity & Parent-Child Retrieval Engine (Functional Co
           6
         ),
       department: 'Finance & Legal',
-      docType: 'document',
+      docType: 'policy',
       language: 'de',
       accessLevel: 'internal',
       tags: ['google-drive', 'sync'],

@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="de" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen font-sans antialiased text-slate-900 bg-slate-50">
         {children}
       </body>

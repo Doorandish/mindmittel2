@@ -1,268 +1,177 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { UserCheck } from 'lucide-react';
-import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
+import Link from 'next/link';
+import { ArrowLeft, Loader2, Lock, Shield } from 'lucide-react';
 import { SystemObservabilityPanel } from '@/components/system/SystemObservabilityPanel';
 import {
-  getDictionary,
   DEFAULT_LOCALE,
   type SupportedLocale,
 } from '@/i18n/dictionaries';
-import type { EnterpriseConnectorItem } from '@/core/connectors/connectorRegistry';
 
 /**
- * Dedicated /system route wrapped inside the full-height Left Sidebar AppShell
- * with live sidebar badge counts, Email Authentication modal, and overflow-safe break-all technical inspection.
+ * Product Owner System Architecture Topology & Live SSE Console (`admin.mindmittel.de/system`).
+ * Strictly isolated from customer workspaces and gated behind `/api/admin/session`.
  */
 export default function SystemObservabilityPage() {
-  const router = useRouter();
   const [locale, setLocale] = useState<SupportedLocale>(DEFAULT_LOCALE);
-  const [userEmail, setUserEmail] = useState<string>('amir@mindmittel.de');
-  const [userFullName, setUserFullName] = useState<string>('Amir Doorandish');
-  const [userDepartment, setUserDepartment] =
-    useState<string>('Executive Board');
-
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [authEmailInput, setAuthEmailInput] =
-    useState<string>('amir@mindmittel.de');
-  const [authNameInput, setAuthNameInput] = useState<string>('Amir Doorandish');
-  const [authDeptInput, setAuthDeptInput] =
-    useState<string>('Executive Board');
-  const [authFeedback, setAuthFeedback] = useState<string | null>(null);
-
-  const [brainCount, setBrainCount] = useState<number>(3);
-  const [auditHistoryCount, setAuditHistoryCount] = useState<number>(0);
-  const [connectors, setConnectors] = useState<EnterpriseConnectorItem[]>([]);
+  const [checkingSession, setCheckingSession] = useState<boolean>(true);
+  const [authenticated, setAuthenticated] = useState<boolean>(false);
+  const [ownerEmail, setOwnerEmail] = useState<string>('');
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('mindmittel_v2_user');
-      if (saved) {
-        const parsed = JSON.parse(saved) as {
-          email?: string;
-          fullName?: string;
-          department?: string;
-        };
-        if (parsed.email) {
-          setUserEmail(parsed.email);
-          setAuthEmailInput(parsed.email);
+    let cancelled = false;
+
+    async function checkOwnerSession() {
+      try {
+        const res = await fetch('/api/admin/session');
+        const data = await res.json();
+        if (!cancelled && data.ok && data.authenticated) {
+          setAuthenticated(true);
+          setOwnerEmail(data.owner?.email ?? 'amir.doorandish@gmail.com');
         }
-        if (parsed.fullName) {
-          setUserFullName(parsed.fullName);
-          setAuthNameInput(parsed.fullName);
-        }
-        if (parsed.department) {
-          setUserDepartment(parsed.department);
-          setAuthDeptInput(parsed.department);
+      } catch {
+        // Leave unauthenticated on network error
+      } finally {
+        if (!cancelled) {
+          setCheckingSession(false);
         }
       }
-    } catch {
-      // Ignore storage access errors
     }
 
-    fetch('/api/brain/documents')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok && Array.isArray(d.documents)) {
-          setBrainCount(d.documents.length);
-        }
-      })
-      .catch(() => {});
-
-    fetch('/api/brain/audit')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok && Array.isArray(d.history)) {
-          setAuditHistoryCount(d.history.length);
-        }
-      })
-      .catch(() => {});
-
-    fetch('/api/connectors')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok && Array.isArray(d.connectors)) {
-          setConnectors(d.connectors);
-        }
-      })
-      .catch(() => {});
+    checkOwnerSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function handleEmailSignIn(e: React.FormEvent) {
-    e.preventDefault();
-    setAuthFeedback(null);
-
-    try {
-      const res = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: authEmailInput,
-          fullName: authNameInput,
-          department: authDeptInput,
-        }),
-      });
-      const data = await res.json();
-
-      if (data.ok && data.user) {
-        setUserEmail(data.user.email);
-        setUserFullName(data.user.fullName);
-        setUserDepartment(data.user.department);
-        try {
-          window.localStorage.setItem(
-            'mindmittel_v2_user',
-            JSON.stringify(data.user)
-          );
-        } catch {
-          // Ignore storage error
-        }
-        setShowAuthModal(false);
-      } else {
-        setAuthFeedback(data.error ?? 'Invalid email');
-      }
-    } catch (err) {
-      setAuthFeedback(
-        err instanceof Error ? err.message : 'Authentication error'
-      );
-    }
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-slate-500">
+        <div className="flex items-center gap-2.5 text-sm font-medium">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+          <span>
+            {locale === 'de'
+              ? 'Admin-Sitzung wird überprüft...'
+              : 'Verifying Product Owner session...'}
+          </span>
+        </div>
+      </div>
+    );
   }
 
-  const dict = getDictionary(locale);
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-7 sm:p-8 space-y-5 shadow-2xl text-center">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
 
-  function handleTabChange(nextTab: 'overview' | 'vault') {
-    if (nextTab === 'overview') {
-      router.push('/');
-    }
-  }
+          <div className="space-y-2">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-blue-400">
+              admin.mindmittel.de/system
+            </div>
+            <h1 className="text-lg font-extrabold text-white">
+              {locale === 'de'
+                ? 'Zugriff nur für System-Administratoren'
+                : 'Product Owner Authentication Required'}
+            </h1>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {locale === 'de'
+                ? 'Die System-Topologie und Live-Telemetrie sind ausschließlich für den Plattform-Administrator zugänglich. Bitte melden Sie sich zuerst im Control Plane an.'
+                : 'System topology inspection and live SSE telemetry are restricted to authenticated Product Owners. Sign in via the Admin Control Plane first.'}
+            </p>
+          </div>
 
-  function handleSubTabChange(nextSubTab: WorkspaceSubTab) {
-    if (nextSubTab === 'system') return;
-    router.push(`/?tab=${nextSubTab}`);
+          <Link
+            href="/admin"
+            className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>
+              {locale === 'de'
+                ? 'Zurück zur Anmeldung (/admin)'
+                : 'Go to Admin Control Plane (/admin)'}
+            </span>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <AppShell
-      locale={locale}
-      onLocaleChange={setLocale}
-      dict={dict}
-      activeTab="vault"
-      onTabChange={handleTabChange}
-      workspaceSubTab="system"
-      onWorkspaceSubTabChange={handleSubTabChange}
-      currentUserEmail={userEmail}
-      currentUserName={userFullName}
-      currentUserDepartment={userDepartment}
-      brainCount={brainCount}
-      auditHistoryCount={auditHistoryCount}
-      enabledConnectorsCount={connectors.filter((c) => c.enabled).length}
-      totalConnectorsCount={connectors.length || 7}
-      onOpenAuthModal={() => setShowAuthModal(true)}
-    >
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-7 space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
-                    {locale === 'de'
-                      ? 'E-Mail-Authentifizierung'
-                      : 'Corporate Email Authentication'}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {locale === 'de'
-                      ? 'Jeder Eintrag & jedes Audit wird Ihrer E-Mail zugeordnet.'
-                      : 'Every ingested document & audit report is attributed to your email.'}
-                  </p>
-                </div>
-              </div>
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/85">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src="/images/mindmittel-logo.svg"
+              alt="MindMittel Logo"
+              className="w-7 h-7 object-contain shrink-0"
+            />
+            <div className="flex items-center gap-2 min-w-0">
+              <Shield className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="font-bold text-sm text-slate-900 truncate">
+                {locale === 'de'
+                  ? 'MindMittel Control Plane · System & Telemetrie'
+                  : 'MindMittel Control Plane · System & Telemetry'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {ownerEmail && (
+              <span className="hidden sm:inline text-xs font-mono text-slate-500">
+                {ownerEmail}
+              </span>
+            )}
+
+            <div
+              role="group"
+              aria-label="Language Selector"
+              className="inline-flex items-center bg-slate-100 border border-slate-200/80 rounded-md p-0.5 text-[11px] font-medium"
+            >
               <button
                 type="button"
-                onClick={() => setShowAuthModal(false)}
-                className="text-xs font-bold text-slate-400 hover:text-slate-700"
+                onClick={() => setLocale('de')}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  locale === 'de'
+                    ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
               >
-                ✕
+                DE
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale('en')}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  locale === 'en'
+                    ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                EN
               </button>
             </div>
 
-            <form onSubmit={handleEmailSignIn} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Corporate Email Address *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={authEmailInput}
-                  onChange={(e) => setAuthEmailInput(e.target.value)}
-                  placeholder="name@company.com"
-                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={authNameInput}
-                  onChange={(e) => setAuthNameInput(e.target.value)}
-                  placeholder="Amir Doorandish"
-                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Department / Role
-                </label>
-                <select
-                  value={authDeptInput}
-                  onChange={(e) => setAuthDeptInput(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm liquid-glass-input"
-                >
-                  <option value="Executive Board">Executive Board</option>
-                  <option value="Finance & Legal">Finance & Legal</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="HR & Legal">HR & Legal</option>
-                </select>
-              </div>
-
-              {authFeedback && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
-                  {authFeedback}
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAuthModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm"
-                >
-                  Save & Authenticate Email
-                </button>
-              </div>
-            </form>
+            <Link
+              href="/admin"
+              className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 shadow-sm transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>
+                {locale === 'de' ? 'Mandanten (/admin)' : 'Tenants (/admin)'}
+              </span>
+            </Link>
           </div>
         </div>
-      )}
+      </header>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 break-all sm:break-normal">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 break-all sm:break-normal">
         <SystemObservabilityPanel />
-      </div>
-    </AppShell>
+      </main>
+    </div>
   );
 }
