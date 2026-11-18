@@ -2,29 +2,370 @@
 
 import React, { useState } from 'react';
 import {
-  ArrowUpRight,
+  AlertTriangle,
+  ArrowDown,
+  ArrowRight,
   Building2,
   CheckCircle2,
+  CloudCog,
+  Cpu,
   Database,
-  Globe,
+  Eye,
+  FileText,
+  GitBranch,
+  Link2,
   Lock,
+  MailCheck,
+  MessageSquare,
+  Scale,
+  Shield,
   ShieldCheck,
-  Sparkles,
-  Zap,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
-import {
-  DEFAULT_LOCALE,
-  getDictionary,
-  type SupportedLocale,
-} from '@/i18n/dictionaries';
+import type { SupportedLocale } from '@/i18n/dictionaries';
+
+const LANDING_COPY = {
+  de: {
+    nav: {
+      howItWorks: 'Funktionsweise',
+      businessValue: 'Unternehmenswert',
+      dataSovereignty: 'Datensouveränität',
+      liveDemo: 'Live-Demo',
+      launchDemo: 'Live-Demo starten',
+    },
+    hero: {
+      eyebrow: 'KI-Entscheidungs- & Compliance-Berater für den deutschen Mittelstand',
+      headlineLead: 'Schluss mit Bauchgefühl. Prüfen Sie jede Management-Entscheidung gegen Ihr',
+      headlineAccent: 'Unternehmenswissen',
+      subtitle:
+        'MindMittel bündelt verstreute Richtlinien, Vorstandsbeschlüsse und Besprechungsnotizen in einem geschützten Company Brain – und warnt die Geschäftsführung vor Widersprüchen, Freigabegrenzen sowie Arbeits- und Datenschutzrisiken, bevor Verträge unterschrieben werden.',
+      primaryCta: 'Live-Demo entdecken (demo.mindmittel.de)',
+      secondaryCta: 'Funktionsweise',
+      workspaceLabel: 'Ihren dedizierten Unternehmens-Workspace öffnen',
+      workspaceStatus: 'Privater Workspace aktiv',
+      workspaceButton: 'Workspace öffnen',
+      workspaceHint: 'Verifizierte Firmen-E-Mail erforderlich • Eigene Unternehmensumgebung',
+      workspaceIsolation: 'Strikte Mandantentrennung',
+      workspacePlaceholder: 'ihrefirma',
+      workspaceError: 'Bitte geben Sie eine gültige Unternehmens-Subdomain ein (z. B. bosch).',
+      trust1: 'Eigene Datenbank pro Firma',
+      trust2: 'Zugang nur per Firmen-E-Mail',
+      trust3: 'Cloud- oder lokale KI möglich',
+    },
+    diagram: {
+      header: 'LIVE GOVERNANCE- & PRÜFFLUSS',
+      badge: 'Echtzeit-Validierung',
+      sourcesLabel: 'WISSENSQUELLEN DES UNTERNEHMENS',
+      src1Title: 'Dokumente & Audio',
+      src1Sub: 'PDF, Folien, Sprache',
+      src2Title: 'Team-Tools',
+      src2Sub: 'Slack, Teams, Notion',
+      src3Title: 'Cloud & Meetings',
+      src3Sub: 'Drive, Zoom, Meet',
+      zoneLabel: 'ISOLIERTE UNTERNEHMENSUMGEBUNG • KEIN DATENABFLUSS',
+      engineTitle: 'MindMittel Engine',
+      engineSub: 'Konfliktprüfung • Deutsches Recht • Cloud / Lokale KI',
+      auditTitle: 'Vorstandsprüfung',
+      auditBadge: 'FREIGABEBEREIT',
+      pill1: 'Quellenbelege',
+      pill2: 'Risiko-Score',
+      pill3: 'Maßnahmenplan',
+      footerText: 'Live-Prüffluss — 0 widersprüchliche Richtlinien • DSGVO & Betriebsrat geprüft',
+      footerBadge: 'Geprüft',
+    },
+    workflow: {
+      eyebrow: 'ABLAUF FÜR DIE GESCHÄFTSFÜHRUNG',
+      title: 'Vom verstreuten Wissen zu sicheren Entscheidungen',
+      subtitle:
+        'Wie MindMittel unstrukturierte Unternehmensinformationen in klare, rechtssichere Führungsgrundlagen verwandelt.',
+      steps: [
+        {
+          tag: '01 / PHASE',
+          title: 'Unternehmenswissen vernetzen',
+          desc: 'Übernehmen Sie PDFs, Präsentationen, Sprachaufnahmen sowie bestehende Tools wie Teams, Slack oder Drive – ganz ohne manuelles Kopieren.',
+        },
+        {
+          tag: '02 / PHASE',
+          title: 'Widersprüche früh erkennen',
+          desc: 'Erkennen Sie automatisch, wenn neue Vorschläge oder Abteilungsregeln bestehenden Vorstandsbeschlüssen widersprechen.',
+        },
+        {
+          tag: '03 / PHASE',
+          title: 'Deutsche Compliance-Prüfung',
+          desc: 'Jede Entscheidung wird automatisch gegen deutsche Datenschutzvorgaben (DSGVO) und Mitbestimmungsregeln des Betriebsrats geprüft.',
+        },
+        {
+          tag: '04 / PHASE',
+          title: 'Lückenloser Prüfbericht',
+          desc: 'Erhalten Sie eine sofortige Bewertung mit exakten Dokumentzitaten und einem klaren Fahrplan für die Freigabe.',
+        },
+      ],
+      bar1: '✓ Kein Datenabfluss zwischen Unternehmen',
+      bar2: '✓ Cloud- oder private lokale KI',
+      bar3: '✓ Deutsche Compliance integriert',
+    },
+    value: {
+      eyebrow: 'ORGANISATORISCHE KLARHEIT & RISIKOKONTROLLE',
+      title: 'Zentrale Herausforderungen im Unternehmen lösen',
+      subtitle:
+        'Speziell entwickelt für Geschäftsführung, Aufsichtsräte und Compliance-Verantwortliche im Mittelstand.',
+      cards: [
+        {
+          title: 'Ein zentrales Unternehmensgedächtnis',
+          desc: 'Durchsuchen Sie Richtlinien, Präsentationen und protokollierte Vorstandssitzungen in Sekunden mit klaren Zusammenfassungen.',
+        },
+        {
+          title: 'Nahtlose Anbindung Ihrer Tools',
+          desc: 'Bleibt automatisch auf dem aktuellen Stand mit Slack, Microsoft Teams, Notion, Confluence, Google Drive, Zoom & Meet.',
+        },
+        {
+          title: 'Widersprüche rechtzeitig verhindern',
+          desc: 'Deckt gegensätzliche Regeln zwischen Finanzen, HR und Betrieb auf, bevor teure Fehlentscheidungen entstehen.',
+          warningLabel: 'Konfliktwarnung:',
+          warningText:
+            'Widerspruch zwischen Reiserichtlinie der Zentrale und Tochtergesellschaft erkannt.',
+        },
+        {
+          title: 'Für deutsche Governance gebaut',
+          desc: 'Weist rechtzeitig auf CFO-Freigabegrenzen, DSGVO-Anforderungen und Beteiligungspflichten des Betriebsrats hin.',
+        },
+        {
+          title: 'Ihr eigener Unternehmens-Workspace',
+          desc: 'Jede Organisation erhält unter ihrfirma.mindmittel.de eine eigene Datenbank sowie die Option für lokale KI im eigenen Haus.',
+        },
+        {
+          title: 'Volle Transparenz für Entscheider',
+          desc: 'Jede Prüfung wird dem verantwortlichen Manager zugeordnet und nachvollziehbar begründet – niemals eine Blackbox.',
+        },
+      ],
+    },
+    sovereignty: {
+      eyebrow: 'DATENSOUVERÄNITÄT & DATENSCHUTZ',
+      title: 'Unternehmenssicherheit ohne Komplexität',
+      subtitle:
+        'Konzipiert für höchste deutsche Compliance-Ansprüche, strenge Vertraulichkeit und volle Kontrolle über Ihre Unternehmensdaten.',
+      partitionTitle: 'Visuelle Trennungsarchitektur',
+      publicTitle: 'Öffentliche Website & Vorschau',
+      publicBadge: 'Zustandslos',
+      publicDesc:
+        'Öffentlicher Testbereich. Hier werden niemals vertrauliche Unternehmensdaten gespeichert.',
+      boundaryLabel: 'Strikte Sicherheitsgrenze pro Unternehmen',
+      privateTitle: 'Dedizierter Unternehmens-Workspace',
+      privateBadge: 'SOUVERÄN',
+      privateDesc:
+        'Vollständig getrennte Datenhaltung, eigener Kundenbereich und volle Datensouveränität.',
+      cards: [
+        {
+          title: 'Dedizierte private Datenbank',
+          desc: 'Ihre Richtlinien und Prüfberichte liegen in einer vollständig getrennten Datenbank – niemals vermischt mit anderen Firmen.',
+        },
+        {
+          title: 'Zugang nur per Firmen-E-Mail',
+          desc: 'Der Zutritt zu Ihrer Subdomain ist strikt auf verifizierte Mitarbeiter Ihrer offiziellen E-Mail-Domain per 6-stelligem Einmalcode beschränkt.',
+        },
+        {
+          title: 'Cloud- oder lokale On-Premise-KI',
+          desc: 'Nutzen Sie wahlweise Enterprise-Cloud-KI oder binden Sie Ihr eigenes lokales KI-Modell direkt im Unternehmen an.',
+        },
+        {
+          title: 'Null Datenabfluss zwischen Mandanten',
+          desc: 'Strenge Bereichsgrenzen sorgen dafür, dass Strategiepapiere und Vorstandsbeschlüsse ausschließlich in Ihrer Organisation bleiben.',
+        },
+      ],
+    },
+    cta: {
+      badge: 'Datensouveränität in Deutschland & der EU',
+      title: 'Bereit für schnellere und sicherere Führungsentscheidungen?',
+      subtitle:
+        'Testen Sie MindMittel sofort in unserer öffentlichen Live-Demo oder aktivieren Sie Ihren eigenen geschützten Unternehmens-Workspace.',
+      button: 'Live-Demo starten (demo.mindmittel.de)',
+      footnote:
+        'DSGVO-orientiert • Mandantengetrennt • Cloud oder lokale KI im Unternehmen • Ansbach, Bayern',
+    },
+    footer: {
+      tagline:
+        'Souveräne Multi-Tenant-Governance-Plattform für den deutschen Mittelstand.',
+      trust: 'Datensicherheit',
+      impressum: 'Impressum',
+      privacy: 'Datenschutz (DSGVO)',
+      copyright: '© 2026 MindMittel. Alle Rechte vorbehalten. Ansbach, Bayern, Deutschland.',
+    },
+  },
+  en: {
+    nav: {
+      howItWorks: 'How It Works',
+      businessValue: 'Business Value',
+      dataSovereignty: 'Data Sovereignty',
+      liveDemo: 'Live Demo',
+      launchDemo: 'Launch Live Demo',
+    },
+    hero: {
+      eyebrow: 'AI Decision & Compliance Advisor for German Mittelstand',
+      headlineLead: 'Stop Guessing. Validate Every Management Decision Against Your',
+      headlineAccent: 'Company Knowledge',
+      subtitle:
+        'MindMittel turns your scattered policies, board resolutions, and meeting notes into one trusted Company Brain—alerting leadership to policy conflicts, financial thresholds, and German labor or privacy risks before decisions are signed.',
+      primaryCta: 'Explore Live Demo (demo.mindmittel.de)',
+      secondaryCta: 'How It Works',
+      workspaceLabel: 'Access your dedicated company workspace',
+      workspaceStatus: 'Private Workspace Active',
+      workspaceButton: 'Open Company Workspace',
+      workspaceHint: 'Verified corporate email domain required • Dedicated workspace',
+      workspaceIsolation: 'Strict Company Isolation',
+      workspacePlaceholder: 'yourcompany',
+      workspaceError: 'Please enter a valid company subdomain (e.g. bosch).',
+      trust1: 'Dedicated Company Database',
+      trust2: 'Verified Corporate Email Access',
+      trust3: 'Cloud or Local AI Ready',
+    },
+    diagram: {
+      header: 'LIVE GOVERNANCE & AUDIT FLOW',
+      badge: 'Real-Time Validation',
+      sourcesLabel: 'COMPANY KNOWLEDGE SOURCES',
+      src1Title: 'Documents & Audio',
+      src1Sub: 'PDF, Slides, Voice',
+      src2Title: 'Team Tools',
+      src2Sub: 'Slack, Teams, Notion',
+      src3Title: 'Cloud & Meetings',
+      src3Sub: 'Drive, Zoom, Meet',
+      zoneLabel: 'ISOLATED COMPANY ENVIRONMENT • ZERO DATA LEAKAGE',
+      engineTitle: 'MindMittel Engine',
+      engineSub: 'Conflict Check • German Law Guard • Cloud / Local AI',
+      auditTitle: 'Executive Audit',
+      auditBadge: 'READY FOR SIGN-OFF',
+      pill1: 'Policy Citations',
+      pill2: 'Risk Score',
+      pill3: 'Action Plan',
+      footerText: 'Live Governance Flow — 0 Conflicting Policies • DSGVO & Works Council Checked',
+      footerBadge: 'Audited',
+    },
+    workflow: {
+      eyebrow: 'EXECUTIVE DECISION WORKFLOW',
+      title: 'From Scattered Knowledge to Confident Decisions',
+      subtitle:
+        'How MindMittel transforms unstructured company information into clear, legally compliant leadership decisions.',
+      steps: [
+        {
+          tag: '01 / STAGE',
+          title: 'Connect Your Knowledge',
+          desc: 'Import PDFs, presentations, voice recordings, and existing tools like Teams, Slack, or Drive without manual copy-pasting.',
+        },
+        {
+          tag: '02 / STAGE',
+          title: 'Spot Contradictions Early',
+          desc: 'Automatically detect when new proposals or department guidelines conflict with existing board rules.',
+        },
+        {
+          tag: '03 / STAGE',
+          title: 'German Compliance Check',
+          desc: 'Every decision is cross-checked against German privacy (DSGVO) and Works Council (Betriebsrat) requirements.',
+        },
+        {
+          tag: '04 / STAGE',
+          title: 'Clear Audit Trail',
+          desc: 'Receive an instant verdict with exact document citations and a clear roadmap for leadership approval.',
+        },
+      ],
+      bar1: '✓ Zero Cross-Company Leakage',
+      bar2: '✓ Cloud or Private Local AI',
+      bar3: '✓ German Compliance Built-In',
+    },
+    value: {
+      eyebrow: 'ORGANIZATIONAL CLARITY & RISK CONTROL',
+      title: 'Solving Core Organizational Challenges',
+      subtitle:
+        'Purpose-built to give managing directors, supervisory boards, and compliance officers total certainty.',
+      cards: [
+        {
+          title: 'One Unified Company Brain',
+          desc: 'Search across policies, slides, and recorded board meetings in seconds with contextual summaries.',
+        },
+        {
+          title: 'Effortless Tool Integration',
+          desc: 'Automatically stays up to date with Slack, Microsoft Teams, Notion, Confluence, Google Drive, Zoom & Meet without extra manual work.',
+        },
+        {
+          title: 'Policy Conflict Prevention',
+          desc: 'Catches contradicting rules across Finance, HR, and Operations before costly mistakes happen.',
+          warningLabel: 'Conflict Warning:',
+          warningText:
+            'Policy contradiction detected between HQ Travel Directive & Subsidiary Guideline.',
+        },
+        {
+          title: 'Built for German Governance',
+          desc: 'Flags CFO approval thresholds, DSGVO data rules, and Betriebsrat co-determination triggers before signing.',
+        },
+        {
+          title: 'Your Own Branded Workspace',
+          desc: 'Each organization receives yourcompany.mindmittel.de with its own private database and optional local/on-premise AI deployment.',
+        },
+        {
+          title: 'Full Executive Transparency',
+          desc: 'Every audit is attributed to the responsible manager with clear step-by-step reasoning—never a black box.',
+        },
+      ],
+    },
+    sovereignty: {
+      eyebrow: 'DATA SOVEREIGNTY & PRIVACY',
+      title: 'Enterprise Security Without Complexity',
+      subtitle:
+        'Engineered specifically to satisfy German corporate governance standards, confidentiality laws, and strict internal compliance.',
+      partitionTitle: 'Visual Partition Architecture',
+      publicTitle: 'Public Sandbox & Website',
+      publicBadge: 'Stateless',
+      publicDesc:
+        'Public exploration environment. No company data is ever received or stored here.',
+      boundaryLabel: 'Strict Sovereign Perimeter Boundary',
+      privateTitle: 'Dedicated Company Workspace',
+      privateBadge: 'SOVEREIGN',
+      privateDesc:
+        'Completely isolated storage, dedicated customer workspace, and full sovereignty.',
+      cards: [
+        {
+          title: 'Dedicated Private Database',
+          desc: "Your company's policies and audit reports live in a completely separate database—never mixed with other organizations.",
+        },
+        {
+          title: 'Corporate Email-Only Entry',
+          desc: 'Access to your subdomain is strictly restricted to verified employees with your official company email domain via a 6-digit one-time code.',
+        },
+        {
+          title: 'Cloud or Local On-Premise AI',
+          desc: 'Run seamlessly with enterprise cloud AI or connect your own private, local in-house AI model for maximum data control.',
+        },
+        {
+          title: 'Zero Cross-Company Leakage',
+          desc: 'Strict workspace boundaries ensure internal strategies and board documents remain strictly inside your organization.',
+        },
+      ],
+    },
+    cta: {
+      badge: 'German & EU Data Sovereignty',
+      title: 'Ready to Make Faster, Safer Executive Decisions?',
+      subtitle:
+        'Test MindMittel immediately in our public preview or activate your dedicated company workspace.',
+      button: 'Launch Live Demo (demo.mindmittel.de)',
+      footnote:
+        'DSGVO Ready • Tenant-Isolated • Private Cloud or Local On-Premise AI • Ansbach, Germany',
+    },
+    footer: {
+      tagline:
+        'Sovereign Multi-Tenant Governance Platform for German Mittelstand.',
+      trust: 'Trust & Compliance',
+      impressum: 'Imprint (Impressum)',
+      privacy: 'Privacy (DSGVO)',
+      copyright: '© 2026 MindMittel. All rights reserved. Ansbach, Bavaria, Germany.',
+    },
+  },
+} as const;
 
 export default function MarketingLandingPage() {
-  const [locale, setLocale] = useState<SupportedLocale>(DEFAULT_LOCALE);
-  const [workspaceSlug, setWorkspaceSlug] = useState<string>('');
+  const [locale, setLocale] = useState<SupportedLocale>('de');
+  const [workspaceSlug, setWorkspaceSlug] = useState<string>('bosch');
   const [slugError, setSlugError] = useState<string | null>(null);
 
-  const dict = getDictionary(locale);
+  const copy = LANDING_COPY[locale];
 
   function navigateToZone(slug: string | null) {
     if (typeof window === 'undefined') return;
@@ -45,11 +386,7 @@ export default function MarketingLandingPage() {
       .replace(/[^a-z0-9-]/g, '');
 
     if (!cleaned || cleaned.length < 2) {
-      setSlugError(
-        locale === 'de'
-          ? 'Bitte geben Sie eine gültige Unternehmens-Subdomain ein (z. B. bosch).'
-          : 'Please enter a valid company subdomain (e.g. bosch).'
-      );
+      setSlugError(copy.hero.workspaceError);
       return;
     }
     setSlugError(null);
@@ -57,211 +394,655 @@ export default function MarketingLandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col">
-      {/* Top Marketing Navigation */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-              M
-            </div>
-            <div>
-              <span className="font-extrabold tracking-tight text-slate-900 text-base">
+    <div className="min-h-screen bg-[#faf8ff] text-[#131b2e] antialiased flex flex-col">
+      <style>{`
+        @keyframes flowDash {
+          to { stroke-dashoffset: -24px; }
+        }
+        .flow-line {
+          stroke-dasharray: 6 6;
+          animation: flowDash 1.2s linear infinite;
+          stroke: #2563eb;
+          stroke-width: 2.5;
+        }
+        .flow-line-horizontal {
+          stroke-dasharray: 5 5;
+          animation: flowDash 1s linear infinite;
+          stroke: #059669;
+          stroke-width: 2;
+        }
+        @keyframes pulseDot {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.25); opacity: 1; }
+        }
+        .pulsing-dot {
+          animation: pulseDot 2s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* Sticky Top Navigation */}
+      <header className="fixed top-0 left-0 w-full z-50 bg-white/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-b border-slate-200/70">
+        <div className="h-16 max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <a
+              href="#"
+              className="flex items-center gap-2.5 focus:outline-none"
+            >
+              <img
+                src="/images/mindmittel-logo.jpg"
+                alt="MindMittel Logo"
+                className="h-8 w-8 rounded-md object-contain"
+              />
+              <span className="text-base font-bold tracking-tight text-[#131b2e]">
                 MindMittel
               </span>
-              <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-mono font-semibold">
-                Enterprise Multi-Tenant Cloud
-              </span>
-            </div>
+            </a>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setLocale('en')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
-                  locale === 'en'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                EN
-              </button>
+          <nav className="hidden md:flex items-center gap-1">
+            <a
+              href="#how-it-works"
+              className="px-3 py-1.5 rounded text-[13px] font-medium text-[#434655] hover:bg-[#eaedff] hover:text-[#131b2e] transition-all"
+            >
+              {copy.nav.howItWorks}
+            </a>
+            <a
+              href="#business-value"
+              className="px-3 py-1.5 rounded text-[13px] font-medium text-[#434655] hover:bg-[#eaedff] hover:text-[#131b2e] transition-all"
+            >
+              {copy.nav.businessValue}
+            </a>
+            <a
+              href="#data-sovereignty"
+              className="px-3 py-1.5 rounded text-[13px] font-medium text-[#434655] hover:bg-[#eaedff] hover:text-[#131b2e] transition-all"
+            >
+              {copy.nav.dataSovereignty}
+            </a>
+            <button
+              type="button"
+              onClick={() => navigateToZone('demo')}
+              className="px-3 py-1.5 rounded text-[13px] font-medium text-[#434655] hover:bg-[#eaedff] hover:text-[#131b2e] transition-all"
+            >
+              {copy.nav.liveDemo}
+            </button>
+          </nav>
+
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center rounded bg-[#f2f3ff] px-1 py-0.5 text-[#434655]">
               <button
                 type="button"
                 onClick={() => setLocale('de')}
-                className={`px-2.5 py-1 rounded-md transition-colors ${
+                className={`px-2 py-1 rounded font-mono text-[11px] uppercase font-semibold transition-all ${
                   locale === 'de'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white text-[#131b2e] shadow-sm'
+                    : 'text-[#434655] hover:text-[#131b2e]'
                 }`}
               >
                 DE
+              </button>
+              <span className="px-1 font-mono text-[11px] text-[#737686]">|</span>
+              <button
+                type="button"
+                onClick={() => setLocale('en')}
+                className={`px-2 py-1 rounded font-mono text-[11px] uppercase font-semibold transition-all ${
+                  locale === 'en'
+                    ? 'bg-white text-[#131b2e] shadow-sm'
+                    : 'text-[#434655] hover:text-[#131b2e]'
+                }`}
+              >
+                EN
               </button>
             </div>
 
             <button
               type="button"
               onClick={() => navigateToZone('demo')}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm flex items-center gap-1.5 transition-colors"
+              className="inline-flex items-center justify-center h-9 px-4 rounded bg-[#2563eb] hover:bg-[#004ac6] text-white text-[13px] font-semibold tracking-tight transition-all shadow-sm gap-1.5"
             >
-              <span>
-                {locale === 'de' ? 'Live-Demo starten' : 'Launch Live Demo'}
-              </span>
-              <ArrowUpRight className="w-4 h-4" />
+              <span>{copy.nav.launchDemo}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero + Subdomain Workspace Launcher */}
-      <main className="flex-1">
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-20">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{dict.hero.badge}</span>
+      <main className="w-full pt-16 flex-1">
+        {/* HERO SECTION */}
+        <section className="relative w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8 pb-12 sm:pt-12 sm:pb-16 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center relative z-10">
+            {/* Left 7 Columns */}
+            <div className="lg:col-span-7 flex flex-col gap-4">
+              <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full bg-[#f2f3ff] shadow-sm border border-[#c3c6d7]/50">
+                <span className="w-2 h-2 rounded-full bg-[#006c4a] pulsing-dot" />
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#131b2e] font-semibold">
+                  {copy.hero.eyebrow}
+                </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
-                {dict.hero.titleBlack1}{' '}
-                <span className="text-blue-600">{dict.hero.titleBlue}</span>{' '}
-                {dict.hero.titleBlack2}
+              <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-bold text-[#131b2e] tracking-tight max-w-2xl leading-[1.15]">
+                {copy.hero.headlineLead}{' '}
+                <span className="text-[#004ac6] underline decoration-[#2563eb]/30 decoration-wavy decoration-2">
+                  {copy.hero.headlineAccent}
+                </span>
+                .
               </h1>
 
-              <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl">
-                {dict.hero.subtitle}
+              <p className="text-base text-[#434655] max-w-xl leading-relaxed">
+                {copy.hero.subtitle}
               </p>
 
-              <div className="pt-2 flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => navigateToZone('demo')}
-                  className="px-7 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2"
+                  className="inline-flex items-center justify-center h-11 px-6 rounded bg-[#004ac6] hover:bg-[#2563eb] text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all gap-2"
                 >
-                  <span>
-                    {locale === 'de'
-                      ? 'Interaktive Live-Demo öffnen (demo.mindmittel.de)'
-                      : 'Open Interactive Live Demo (demo.mindmittel.de)'}
-                  </span>
-                  <ArrowUpRight className="w-5 h-5" />
+                  <span>{copy.hero.primaryCta}</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
+                <a
+                  href="#how-it-works"
+                  className="inline-flex items-center justify-center h-11 px-4 rounded bg-[#eaedff] hover:bg-[#e2e7ff] text-[#131b2e] text-sm font-semibold transition-colors gap-1.5"
+                >
+                  <span>{copy.hero.secondaryCta}</span>
+                  <ArrowDown className="w-4 h-4 text-[#434655]" />
+                </a>
               </div>
 
-              <div className="pt-6 border-t border-slate-200/80 flex flex-wrap items-center gap-6 text-xs sm:text-sm font-medium text-slate-600">
-                <span className="flex items-center gap-2">
-                  <Database className="w-4 h-4 text-blue-600" />
-                  {locale === 'de'
-                    ? 'Dedizierte Datenbank pro Unternehmen'
-                    : 'Dedicated Database per Company Tenant'}
-                </span>
-                <span className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-blue-600" />
-                  {locale === 'de'
-                    ? 'OTP-Schutz über Firmen-E-Mail-Domain'
-                    : 'Corporate Email Domain + 6-Digit OTP Gate'}
-                </span>
-                <span className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-blue-600" />
-                  {dict.hero.trust3}
-                </span>
-              </div>
-            </div>
-
-            {/* Right Column: Company Subdomain Sign-In & Tenant Isolation Card */}
-            <div className="lg:col-span-5">
-              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-900/5 p-6 sm:p-8 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900">
-                      {locale === 'de'
-                        ? 'Unternehmens-Workspace öffnen'
-                        : 'Access Your Company Workspace'}
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      {locale === 'de'
-                        ? 'Jeder Mandant besitzt eine eigene Subdomain & isolierte Datenbank.'
-                        : 'Each customer operates on an isolated subdomain & database.'}
-                    </p>
-                  </div>
+              {/* Company Subdomain Launcher */}
+              <form
+                onSubmit={handleOpenCompanyWorkspace}
+                className="mt-2 p-4 bg-white rounded-xl shadow-sm border border-[#c3c6d7]/50"
+              >
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="font-mono text-[11px] uppercase text-[#434655] font-semibold">
+                    {copy.hero.workspaceLabel}
+                  </span>
+                  <span className="font-mono text-[11px] text-[#006c4a] flex items-center gap-1.5 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#006c4a]" />
+                    {copy.hero.workspaceStatus}
+                  </span>
                 </div>
 
-                <form onSubmit={handleOpenCompanyWorkspace} className="space-y-3">
-                  <label className="block text-xs font-bold text-slate-700">
-                    {locale === 'de'
-                      ? 'Ihre Unternehmens-Subdomain'
-                      : 'Your Company Subdomain'}
-                  </label>
-                  <div className="flex items-center rounded-xl border border-slate-300 bg-slate-50 focus-within:bg-white focus-within:border-blue-600 overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                  <div className="flex-1 flex items-center bg-[#f2f3ff] px-3 py-2 rounded font-mono text-xs text-[#131b2e] focus-within:ring-2 focus-within:ring-[#004ac6] focus-within:bg-white transition-all">
+                    <span className="text-[#737686] select-none">https://</span>
                     <input
                       type="text"
+                      aria-label="Company subdomain"
                       value={workspaceSlug}
                       onChange={(e) => setWorkspaceSlug(e.target.value)}
-                      placeholder="bosch"
-                      className="flex-1 px-3.5 py-2.5 text-sm bg-transparent focus:outline-none font-mono"
+                      placeholder={copy.hero.workspacePlaceholder}
+                      className="bg-transparent text-[#004ac6] font-semibold outline-none px-1 w-28 sm:w-36"
                     />
-                    <span className="px-3.5 py-2.5 text-xs font-mono text-slate-500 bg-slate-100 border-l border-slate-200">
+                    <span className="text-[#131b2e] select-none font-medium">
                       .mindmittel.de
                     </span>
                   </div>
-
-                  {slugError && (
-                    <p className="text-xs text-rose-600 font-semibold">
-                      {slugError}
-                    </p>
-                  )}
-
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                    className="inline-flex items-center justify-center h-10 px-4 rounded bg-[#131b2e] hover:bg-[#004ac6] text-white text-[13px] font-semibold transition-colors shrink-0 shadow-sm gap-1.5"
                   >
-                    <span>
-                      {locale === 'de'
-                        ? 'Zum Unternehmens-Workspace'
-                        : 'Continue to Company Workspace'}
-                    </span>
-                    <ArrowUpRight className="w-4 h-4" />
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>{copy.hero.workspaceButton}</span>
                   </button>
-                </form>
+                </div>
 
-                <div className="pt-4 border-t border-slate-200/80 space-y-2.5 text-xs text-slate-600">
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>
-                      {locale === 'de'
-                        ? 'Garantierte Mandantentrennung (Zero Data Leakage)'
-                        : 'Strict Multi-Tenant Isolation Guarantees'}
+                {slugError && (
+                  <p className="mt-2 text-xs text-rose-600 font-semibold">
+                    {slugError}
+                  </p>
+                )}
+
+                <div className="mt-2.5 flex items-center justify-between text-[#434655] font-mono text-[11px]">
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#004ac6]" />
+                    {copy.hero.workspaceHint}
+                  </span>
+                  <span className="hidden md:inline text-[#737686]">
+                    {copy.hero.workspaceIsolation}
+                  </span>
+                </div>
+              </form>
+
+              {/* 3 Trust Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                <div className="flex items-center gap-2 p-2.5 rounded bg-white/90 border border-[#c3c6d7]/50 shadow-sm">
+                  <Database className="w-4 h-4 text-[#006c4a] shrink-0" />
+                  <span className="text-[12.5px] font-medium text-[#131b2e]">
+                    {copy.hero.trust1}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 p-2.5 rounded bg-white/90 border border-[#c3c6d7]/50 shadow-sm">
+                  <MailCheck className="w-4 h-4 text-[#006c4a] shrink-0" />
+                  <span className="text-[12.5px] font-medium text-[#131b2e]">
+                    {copy.hero.trust2}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 p-2.5 rounded bg-white/90 border border-[#c3c6d7]/50 shadow-sm">
+                  <Cpu className="w-4 h-4 text-[#006c4a] shrink-0" />
+                  <span className="text-[12.5px] font-medium text-[#131b2e]">
+                    {copy.hero.trust3}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right 5 Columns: Animated Light Architecture Flow Diagram */}
+            <div className="lg:col-span-5 w-full">
+              <div
+                className="bg-[#F8FAFC] border border-slate-200/90 rounded-2xl p-5 shadow-lg relative overflow-hidden"
+                style={{
+                  backgroundImage:
+                    'radial-gradient(rgba(148,163,184,0.22) 1px, transparent 1px)',
+                  backgroundSize: '18px 18px',
+                }}
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200/90">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#006c4a] pulsing-dot" />
+                    <span className="text-[11px] tracking-wider font-semibold text-slate-600 uppercase font-mono">
+                      {copy.diagram.header}
                     </span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      {locale === 'de'
-                        ? 'Isolierte MongoDB-Datenbank (mindmittel_<firma>) oder eigener Connection-String.'
-                        : 'Dedicated database (mindmittel_<company>) or custom connection string.'}
+                  <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[#006c4a] font-mono text-[10px] font-semibold">
+                    {copy.diagram.badge}
+                  </span>
+                </div>
+
+                {/* Top Sources Row */}
+                <div className="mt-3.5">
+                  <div className="text-[10px] font-mono font-semibold text-slate-500 tracking-wider uppercase mb-2">
+                    {copy.diagram.sourcesLabel}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <FileText className="w-4 h-4 text-[#004ac6]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] pulsing-dot" />
+                      </div>
+                      <span className="text-[11.5px] font-semibold text-[#131b2e] leading-tight">
+                        {copy.diagram.src1Title}
+                      </span>
+                      <span className="text-[10px] text-[#434655] font-mono">
+                        {copy.diagram.src1Sub}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <MessageSquare className="w-4 h-4 text-[#004ac6]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] pulsing-dot" />
+                      </div>
+                      <span className="text-[11.5px] font-semibold text-[#131b2e] leading-tight">
+                        {copy.diagram.src2Title}
+                      </span>
+                      <span className="text-[10px] text-[#434655] font-mono">
+                        {copy.diagram.src2Sub}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <CloudCog className="w-4 h-4 text-[#004ac6]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] pulsing-dot" />
+                      </div>
+                      <span className="text-[11.5px] font-semibold text-[#131b2e] leading-tight">
+                        {copy.diagram.src3Title}
+                      </span>
+                      <span className="text-[10px] text-[#434655] font-mono">
+                        {copy.diagram.src3Sub}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Animated Curved Dashed Connectors */}
+                <div className="relative py-1">
+                  <svg className="w-full h-12" fill="none" viewBox="0 0 380 48">
+                    <path
+                      className="flow-line"
+                      d="M 65 2 C 65 24, 190 20, 190 44"
+                    />
+                    <path className="flow-line" d="M 190 2 L 190 44" />
+                    <path
+                      className="flow-line"
+                      d="M 315 2 C 315 24, 190 20, 190 44"
+                    />
+                    <circle cx="65" cy="4" fill="#2563eb" r="3" />
+                    <circle cx="190" cy="4" fill="#2563eb" r="3" />
+                    <circle cx="315" cy="4" fill="#2563eb" r="3" />
+                    <circle cx="190" cy="44" fill="#059669" r="4" />
+                  </svg>
+                </div>
+
+                {/* Isolated Company Environment Container */}
+                <div className="rounded-xl p-3.5 border border-blue-200/90 bg-blue-50/60 relative">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <Shield className="w-3.5 h-3.5 text-[#004ac6] shrink-0" />
+                    <span className="font-mono text-[10px] uppercase font-bold tracking-wide text-[#004ac6]">
+                      {copy.diagram.zoneLabel}
                     </span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      {locale === 'de'
-                        ? 'Zugang nur mit verifizierter Firmen-E-Mail-Domain per 6-stelligem OTP-Code.'
-                        : 'Restricted to verified corporate email domains via 6-digit OTP.'}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-11 gap-2 items-center">
+                    <div className="sm:col-span-5 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <Cpu className="w-3.5 h-3.5 text-[#004ac6]" />
+                        <span className="text-[11.5px] font-bold text-[#131b2e]">
+                          {copy.diagram.engineTitle}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#434655] leading-snug">
+                        {copy.diagram.engineSub}
+                      </p>
+                    </div>
+
+                    <div className="hidden sm:flex sm:col-span-1 items-center justify-center">
+                      <svg className="w-6 h-4" fill="none" viewBox="0 0 24 12">
+                        <path
+                          className="flow-line-horizontal"
+                          d="M 0 6 L 22 6"
+                        />
+                      </svg>
+                    </div>
+
+                    <div className="sm:col-span-5 bg-white p-2.5 rounded-lg border border-emerald-300 shadow-sm flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[11.5px] font-bold text-[#131b2e] flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#006c4a] shrink-0" />
+                          <span>{copy.diagram.auditTitle}</span>
+                        </span>
+                      </div>
+                      <span className="self-start px-1.5 py-0.5 rounded bg-[#85f8c4] text-[#002114] font-mono text-[8.5px] font-bold">
+                        {copy.diagram.auditBadge}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="px-1.5 py-0.5 rounded bg-[#eaedff] text-[#434655] font-mono text-[9px]">
+                          {copy.diagram.pill1}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-[#eaedff] text-[#434655] font-mono text-[9px]">
+                          {copy.diagram.pill2}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-[#eaedff] text-[#434655] font-mono text-[9px]">
+                          {copy.diagram.pill3}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Status Bar */}
+                <div className="mt-3 p-2.5 rounded-lg bg-white border border-emerald-200 shadow-sm flex items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-1.5 font-medium text-[#131b2e]">
+                    <span className="w-2 h-2 rounded-full bg-[#006c4a] pulsing-dot shrink-0" />
+                    <span>{copy.diagram.footerText}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-[#85f8c4] text-[#002114] font-mono text-[10px] font-bold shrink-0">
+                    {copy.diagram.footerBadge}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* WORKFLOW SECTION */}
+        <section id="how-it-works" className="w-full bg-white py-14 sm:py-16 border-y border-slate-200/70">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8">
+            <div className="max-w-3xl mb-8">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-[#004ac6] font-semibold mb-1">
+                {copy.workflow.eyebrow}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#131b2e] tracking-tight">
+                {copy.workflow.title}
+              </h2>
+              <p className="text-base text-[#434655] mt-2">
+                {copy.workflow.subtitle}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {copy.workflow.steps.map((step, idx) => {
+                const badgeStyles = [
+                  'text-[#004ac6] bg-[#dbe1ff]',
+                  'text-[#006c4a] bg-[#85f8c4]',
+                  'text-[#824500] bg-[#ffdcc3]',
+                  'text-[#131b2e] bg-[#dae2fd]',
+                ][idx];
+                const StepIcon = [Link2, SlidersHorizontal, Scale, CheckCircle2][idx];
+                return (
+                  <div
+                    key={step.tag}
+                    className="flex flex-col bg-[#faf8ff] p-5 rounded-xl border border-[#c3c6d7]/50 shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded ${badgeStyles}`}
+                      >
+                        {step.tag}
+                      </span>
+                      <StepIcon className="w-5 h-5 text-[#434655]" />
+                    </div>
+                    <h3 className="text-base font-semibold text-[#131b2e] mb-1.5">
+                      {step.title}
+                    </h3>
+                    <p className="text-[13px] text-[#434655] leading-relaxed flex-1">
+                      {step.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 p-4 bg-[#faf8ff] rounded-lg border border-[#c3c6d7]/50">
+              <div className="flex flex-wrap items-center justify-between font-mono text-xs text-[#434655] gap-2">
+                <span className="text-[#006c4a] font-semibold">{copy.workflow.bar1}</span>
+                <span className="text-[#737686] hidden sm:inline">|</span>
+                <span className="text-[#004ac6] font-semibold">{copy.workflow.bar2}</span>
+                <span className="text-[#737686] hidden sm:inline">|</span>
+                <span className="text-[#131b2e] font-semibold">{copy.workflow.bar3}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* BUSINESS CAPABILITIES BENTO GRID */}
+        <section id="business-value" className="w-full py-14 sm:py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8">
+            <div className="max-w-3xl mb-8">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-[#004ac6] font-semibold mb-1">
+                {copy.value.eyebrow}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#131b2e] tracking-tight">
+                {copy.value.title}
+              </h2>
+              <p className="text-base text-[#434655] mt-2">
+                {copy.value.subtitle}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {copy.value.cards.map((card, idx) => {
+                const iconWrapStyles = [
+                  'bg-[#dbe1ff] text-[#004ac6]',
+                  'bg-[#85f8c4] text-[#006c4a]',
+                  'bg-[#ffdad6] text-[#ba1a1a]',
+                  'bg-[#ffdcc3] text-[#824500]',
+                  'bg-[#dbe1ff] text-[#004ac6]',
+                  'bg-[#85f8c4] text-[#006c4a]',
+                ][idx];
+                const CardIcon = [
+                  GitBranch,
+                  CloudCog,
+                  AlertTriangle,
+                  Scale,
+                  Building2,
+                  Eye,
+                ][idx];
+                return (
+                  <div
+                    key={card.title}
+                    className="bg-white rounded-xl p-6 border border-[#c3c6d7]/50 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3"
+                  >
+                    <div>
+                      <div
+                        className={`w-9 h-9 rounded flex items-center justify-center mb-3 ${iconWrapStyles}`}
+                      >
+                        <CardIcon className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-[#131b2e] mb-2">
+                        {card.title}
+                      </h3>
+                      <p className="text-[13px] text-[#434655] leading-relaxed">
+                        {card.desc}
+                      </p>
+                    </div>
+                    {'warningLabel' in card && card.warningLabel && (
+                      <div className="p-2.5 bg-[#f2f3ff] rounded font-mono text-[11px] text-[#131b2e]">
+                        <span className="text-[#ba1a1a] font-semibold">
+                          {card.warningLabel}{' '}
+                        </span>
+                        {card.warningText}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* DATA SOVEREIGNTY SECTION */}
+        <section id="data-sovereignty" className="w-full bg-white py-14 sm:py-16 border-y border-slate-200/70">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8">
+            <div className="max-w-3xl mb-8">
+              <div className="font-mono text-[11px] uppercase tracking-wider text-[#006c4a] font-semibold mb-1">
+                {copy.sovereignty.eyebrow}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#131b2e] tracking-tight">
+                {copy.sovereignty.title}
+              </h2>
+              <p className="text-base text-[#434655] mt-2">
+                {copy.sovereignty.subtitle}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-5 bg-[#faf8ff] p-6 rounded-xl border border-[#c3c6d7]/50 shadow-sm">
+                <div className="font-mono text-[11px] uppercase text-[#434655] font-semibold mb-4">
+                  {copy.sovereignty.partitionTitle}
+                </div>
+
+                <div className="p-4 rounded bg-[#f2f3ff] mb-3 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[13px] font-bold text-[#131b2e]">
+                      {copy.sovereignty.publicTitle}
+                    </span>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#e2e7ff] text-[#434655]">
+                      {copy.sovereignty.publicBadge}
                     </span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <Zap className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                    <span>
-                      {locale === 'de'
-                        ? 'Noch kein Kundenkonto? Testen Sie sofort die öffentliche Live-Demo.'
-                        : 'Want to explore first? Try the pre-seeded interactive sandbox on demo.mindmittel.de.'}
+                  <div className="font-mono text-xs text-[#737686]">
+                    mindmittel.de &amp; demo.mindmittel.de
+                  </div>
+                  <p className="text-xs text-[#434655] mt-1">
+                    {copy.sovereignty.publicDesc}
+                  </p>
+                </div>
+
+                <div className="my-2 py-2 flex items-center justify-center">
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#131b2e] text-white font-mono text-[10px] uppercase tracking-wider shadow-sm">
+                    <Shield className="w-3.5 h-3.5 text-[#85f8c4]" />
+                    <span>{copy.sovereignty.boundaryLabel}</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded bg-[#004ac6]/5 border border-[#004ac6]/25 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[13px] font-bold text-[#004ac6]">
+                      {copy.sovereignty.privateTitle}
+                    </span>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#85f8c4] text-[#002114] font-bold">
+                      {copy.sovereignty.privateBadge}
                     </span>
                   </div>
+                  <div className="font-mono text-xs text-[#004ac6] font-semibold">
+                    &lt;company&gt;.mindmittel.de
+                  </div>
+                  <p className="text-xs text-[#434655] mt-1">
+                    {copy.sovereignty.privateDesc}
+                  </p>
+                </div>
+              </div>
+
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {copy.sovereignty.cards.map((item, idx) => {
+                  const iconStyle = [
+                    'bg-[#dbe1ff] text-[#004ac6]',
+                    'bg-[#85f8c4] text-[#006c4a]',
+                    'bg-[#ffdcc3] text-[#824500]',
+                    'bg-[#dae2fd] text-[#131b2e]',
+                  ][idx];
+                  const Icon = [Database, MailCheck, Cpu, Shield][idx];
+                  return (
+                    <div
+                      key={item.title}
+                      className="p-5 rounded-xl bg-[#faf8ff] border border-[#c3c6d7]/50 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div
+                        className={`w-8 h-8 rounded flex items-center justify-center mb-3 ${iconStyle}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-[#131b2e] mb-1">
+                        {item.title}
+                      </h4>
+                      <p className="text-[13px] text-[#434655] leading-relaxed">
+                        {item.desc}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* DARK ENTERPRISE FOOTER CTA */}
+        <section className="w-full max-w-7xl mx-auto px-4 sm:px-8 my-12">
+          <div className="relative rounded-2xl bg-[#283044] text-[#eef0ff] p-7 sm:p-12 overflow-hidden shadow-2xl">
+            <div className="relative z-10 max-w-3xl flex flex-col gap-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 self-start">
+                <span className="w-2 h-2 rounded-full bg-[#85f8c4] pulsing-dot" />
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#85f8c4] font-semibold">
+                  {copy.cta.badge}
+                </span>
+              </div>
+
+              <h2 className="text-2xl sm:text-4xl font-bold text-white tracking-tight">
+                {copy.cta.title}
+              </h2>
+
+              <p className="text-base text-slate-300 max-w-2xl leading-relaxed">
+                {copy.cta.subtitle}
+              </p>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigateToZone('demo')}
+                  className="inline-flex items-center justify-center h-12 px-6 rounded bg-[#2563eb] hover:bg-[#004ac6] text-white text-sm font-semibold transition-all shadow-lg gap-2"
+                >
+                  <span>{copy.cta.button}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 pt-4 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-slate-300 border-t border-white/15">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#85f8c4]" />
+                  <span>{copy.cta.footnote}</span>
                 </div>
               </div>
             </div>
@@ -270,26 +1051,54 @@ export default function MarketingLandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200/80 bg-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
-          <div>
-            © {new Date().getFullYear()} MindMittel — AI Governance & Decision Audit Engine
+      <footer className="w-full bg-white border-t border-slate-200/80 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <img
+                  src="/images/mindmittel-logo.jpg"
+                  alt="MindMittel Logo"
+                  className="h-6 w-6 rounded object-contain"
+                />
+                <span className="text-sm font-bold text-[#131b2e]">
+                  MindMittel
+                </span>
+              </div>
+              <p className="text-xs text-[#434655]">{copy.footer.tagline}</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6 text-xs text-[#434655]">
+              <a
+                href="#data-sovereignty"
+                className="hover:text-[#131b2e] transition-colors"
+              >
+                {copy.footer.trust}
+              </a>
+              <a
+                href="#data-sovereignty"
+                className="hover:text-[#131b2e] transition-colors"
+              >
+                {copy.footer.impressum}
+              </a>
+              <a
+                href="#data-sovereignty"
+                className="hover:text-[#131b2e] transition-colors"
+              >
+                {copy.footer.privacy}
+              </a>
+              <button
+                type="button"
+                onClick={() => navigateToZone('admin')}
+                className="hover:text-[#131b2e] font-mono transition-colors"
+              >
+                admin.mindmittel.de
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigateToZone('demo')}
-              className="hover:text-slate-900 font-medium"
-            >
-              demo.mindmittel.de
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateToZone('admin')}
-              className="hover:text-slate-900 font-medium"
-            >
-              Product Owner Console (admin.mindmittel.de)
-            </button>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 text-xs font-mono text-[#434655]">
+            {copy.footer.copyright}
           </div>
         </div>
       </footer>

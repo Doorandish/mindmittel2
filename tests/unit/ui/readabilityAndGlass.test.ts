@@ -94,4 +94,21 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
       pageSource.indexOf('<AppShell')
     );
   });
+
+  it('renders the German-default executive landing page with MindMittel logo, animated flow, and zero technical jargon', () => {
+    const logoPath = path.join(rootDir, 'public/images/mindmittel-logo.jpg');
+    expect(fs.existsSync(logoPath)).toBe(true);
+
+    const marketingSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/marketing/page.tsx'),
+      'utf-8'
+    );
+
+    expect(marketingSource).toContain("useState<SupportedLocale>('de')");
+    expect(marketingSource).toContain('/images/mindmittel-logo.jpg');
+    expect(marketingSource).toContain('flow-line');
+    expect(marketingSource).not.toContain('MongoDB');
+    expect(marketingSource).not.toContain('Parent-Child RAG');
+    expect(marketingSource).not.toContain('768-d');
+  });
 });
