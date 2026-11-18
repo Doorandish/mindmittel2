@@ -169,4 +169,20 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(systemPageSource).toContain('/api/admin/session');
     expect(systemPageSource).toContain('/admin');
   });
+
+  it('supports ephemeral client-side demo deletions (Option B) via demoDeletedParentIds and passes excludedParentIds to /api/brain/audit', () => {
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+    const auditRouteSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/api/brain/audit/route.ts'),
+      'utf-8'
+    );
+
+    expect(pageSource).toContain('demoDeletedParentIds');
+    expect(pageSource).toContain('tenantInfo?.isDemo');
+    expect(pageSource).toContain('excludedParentIds');
+    expect(auditRouteSource).toContain('excludedParentIds');
+  });
 });

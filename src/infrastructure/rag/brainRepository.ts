@@ -1322,10 +1322,14 @@ export async function searchBrainByVectorSimilarity(params: {
   query: string;
   departmentFilter?: string;
   topK?: number;
+  excludedParentIds?: string[];
 }): Promise<MatchedParentDocumentResult[]> {
   await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
   const topK = params.topK ?? 3;
+  const excludedSet = new Set(
+    (params.excludedParentIds ?? []).map((id) => id.trim()).filter(Boolean)
+  );
 
   const { vector: queryVector } = await generateGeminiEmbedding768(params.query);
 
@@ -1339,8 +1343,8 @@ export async function searchBrainByVectorSimilarity(params: {
         index: VECTOR_INDEX_DEFINITION.name,
         path: 'embedding',
         queryVector,
-        numCandidates: 50,
-        limit: topK * 3,
+        numCandidates: 50 + excludedSet.size * 5,
+        limit: topK * 3 + excludedSet.size * 3,
       };
 
       if (
@@ -1374,16 +1378,18 @@ export async function searchBrainByVectorSimilarity(params: {
       if (atlasHits.length > 0) {
         const parentIds = Array.from(
           new Set(atlasHits.map((h) => String(h.parentId)))
-        );
+        ).filter((pid) => !excludedSet.has(pid));
 
-        const parentDocs = await rawCol
-          .find({ parentId: { $in: parentIds } })
-          .toArray();
+        const parentDocs =
+          parentIds.length > 0
+            ? await rawCol.find({ parentId: { $in: parentIds } }).toArray()
+            : [];
         const parentMap = new Map(parentDocs.map((p) => [p.parentId, p]));
 
         const bestByTitle = new Map<string, MatchedParentDocumentResult>();
         for (const hit of atlasHits) {
           const pid = String(hit.parentId);
+          if (excludedSet.has(pid)) continue;
           const parent =
             parentMap.get(pid) ??
             vault.parents.find((p) => p.parentId === pid);
@@ -1423,10 +1429,19 @@ export async function searchBrainByVectorSimilarity(params: {
   // Ensure both Parent documents and Child vectors are hydrated from MongoDB before fallback cosine ranking
   await hydrateVaultFromMongo();
 
+  const searchableChildren =
+    excludedSet.size > 0
+      ? vault.children.filter((c) => !excludedSet.has(c.parentId))
+      : vault.children;
+  const searchableParents =
+    excludedSet.size > 0
+      ? vault.parents.filter((p) => !excludedSet.has(p.parentId))
+      : vault.parents;
+
   return rankParentDocumentsByVectorMatch({
     queryVector,
-    children: vault.children,
-    parents: vault.parents,
+    children: searchableChildren,
+    parents: searchableParents,
     departmentFilter: params.departmentFilter,
     topK,
   });

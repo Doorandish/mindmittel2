@@ -163,6 +163,9 @@ export default function HomePage() {
   const [brainConflicts, setBrainConflicts] = useState<
     BrainKnowledgeConflictWarning[]
   >([]);
+  const [demoDeletedParentIds, setDemoDeletedParentIds] = useState<string[]>(
+    []
+  );
   const [docTitle, setDocTitle] = useState<string>('');
   const [docDepartment, setDocDepartment] = useState<string>('Finance & Legal');
   const [docSourceType, setDocSourceType] = useState<'upload' | 'slack'>(
@@ -228,15 +231,50 @@ export default function HomePage() {
   const dict = getDictionary(locale);
   const inferredProfile = inferProfileFromQuery(decisionProposal);
 
+  function syncDocumentsAndConflicts(
+    rawDocs?: StoredBrainDocumentSummary[],
+    rawConflicts?: BrainKnowledgeConflictWarning[],
+    deletedIds: string[] = demoDeletedParentIds
+  ) {
+    const docsInput = rawDocs ?? documents;
+    const conflictsInput = rawConflicts ?? brainConflicts;
+
+    if (!tenantInfo?.isDemo || deletedIds.length === 0) {
+      if (rawDocs !== undefined) setDocuments(docsInput);
+      if (rawConflicts !== undefined) setBrainConflicts(conflictsInput);
+      return;
+    }
+
+    const deletedSet = new Set(deletedIds);
+    if (rawDocs !== undefined) {
+      setDocuments(
+        docsInput.filter(
+          (doc) =>
+            !deletedSet.has(doc.parentId) &&
+            !(doc.allParentIds ?? []).some((id) => deletedSet.has(id))
+        )
+      );
+    }
+    if (rawConflicts !== undefined) {
+      setBrainConflicts(
+        conflictsInput.filter(
+          (conflict) =>
+            !deletedSet.has(conflict.newerDocument.parentId) &&
+            !deletedSet.has(conflict.existingDocument.parentId)
+        )
+      );
+    }
+  }
+
   async function fetchBrainDocuments() {
     try {
       const res = await fetch('/api/brain/documents');
       const data = await res.json();
-      if (data.ok && Array.isArray(data.documents)) {
-        setDocuments(data.documents);
-      }
-      if (data.ok && Array.isArray(data.conflicts)) {
-        setBrainConflicts(data.conflicts);
+      if (data.ok) {
+        syncDocumentsAndConflicts(
+          Array.isArray(data.documents) ? data.documents : undefined,
+          Array.isArray(data.conflicts) ? data.conflicts : undefined
+        );
       }
     } catch {
       // Ignore network error on initial load
@@ -617,10 +655,10 @@ export default function HomePage() {
 
       const data = await res.json();
       if (data.ok) {
-        setDocuments(data.documents ?? []);
-        if (Array.isArray(data.conflicts)) {
-          setBrainConflicts(data.conflicts);
-        }
+        syncDocumentsAndConflicts(
+          data.documents ?? [],
+          Array.isArray(data.conflicts) ? data.conflicts : undefined
+        );
         setDocTitle('');
         setDocContent('');
         setExtractionStatus(null);
@@ -636,16 +674,33 @@ export default function HomePage() {
   }
 
   async function handleDeleteDocument(parentId: string) {
+    if (tenantInfo?.isDemo) {
+      const targetDoc = documents.find(
+        (d) =>
+          d.parentId === parentId || (d.allParentIds ?? []).includes(parentId)
+      );
+      const idsToHide =
+        targetDoc?.allParentIds && targetDoc.allParentIds.length > 0
+          ? targetDoc.allParentIds
+          : [parentId];
+      const nextDeleted = Array.from(
+        new Set([...demoDeletedParentIds, ...idsToHide])
+      );
+      setDemoDeletedParentIds(nextDeleted);
+      syncDocumentsAndConflicts(documents, brainConflicts, nextDeleted);
+      return;
+    }
+
     const res = await fetch(
       `/api/brain/documents?parentId=${encodeURIComponent(parentId)}`,
       { method: 'DELETE' }
     );
     const data = await res.json();
     if (data.ok) {
-      setDocuments(data.documents ?? []);
-      if (Array.isArray(data.conflicts)) {
-        setBrainConflicts(data.conflicts);
-      }
+      syncDocumentsAndConflicts(
+        data.documents ?? [],
+        Array.isArray(data.conflicts) ? data.conflicts : undefined
+      );
     }
   }
 
@@ -690,10 +745,10 @@ export default function HomePage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setDocuments(data.documents ?? []);
-        if (Array.isArray(data.conflicts)) {
-          setBrainConflicts(data.conflicts);
-        }
+        syncDocumentsAndConflicts(
+          data.documents ?? [],
+          Array.isArray(data.conflicts) ? data.conflicts : undefined
+        );
         setEditingDocId(null);
         setIngestFeedback(
           locale === 'de'
@@ -765,6 +820,10 @@ export default function HomePage() {
           locale,
           auditedByEmail: userEmail,
           auditedByName: userFullName,
+          excludedParentIds:
+            tenantInfo?.isDemo && demoDeletedParentIds.length > 0
+              ? demoDeletedParentIds
+              : undefined,
         }),
       });
 
@@ -891,12 +950,10 @@ export default function HomePage() {
         if (Array.isArray(data.connectors)) {
           setConnectors(data.connectors);
         }
-        if (Array.isArray(data.documents)) {
-          setDocuments(data.documents);
-        }
-        if (Array.isArray(data.conflicts)) {
-          setBrainConflicts(data.conflicts);
-        }
+        syncDocumentsAndConflicts(
+          Array.isArray(data.documents) ? data.documents : undefined,
+          Array.isArray(data.conflicts) ? data.conflicts : undefined
+        );
         if (data.unchanged) {
           setConnectorFeedback(
             locale === 'de'

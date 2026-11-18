@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
         locale?: 'en' | 'de';
         auditedByEmail?: string;
         auditedByName?: string;
+        excludedParentIds?: string[];
       };
 
       const decisionProposal = body.decisionProposal?.trim();
@@ -141,12 +142,18 @@ export async function POST(request: NextRequest) {
 
       const locale = body.locale === 'de' ? 'de' : 'en';
       const inferredProfile = inferProfileFromQuery(decisionProposal);
+      const excludedParentIds = Array.isArray(body.excludedParentIds)
+        ? body.excludedParentIds.filter(
+            (id): id is string => typeof id === 'string' && id.trim().length > 0
+          )
+        : undefined;
 
       // 1. Retrieve matching Parent documents via 768-d Child Vector similarity
       const rawMatchedParents = await searchBrainByVectorSimilarity({
         query: decisionProposal,
         departmentFilter: body.departmentFilter,
         topK: 3,
+        excludedParentIds,
       });
       const matchedParents = filterRelevantCitations(rawMatchedParents);
 

@@ -11,6 +11,7 @@ import {
   ingestDocumentIntoBrain,
   listBrainDocuments,
   listAuditHistory,
+  searchBrainByVectorSimilarity,
 } from '@/infrastructure/rag/brainRepository';
 
 function makeTenant(slug: string, overrides: Partial<ResolvedTenant> = {}): ResolvedTenant {
@@ -143,5 +144,42 @@ describe('Company Brain isolation between tenants (in-memory mode)', () => {
       listAuditHistory()
     );
     expect(freshHistory).toHaveLength(0);
+  });
+
+  it('excludes client-deleted demo parentIds (Option B) from searchBrainByVectorSimilarity while keeping baseline demo documents intact in storage', async () => {
+    const demoDocsBefore = await runWithTenantContext({ tenant: DEMO_TENANT, session: null }, () =>
+      listBrainDocuments()
+    );
+    const standupDoc = demoDocsBefore.find((d) =>
+      d.title.includes('Engineering Agile')
+    );
+    expect(standupDoc).toBeDefined();
+
+    const hitsWithPolicy = await runWithTenantContext({ tenant: DEMO_TENANT, session: null }, () =>
+      searchBrainByVectorSimilarity({
+        query: 'Cancel all mandatory daily Scrum standup meetings',
+        topK: 3,
+      })
+    );
+    expect(hitsWithPolicy.some((h) => h.parentId === standupDoc!.parentId)).toBe(true);
+
+    const hitsWithoutDeleted = await runWithTenantContext(
+      { tenant: DEMO_TENANT, session: null },
+      () =>
+        searchBrainByVectorSimilarity({
+          query: 'Cancel all mandatory daily Scrum standup meetings',
+          topK: 3,
+          excludedParentIds: [standupDoc!.parentId],
+        })
+    );
+    expect(
+      hitsWithoutDeleted.some((h) => h.parentId === standupDoc!.parentId)
+    ).toBe(false);
+
+    // Underlying shared demo repository must remain untouched for other visitors / page reload
+    const demoDocsAfter = await runWithTenantContext({ tenant: DEMO_TENANT, session: null }, () =>
+      listBrainDocuments()
+    );
+    expect(demoDocsAfter.some((d) => d.parentId === standupDoc!.parentId)).toBe(true);
   });
 });
