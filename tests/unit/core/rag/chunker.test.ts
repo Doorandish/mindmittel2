@@ -145,4 +145,82 @@ describe('Parent-Child RAG Chunker & Metadata Normalizer (Functional Core)', () 
     const afterDelete = await listBrainDocuments();
     expect(afterDelete.filter((d) => d.title === title)).toHaveLength(0);
   });
+
+  it('atomically replaces all sibling parent chunks when updating a multi-chunk internal document and blocks editing external synced documents', async () => {
+    const {
+      listBrainDocuments,
+      ingestDocumentIntoBrain,
+      updateBrainDocument,
+      removeBrainDocument,
+    } = await import('@/infrastructure/rag/brainRepository');
+
+    // 1. Ingest a 3500-char internal upload document (splits into 2 parent chunks)
+    const initialLongText =
+      'Internal Procurement Clause Alpha: All software purchases require IT review. '.repeat(
+        50
+      );
+    const title = 'Multi-Chunk Internal Policy Edit Test 2026';
+
+    await ingestDocumentIntoBrain({
+      title,
+      content: initialLongText,
+      department: 'Finance & Legal',
+      sourceType: 'upload',
+      createdByEmail: 'amir@mindmittel.de',
+    });
+
+    const beforeUpdate = (await listBrainDocuments()).find(
+      (d) => d.title === title
+    );
+    expect(beforeUpdate).toBeDefined();
+    expect(beforeUpdate!.isExternalSource).toBe(false);
+    expect(beforeUpdate!.sectionCount).toBeGreaterThanOrEqual(2);
+
+    // 2. Update the multi-chunk document to a short 1-chunk text — old sibling chunks must NOT remain orphaned!
+    const replacementShortText =
+      'Updated Single Clause: Software purchases up to €12,000 are pre-approved.';
+    await updateBrainDocument({
+      parentId: beforeUpdate!.parentId,
+      title,
+      content: replacementShortText,
+      department: 'Finance & Legal',
+      updatedByEmail: 'amir@mindmittel.de',
+    });
+
+    const afterUpdate = (await listBrainDocuments()).filter(
+      (d) => d.title === title
+    );
+    expect(afterUpdate).toHaveLength(1);
+    expect(afterUpdate[0].sectionCount).toBe(1);
+    expect(afterUpdate[0].contentPreview).toBe(replacementShortText);
+
+    await removeBrainDocument(afterUpdate[0].parentId);
+
+    // 3. External synced documents (e.g. Google Drive) must be flagged isExternalSource=true and reject updateBrainDocument
+    const externalTitle = 'External Google Drive Synced Contract 2026';
+    const extIngested = await ingestDocumentIntoBrain({
+      title: externalTitle,
+      content: 'Synced contract clause from Google Drive.',
+      department: 'Finance & Legal',
+      sourceType: 'gdrive',
+      createdByEmail: 'amir@mindmittel.de',
+    });
+
+    const extDoc = (await listBrainDocuments()).find(
+      (d) => d.title === externalTitle
+    );
+    expect(extDoc).toBeDefined();
+    expect(extDoc!.isExternalSource).toBe(true);
+
+    await expect(
+      updateBrainDocument({
+        parentId: extIngested.firstParentId,
+        title: externalTitle,
+        content: 'Attempted manual edit on external Google Drive document',
+        department: 'Finance & Legal',
+      })
+    ).rejects.toThrow(/read-only|source system/i);
+
+    await removeBrainDocument(extIngested.firstParentId);
+  });
 });

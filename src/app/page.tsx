@@ -35,6 +35,8 @@ import {
   Pencil,
   Download,
   Clock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { AppShell, type WorkspaceSubTab } from '@/components/layout/AppShell';
 import {
@@ -54,6 +56,8 @@ interface StoredBrainDocumentSummary {
   title: string;
   department: string;
   sourceType: string;
+  connectorId?: string;
+  isExternalSource?: boolean;
   tags: string[];
   contentPreview: string;
   childCount: number;
@@ -164,6 +168,9 @@ export default function HomePage() {
     BrainKnowledgeConflictWarning[]
   >([]);
   const [demoDeletedParentIds, setDemoDeletedParentIds] = useState<string[]>(
+    []
+  );
+  const [nextAuditExcludedIds, setNextAuditExcludedIds] = useState<string[]>(
     []
   );
   const [docTitle, setDocTitle] = useState<string>('');
@@ -794,6 +801,48 @@ export default function HomePage() {
     URL.revokeObjectURL(url);
   }
 
+  function isDocExcludedForNextAudit(doc: {
+    parentId: string;
+    allParentIds?: string[];
+  }): boolean {
+    if (nextAuditExcludedIds.length === 0) return false;
+    const excludedSet = new Set(nextAuditExcludedIds);
+    return (
+      excludedSet.has(doc.parentId) ||
+      (doc.allParentIds ?? []).some((id) => excludedSet.has(id))
+    );
+  }
+
+  function toggleExcludeForNextAudit(doc: {
+    parentId: string;
+    allParentIds?: string[];
+  }) {
+    const fullDoc = documents.find(
+      (d) =>
+        d.parentId === doc.parentId ||
+        (d.allParentIds ?? []).includes(doc.parentId)
+    );
+    const targetIds =
+      fullDoc?.allParentIds && fullDoc.allParentIds.length > 0
+        ? fullDoc.allParentIds
+        : doc.allParentIds && doc.allParentIds.length > 0
+        ? doc.allParentIds
+        : [doc.parentId];
+    const targetSet = new Set(targetIds);
+    const currentlyExcluded = nextAuditExcludedIds.some((id) =>
+      targetSet.has(id)
+    );
+    if (currentlyExcluded) {
+      setNextAuditExcludedIds((prev) =>
+        prev.filter((id) => !targetSet.has(id))
+      );
+    } else {
+      setNextAuditExcludedIds((prev) =>
+        Array.from(new Set([...prev, ...targetIds]))
+      );
+    }
+  }
+
   async function handleRunExecutiveAudit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (!decisionProposal.trim()) return;
@@ -810,6 +859,13 @@ export default function HomePage() {
       setTimeout(() => setAuditCompletedSteps(3), 900),
     ];
 
+    const combinedExcludedIds = Array.from(
+      new Set([
+        ...(tenantInfo?.isDemo ? demoDeletedParentIds : []),
+        ...nextAuditExcludedIds,
+      ])
+    );
+
     try {
       const res = await fetch('/api/brain/audit', {
         method: 'POST',
@@ -821,9 +877,7 @@ export default function HomePage() {
           auditedByEmail: userEmail,
           auditedByName: userFullName,
           excludedParentIds:
-            tenantInfo?.isDemo && demoDeletedParentIds.length > 0
-              ? demoDeletedParentIds
-              : undefined,
+            combinedExcludedIds.length > 0 ? combinedExcludedIds : undefined,
         }),
       });
 
@@ -841,6 +895,8 @@ export default function HomePage() {
         if (Array.isArray(data.history)) {
           setAuditHistory(data.history);
         }
+        // Automatically re-enable any one-shot excluded documents right after this decision evaluation
+        setNextAuditExcludedIds([]);
       } else {
         setAuditError(data.error ?? 'Audit failed');
       }
@@ -2207,6 +2263,41 @@ export default function HomePage() {
                   </div>
                 </div>
 
+                {nextAuditExcludedIds.length > 0 && (
+                  <div className="p-3.5 rounded-lg bg-amber-50/90 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <EyeOff className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="font-semibold">
+                          {locale === 'de'
+                            ? 'Temporärer Ausschluss nur für die nächste Entscheidungsprüfung aktiv:'
+                            : 'Temporary exclusion active for the next decision evaluation only:'}
+                        </div>
+                        <div className="text-[11.5px] text-amber-800">
+                          {documents
+                            .filter((d) => isDocExcludedForNextAudit(d))
+                            .map((d) => d.title)
+                            .join(' · ')}{' '}
+                          <span className="text-amber-700/90">
+                            {locale === 'de'
+                              ? '(wird im Prüfbericht vermerkt und danach automatisch wieder aktiviert)'
+                              : '(recorded in the audit report and automatically re-enabled afterward)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNextAuditExcludedIds([])}
+                      className="h-7 px-2.5 rounded-md bg-white hover:bg-amber-100/60 border border-amber-300 text-[11.5px] font-semibold text-amber-900 shrink-0 transition-colors"
+                    >
+                      {locale === 'de'
+                        ? 'Alle wieder aktivieren'
+                        : 'Re-enable all'}
+                    </button>
+                  </div>
+                )}
+
                 <form onSubmit={handleRunExecutiveAudit} className="space-y-3">
                   <textarea
                     rows={3}
@@ -2413,6 +2504,39 @@ export default function HomePage() {
                       </strong>
                       {auditReport.strategicEvaluation}
                     </div>
+
+                    {auditReport.excludedDocuments &&
+                      auditReport.excludedDocuments.length > 0 && (
+                        <div className="p-3.5 rounded-lg bg-amber-50/85 border border-amber-200/90 space-y-1.5">
+                          <div className="flex items-center gap-2 text-[11px] font-mono font-semibold text-amber-900 uppercase">
+                            <EyeOff className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span>
+                              {locale === 'de'
+                                ? 'Revisionshinweis: Bewusst ausgeschlossene Richtlinien bei dieser Prüfung'
+                                : 'Audit Compliance Disclosure: Policies Intentionally Excluded from This Evaluation'}
+                            </span>
+                          </div>
+                          <p className="text-[12px] text-amber-900 leading-relaxed">
+                            {locale === 'de'
+                              ? 'Die folgenden Dokumente wurden vom Prüfer für diese Einzelentscheidung temporär deaktiviert und nicht in die Bewertung einbezogen:'
+                              : 'The following documents were temporarily excluded by the auditor for this single decision and were not factored into the verdict:'}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {auditReport.excludedDocuments.map((exDoc) => (
+                              <span
+                                key={exDoc.parentId}
+                                className="px-2.5 py-1 rounded-md bg-white border border-amber-300 text-[11.5px] font-semibold text-amber-950 inline-flex items-center gap-1.5"
+                              >
+                                <EyeOff className="w-3 h-3 text-amber-700" />
+                                <span>{exDoc.title}</span>
+                                <span className="font-mono text-[10.5px] text-amber-700">
+                                  ({exDoc.department})
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                     {/* GERMAN REGULATORY & BETRIEBSRAT ADVISORY (DACH Pre-Decision Check + Company Brain Coverage) */}
                     {auditReport.germanAdvisory && (
@@ -2699,6 +2823,23 @@ export default function HomePage() {
                           <p className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed">
                             {item.report.executiveSummary}
                           </p>
+
+                          {item.report.excludedDocuments &&
+                            item.report.excludedDocuments.length > 0 && (
+                              <div className="pt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-amber-900">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100/90 border border-amber-200 font-semibold">
+                                  <EyeOff className="w-3 h-3 text-amber-700" />
+                                  <span>
+                                    {locale === 'de'
+                                      ? 'Bei dieser Prüfung ausgeschlossen:'
+                                      : 'Excluded from this evaluation:'}{' '}
+                                    {item.report.excludedDocuments
+                                      .map((d) => d.title)
+                                      .join(', ')}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -3121,16 +3262,52 @@ export default function HomePage() {
                               </div>
 
                               <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/70">
+                                {!doc.isExternalSource ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openOnlineDocumentEditor(doc)}
+                                    className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-[11.5px] font-medium flex items-center gap-1.5 transition-colors"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                    <span>
+                                      {locale === 'de'
+                                        ? 'Online bearbeiten'
+                                        : 'Edit Online'}
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <span className="h-7 px-2.5 rounded-md bg-slate-100 border border-slate-200/90 text-slate-600 text-[11px] font-medium inline-flex items-center gap-1.5">
+                                    <Lock className="w-3 h-3 text-slate-400" />
+                                    <span>
+                                      {locale === 'de'
+                                        ? 'Nur im Quellsystem änderbar'
+                                        : 'Edit in source system only'}
+                                    </span>
+                                  </span>
+                                )}
+
                                 <button
                                   type="button"
-                                  onClick={() => openOnlineDocumentEditor(doc)}
-                                  className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-blue-600 text-white text-[11.5px] font-medium flex items-center gap-1.5 transition-colors"
+                                  onClick={() => toggleExcludeForNextAudit(doc)}
+                                  className={`h-7 px-2.5 rounded-md border text-[11.5px] font-medium flex items-center gap-1.5 transition-colors ${
+                                    isDocExcludedForNextAudit(doc)
+                                      ? 'bg-amber-100 border-amber-300 text-amber-950'
+                                      : 'bg-white hover:bg-slate-100 border-slate-200/90 text-slate-700'
+                                  }`}
                                 >
-                                  <Pencil className="w-3 h-3" />
+                                  {isDocExcludedForNextAudit(doc) ? (
+                                    <Eye className="w-3 h-3 text-amber-700" />
+                                  ) : (
+                                    <EyeOff className="w-3 h-3 text-slate-500" />
+                                  )}
                                   <span>
-                                    {locale === 'de'
-                                      ? 'Online bearbeiten'
-                                      : 'Edit Online'}
+                                    {isDocExcludedForNextAudit(doc)
+                                      ? locale === 'de'
+                                        ? '1× Ausgeschlossen'
+                                        : '1× Excluded'
+                                      : locale === 'de'
+                                      ? 'Für nächste Prüfung ausschließen'
+                                      : 'Exclude for next audit'}
                                   </span>
                                 </button>
 
@@ -3147,18 +3324,20 @@ export default function HomePage() {
                                   </span>
                                 </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleDeleteDocument(doc.parentId)
-                                  }
-                                  className="h-7 px-2.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[11.5px] font-medium flex items-center gap-1.5 transition-colors ml-auto"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>
-                                    {locale === 'de' ? 'Löschen' : 'Delete'}
-                                  </span>
-                                </button>
+                                {!doc.isExternalSource && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleDeleteDocument(doc.parentId)
+                                    }
+                                    className="h-7 px-2.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-[11.5px] font-medium flex items-center gap-1.5 transition-colors ml-auto"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>
+                                      {locale === 'de' ? 'Löschen' : 'Delete'}
+                                    </span>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -3291,8 +3470,30 @@ export default function HomePage() {
                       className="px-3.5 py-3 rounded-lg bg-slate-50/60 border border-slate-200/85 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors"
                     >
                       <div className="min-w-0">
-                        <div className="text-[13.5px] font-semibold text-slate-900 truncate tracking-[-0.01em]">
-                          {doc.title}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[13.5px] font-semibold text-slate-900 truncate tracking-[-0.01em]">
+                            {doc.title}
+                          </span>
+                          {doc.isExternalSource && (
+                            <span className="px-1.5 py-0.5 rounded bg-slate-200/75 text-slate-600 text-[10px] font-mono font-semibold inline-flex items-center gap-1 shrink-0">
+                              <Lock className="w-2.5 h-2.5" />
+                              <span>
+                                {locale === 'de'
+                                  ? 'Quellsystem (Read-Only)'
+                                  : 'External Source (Read-Only)'}
+                              </span>
+                            </span>
+                          )}
+                          {isDocExcludedForNextAudit(doc) && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-mono font-semibold inline-flex items-center gap-1 shrink-0">
+                              <EyeOff className="w-2.5 h-2.5" />
+                              <span>
+                                {locale === 'de'
+                                  ? '1× Ausgeschlossen'
+                                  : '1× Excluded'}
+                              </span>
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] font-mono text-slate-500 mt-0.5">
                           <span>{doc.department}</span>
@@ -3329,20 +3530,52 @@ export default function HomePage() {
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
-                          onClick={() =>
-                            openOnlineDocumentEditor({
-                              parentId: doc.parentId,
-                              title: doc.title,
-                              department: doc.department,
-                              content: doc.contentPreview,
-                              tags: doc.tags,
-                            })
+                          onClick={() => toggleExcludeForNextAudit(doc)}
+                          className={`h-7 px-2 rounded-md flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                            isDocExcludedForNextAudit(doc)
+                              ? 'bg-amber-100 border border-amber-300 text-amber-900'
+                              : 'text-slate-500 hover:text-amber-800 hover:bg-amber-50'
+                          }`}
+                          title={
+                            locale === 'de'
+                              ? 'Nur für die nächste Entscheidungsprüfung ausschließen (danach automatisch wieder aktiv)'
+                              : 'Exclude for the next decision evaluation only (auto re-enables after)'
                           }
-                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Edit Document Online"
                         >
-                          <Pencil className="w-3.5 h-3.5" />
+                          {isDocExcludedForNextAudit(doc) ? (
+                            <Eye className="w-3.5 h-3.5 text-amber-700" />
+                          ) : (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          )}
+                          <span className="hidden sm:inline">
+                            {isDocExcludedForNextAudit(doc)
+                              ? locale === 'de'
+                                ? 'Aktivieren'
+                                : 'Re-enable'
+                              : locale === 'de'
+                              ? '1× Ausblenden'
+                              : '1× Exclude'}
+                          </span>
                         </button>
+
+                        {!doc.isExternalSource && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openOnlineDocumentEditor({
+                                parentId: doc.parentId,
+                                title: doc.title,
+                                department: doc.department,
+                                content: doc.contentPreview,
+                                tags: doc.tags,
+                              })
+                            }
+                            className="h-7 w-7 rounded-md flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit Document Online"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -3361,14 +3594,16 @@ export default function HomePage() {
                           <Download className="w-3.5 h-3.5" />
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDocument(doc.parentId)}
-                          className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Delete Document"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {(!doc.isExternalSource || tenantInfo?.isDemo) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument(doc.parentId)}
+                            className="h-7 w-7 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -185,4 +185,26 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(pageSource).toContain('excludedParentIds');
     expect(auditRouteSource).toContain('excludedParentIds');
   });
+
+  it('supports one-shot next-decision document exclusion with auto-reset, read-only external source protection, and excludedDocuments disclosure in audit reports', () => {
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+    const auditRouteSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/api/brain/audit/route.ts'),
+      'utf-8'
+    );
+    const evaluatorSource = fs.readFileSync(
+      path.join(rootDir, 'src/core/audit/decisionEvaluator.ts'),
+      'utf-8'
+    );
+
+    expect(pageSource).toContain('nextAuditExcludedIds');
+    expect(pageSource).toContain('setNextAuditExcludedIds([])');
+    expect(pageSource).toContain('isExternalSource');
+    expect(pageSource).toContain('excludedDocuments');
+    expect(auditRouteSource).toContain('excludedDocuments');
+    expect(evaluatorSource).toContain('excludedDocuments?:');
+  });
 });

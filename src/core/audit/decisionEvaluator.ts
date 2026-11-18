@@ -13,6 +13,13 @@ export interface MatchedParentContextInput {
   fullParentContent: string;
 }
 
+export interface ExcludedAuditDocumentSummary {
+  parentId: string;
+  title: string;
+  department: string;
+  sourceType?: string;
+}
+
 export interface ExecutiveAuditReport {
   verdict: AuditVerdict;
   alignmentScore: number;
@@ -34,6 +41,8 @@ export interface ExecutiveAuditReport {
   evaluatedAt: string;
   /** Optional: absent on audit history entries created before the DACH advisory existed. */
   germanAdvisory?: GermanRegulatoryAdvisory;
+  /** Documents intentionally excluded by the user for this decision evaluation. */
+  excludedDocuments?: ExcludedAuditDocumentSummary[];
 }
 
 const CONFLICT_TRIGGER_PATTERN =

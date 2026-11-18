@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   listAuditHistory,
+  listBrainDocuments,
   removeAuditHistoryEntry,
   saveAuditReportToHistory,
   searchBrainByVectorSimilarity,
@@ -242,6 +243,27 @@ export async function POST(request: NextRequest) {
         germanAdvisory,
         locale
       );
+
+      // 6. Record any intentionally excluded documents in the report for immutable audit transparency
+      if (excludedParentIds && excludedParentIds.length > 0) {
+        const excludedSet = new Set(excludedParentIds);
+        const allDocs = await listBrainDocuments();
+        const excludedDocs = allDocs
+          .filter(
+            (doc) =>
+              excludedSet.has(doc.parentId) ||
+              (doc.allParentIds ?? []).some((id) => excludedSet.has(id))
+          )
+          .map((doc) => ({
+            parentId: doc.parentId,
+            title: doc.title,
+            department: doc.department,
+            sourceType: doc.sourceType,
+          }));
+        if (excludedDocs.length > 0) {
+          finalReport.excludedDocuments = excludedDocs;
+        }
+      }
 
       const savedEntry = await saveAuditReportToHistory({
         decisionProposal,

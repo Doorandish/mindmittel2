@@ -445,6 +445,24 @@ async function hydrateVaultFromMongo(): Promise<void> {
 }
 
 /**
+ * Determines whether a Company Brain document originated from an external synchronized source
+ * (Google Drive, Confluence, Notion, Slack, Teams, Zoom, Google Meet) and is therefore read-only in MindMittel.
+ */
+export function isExternalSyncedDocument(doc: {
+  sourceType?: string;
+  connectorId?: string;
+  metadata?: { sourceType?: string; connectorId?: string };
+}): boolean {
+  const sourceType = doc.sourceType ?? doc.metadata?.sourceType ?? 'upload';
+  const connectorId =
+    doc.connectorId ?? doc.metadata?.connectorId ?? 'workspace_ui';
+  if (sourceType !== 'upload') {
+    return true;
+  }
+  return connectorId !== 'workspace_ui' && !connectorId.startsWith('seed_');
+}
+
+/**
  * Ingests a document into the Company Brain with user attribution (`createdByEmail` & `createdByName`).
  */
 export async function ingestDocumentIntoBrain(params: {
@@ -452,6 +470,8 @@ export async function ingestDocumentIntoBrain(params: {
   content: string;
   department: string;
   sourceType?: DocumentSourceType;
+  connectorId?: string;
+  externalId?: string;
   tags?: string[];
   language?: 'en' | 'de';
   createdByEmail?: string;
@@ -487,8 +507,8 @@ export async function ingestDocumentIntoBrain(params: {
         : [params.department.toLowerCase(), 'governance'],
     source: {
       type: params.sourceType ?? 'upload',
-      connectorId: 'workspace_ui',
-      externalId: `doc_${Date.now()}`,
+      connectorId: params.connectorId?.trim() || 'workspace_ui',
+      externalId: params.externalId?.trim() || `doc_${Date.now()}`,
     },
   };
 
@@ -603,6 +623,8 @@ export async function listBrainDocuments(): Promise<
     title: string;
     department: string;
     sourceType: string;
+    connectorId: string;
+    isExternalSource: boolean;
     tags: string[];
     contentPreview: string;
     childCount: number;
@@ -623,6 +645,8 @@ export async function listBrainDocuments(): Promise<
     title: string;
     department: string;
     sourceType: string;
+    connectorId: string;
+    isExternalSource: boolean;
     tags: Set<string>;
     chunks: Array<{ index: number; content: string; childCount: number }>;
     totalChildCount: number;
@@ -653,12 +677,19 @@ export async function listBrainDocuments(): Promise<
     const existing = groupedMap.get(groupKey);
 
     if (!existing) {
+      const connectorId =
+        parent.metadata.connectorId ?? parent.source?.connectorId ?? 'workspace_ui';
       groupedMap.set(groupKey, {
         primaryParentId: parent.parentId,
         allParentIds: [parent.parentId],
         title: parent.title,
         department: parent.metadata.department,
         sourceType: parent.metadata.sourceType,
+        connectorId,
+        isExternalSource: isExternalSyncedDocument({
+          sourceType: parent.metadata.sourceType,
+          connectorId,
+        }),
         tags: new Set(parent.metadata.tags ?? []),
         chunks: [
           {
@@ -699,6 +730,8 @@ export async function listBrainDocuments(): Promise<
       title: g.title,
       department: g.department,
       sourceType: g.sourceType,
+      connectorId: g.connectorId,
+      isExternalSource: g.isExternalSource,
       tags: Array.from(g.tags),
       contentPreview: stitchedContent,
       childCount: g.totalChildCount,
@@ -783,6 +816,24 @@ export async function updateBrainDocument(params: {
   const vault = getMemoryVault();
 
   const existing = vault.parents.find((p) => p.parentId === params.parentId);
+  if (existing && isExternalSyncedDocument(existing)) {
+    throw new Error(
+      'Externally synchronized documents are read-only in MindMittel and must be edited in their source system.'
+    );
+  }
+
+  // Discover all sibling parent chunks belonging to the same logical document entity
+  const oldParentIds = new Set<string>([params.parentId]);
+  if (existing) {
+    const oldGroupKey = `${existing.title.trim().toLowerCase()}:::${existing.metadata.department}:::${existing.metadata.sourceType}`;
+    for (const p of vault.parents) {
+      const pKey = `${p.title.trim().toLowerCase()}:::${p.metadata.department}:::${p.metadata.sourceType}`;
+      if (pKey === oldGroupKey) {
+        oldParentIds.add(p.parentId);
+      }
+    }
+  }
+
   const editorEmail =
     params.updatedByEmail?.trim().toLowerCase() ||
     existing?.createdByEmail ||
@@ -812,73 +863,92 @@ export async function updateBrainDocument(params: {
   };
 
   const { parents, children } = createParentChildChunks(rawInput);
-  const primaryTemplate = parents[0];
+  const firstGeneratedParentId = parents[0]?.parentId;
+  const createdAtValue = existing?.createdAt ?? new Date().toISOString();
 
-  // Preserve the original parentId so references and UI keys remain stable
-  const updatedParent: AttributedParentChunk = {
-    ...primaryTemplate,
-    parentId: params.parentId,
-    title: params.title.trim(),
-    content: params.content.trim(),
-    childCount: Math.max(1, children.length),
-    createdByEmail: editorEmail,
-    createdByName: editorName,
-  };
+  // Preserve params.parentId on the primary chunk (index 0) and remap its children accordingly
+  const remappedChildren = children.map((child) => {
+    if (firstGeneratedParentId && child.parentId === firstGeneratedParentId) {
+      return {
+        ...child,
+        parentId: params.parentId,
+        childId: `child_${params.parentId}_${child.childIndex}`,
+      };
+    }
+    return child;
+  });
+
+  const updatedParents: AttributedParentChunk[] = parents.map((p, index) => {
+    const effectiveParentId = index === 0 ? params.parentId : p.parentId;
+    const chunkChildCount = remappedChildren.filter(
+      (c) => c.parentId === effectiveParentId
+    ).length;
+    return {
+      ...p,
+      parentId: effectiveParentId,
+      title: params.title.trim(),
+      childCount: Math.max(1, chunkChildCount),
+      createdByEmail: editorEmail,
+      createdByName: editorName,
+      createdAt: createdAtValue,
+    };
+  });
 
   const embeddedChildren: EmbeddedChildChunk[] = [];
   let embeddingModelUsed = 'deterministic-semantic-768d';
 
-  for (let idx = 0; idx < children.length; idx++) {
-    const child = children[idx];
+  for (const child of remappedChildren) {
     const { vector, modelUsed } = await generateGeminiEmbedding768(
       `${child.metadata.department} ${child.metadata.tags.join(' ')} ${child.text}`
     );
     embeddingModelUsed = modelUsed;
     embeddedChildren.push({
       ...child,
-      parentId: params.parentId,
-      childId: `child_${params.parentId}_${idx}`,
       embedding: vector,
     });
   }
 
-  vault.parents = vault.parents.map((p) =>
-    p.parentId === params.parentId ? updatedParent : p
-  );
-  if (!vault.parents.some((p) => p.parentId === params.parentId)) {
-    vault.parents.unshift(updatedParent);
-  }
-
+  // Atomically replace all old sibling parent chunks and child vectors in memory
+  vault.parents = [
+    ...updatedParents,
+    ...vault.parents.filter((p) => !oldParentIds.has(p.parentId)),
+  ];
   vault.children = [
     ...embeddedChildren,
-    ...vault.children.filter((c) => c.parentId !== params.parentId),
+    ...vault.children.filter((c) => !oldParentIds.has(c.parentId)),
   ];
 
   if (isMongoConfigured()) {
     try {
       const db = await getMindMittelDb();
       const now = new Date();
+      const oldIdList = Array.from(oldParentIds);
 
-      const { createdAt: _ignoredCreated, ...fieldsToSet } = updatedParent;
-      await db
-        .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
-        .updateOne(
-          { parentId: params.parentId },
-          {
-            $set: {
-              ...fieldsToSet,
-              updatedAt: now,
-            },
-            $setOnInsert: {
-              createdAt: now,
-            },
-          },
-          { upsert: true }
-        );
+      await Promise.all([
+        db
+          .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
+          .deleteMany({ parentId: { $in: oldIdList } }),
+        db
+          .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
+          .deleteMany({ parentId: { $in: oldIdList } }),
+      ]);
 
-      await db
-        .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
-        .deleteMany({ parentId: params.parentId });
+      if (updatedParents.length > 0) {
+        const parentRecords: RawDocumentRecord[] = updatedParents.map((p) => {
+          const { createdAt: _c, ...rest } = p;
+          return {
+            ...rest,
+            createdAt:
+              typeof p.createdAt === 'string'
+                ? new Date(p.createdAt)
+                : p.createdAt ?? now,
+            updatedAt: now,
+          };
+        });
+        await db
+          .collection<RawDocumentRecord>(COLLECTIONS.RAW_DOCUMENTS)
+          .insertMany(parentRecords);
+      }
 
       if (embeddedChildren.length > 0) {
         await db
@@ -902,7 +972,7 @@ export async function updateBrainDocument(params: {
 
   systemLogger.info(
     'rag.update',
-    `Updated & re-indexed document [${params.title}] (${params.parentId}) by [${editorEmail}] (${embeddedChildren.length} Child 768-d vectors)`
+    `Atomically updated & re-indexed document [${params.title}] (${updatedParents.length} Parent chunk(s), ${embeddedChildren.length} Child 768-d vectors) by [${editorEmail}]`
   );
 
   return {
@@ -928,6 +998,7 @@ export async function listBrainDocumentConflicts(): Promise<
       tags: d.tags,
       createdByEmail: d.createdByEmail,
       createdByName: d.createdByName,
+      isExternalSource: d.isExternalSource,
     }))
   );
 }
@@ -1286,6 +1357,7 @@ export async function syncConnectorDataIntoBrain(params: {
     content: syncPayload.content,
     department: syncPayload.department,
     sourceType: syncPayload.sourceType,
+    connectorId: target.id,
     tags: syncPayload.tags,
     createdByEmail: params.userEmail,
     createdByName: params.userName,

@@ -12,6 +12,7 @@ export interface BrainDocumentForConflictCheck {
   tags?: string[];
   createdByEmail?: string;
   createdByName?: string;
+  isExternalSource?: boolean;
 }
 
 export interface BrainDocumentConflictSummary {
