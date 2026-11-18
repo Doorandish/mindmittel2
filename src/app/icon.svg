@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Crisp white rounded tile so the navy & emerald shield stays sharp in Dark & Light browser tabs -->
+  <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="3" />
+
+  <defs>
+    <clipPath id="favLeft">
+      <rect x="0" y="0" width="50" height="100" />
+    </clipPath>
+    <clipPath id="favRight">
+      <rect x="50" y="0" width="50" height="100" />
+    </clipPath>
+  </defs>
+
+  <!-- Left Half (Deep Navy #0B3B59) -->
+  <g clip-path="url(#favLeft)">
+    <path
+      d="M50 15 L21 31 L26 70 L50 86 L50 15 Z"
+      stroke="#0B3B59"
+      stroke-width="8"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <path
+      d="M21 31 L36 53 L50 31"
+      stroke="#0B3B59"
+      stroke-width="8"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <circle cx="50" cy="15" r="6" fill="#0B3B59" />
+    <circle cx="50" cy="31" r="6" fill="#0B3B59" />
+    <circle cx="50" cy="86" r="6" fill="#0B3B59" />
+    <circle cx="21" cy="31" r="6" fill="#0B3B59" />
+    <circle cx="36" cy="53" r="6" fill="#0B3B59" />
+    <circle cx="26" cy="70" r="6" fill="#0B3B59" />
+  </g>
+
+  <!-- Right Half (Emerald Green #10B981) -->
+  <g clip-path="url(#favRight)">
+    <path
+      d="M50 15 L79 31 L74 70 L50 86 L50 15 Z"
+      stroke="#10B981"
+      stroke-width="8"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <path
+      d="M79 31 L64 53 L50 31"
+      stroke="#10B981"
+      stroke-width="8"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+    <circle cx="50" cy="15" r="6" fill="#10B981" />
+    <circle cx="50" cy="31" r="6" fill="#10B981" />
+    <circle cx="50" cy="86" r="6" fill="#10B981" />
+    <circle cx="79" cy="31" r="6" fill="#10B981" />
+    <circle cx="64" cy="53" r="6" fill="#10B981" />
+    <circle cx="74" cy="70" r="6" fill="#10B981" />
+  </g>
+</svg>

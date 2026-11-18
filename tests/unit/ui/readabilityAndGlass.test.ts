@@ -133,4 +133,13 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(pageSource).not.toContain('DB: <strong>{tenantInfo.dbName}</strong>');
     expect(pageSource).not.toContain('DB: {tenantInfo.dbName}');
   });
+
+  it('provides a high-contrast MindMittel SVG favicon in src/app/icon.svg for all subdomains', () => {
+    const iconPath = path.join(rootDir, 'src/app/icon.svg');
+    expect(fs.existsSync(iconPath)).toBe(true);
+
+    const iconSource = fs.readFileSync(iconPath, 'utf-8');
+    expect(iconSource).toContain('#0B3B59');
+    expect(iconSource).toContain('#10B981');
+  });
 });
