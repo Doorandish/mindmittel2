@@ -73,13 +73,13 @@ const AUDIT_PIPELINE_STEPS = [
   },
   {
     id: 'embedding',
-    labelEn: 'Generating 768-dimensional semantic embedding vector',
-    labelDe: '768-dimensionalen semantischen Embedding-Vektor generieren',
+    labelEn: 'Analyzing semantic context of your decision proposal',
+    labelDe: 'Semantischen Kontext des Entscheidungsvorschlags analysieren',
   },
   {
     id: 'vector-search',
-    labelEn: 'Searching Company Brain policies & Parent-Child vectors in MongoDB Atlas',
-    labelDe: 'Company Brain Richtlinien & Parent-Child-Vektoren in MongoDB Atlas durchsuchen',
+    labelEn: 'Searching Company Brain policies and board resolutions',
+    labelDe: 'Company Brain nach relevanten Richtlinien und Beschlüssen durchsuchen',
   },
   {
     id: 'synthesis',
@@ -627,8 +627,8 @@ export default function HomePage() {
         setExtractionStatus(null);
         setIngestFeedback(
           locale === 'de'
-            ? `✓ Gespeichert von ${userEmail} (${data.ingestion.childVectorCount} Vektoren)`
-            : `✓ Saved by ${userEmail} (${data.ingestion.childVectorCount} vectors)`
+            ? `✓ Gespeichert von ${userEmail}`
+            : `✓ Saved by ${userEmail} into Company Brain`
         );
       }
     } finally {
@@ -698,8 +698,8 @@ export default function HomePage() {
         setEditingDocId(null);
         setIngestFeedback(
           locale === 'de'
-            ? `✓ Dokument aktualisiert & ${data.updated?.childVectorCount ?? 1} Vektoren neu indexiert`
-            : `✓ Updated online & re-indexed (${data.updated?.childVectorCount ?? 1} vectors)`
+            ? `✓ Dokument aktualisiert`
+            : `✓ Updated online & re-indexed`
         );
       }
     } finally {
@@ -907,8 +907,8 @@ export default function HomePage() {
         } else {
           setConnectorFeedback(
             locale === 'de'
-              ? `✓ Synchronisiert: "${data.syncedTitle}" (${data.childVectorCount} Vektoren)`
-              : `✓ Synced into Company Brain: "${data.syncedTitle}" (${data.childVectorCount} vectors)`
+              ? `✓ Synchronisiert: "${data.syncedTitle}"`
+              : `✓ Synced into Company Brain: "${data.syncedTitle}"`
           );
         }
       } else {
@@ -975,12 +975,16 @@ export default function HomePage() {
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center">
-              <Lock className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
+              <img
+                src="/images/mindmittel-logo.svg"
+                alt="MindMittel Logo"
+                className="w-7 h-7 object-contain"
+              />
             </div>
             <div>
               <div className="text-[11px] font-mono font-bold text-blue-600 uppercase">
-                {tenantInfo.slug}.mindmittel.de · DB: {tenantInfo.dbName}
+                {tenantInfo.slug}.mindmittel.de
               </div>
               <h1 className="text-lg font-extrabold text-slate-900">
                 {tenantInfo.companyName}
@@ -1228,7 +1232,7 @@ export default function HomePage() {
                           <span>Live Voice & Audio Transcription</span>
                         </div>
                         <p className="text-[11px] text-slate-500 leading-snug">
-                          Auto-transcribed & sliced into 768-d vectors ✓
+                          Auto-transcribed &amp; indexed into Company Brain ✓
                         </p>
                       </div>
 
@@ -1478,7 +1482,7 @@ export default function HomePage() {
                   </div>
                   <div className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center justify-between">
                     <span className="font-medium">
-                      Auto-Sliced into 768-d Vectors
+                      Indexed into Company Brain
                     </span>
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   </div>
@@ -1611,8 +1615,8 @@ export default function HomePage() {
                 </h3>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                   {locale === 'de'
-                    ? 'Erfassen Sie Text, PDFs, Bilder, PowerPoint-Folien oder Live-Sprachaufnahmen. Gemini transkribiert und konvertiert alles automatisch in durchsuchbare 768-d Vektoren.'
-                    : 'Ingest plain text, PDFs, images, PowerPoint decks, audio files, or live microphone dictations—automatically transcribed and indexed into 768-d Company Brain vectors.'}
+                    ? 'Erfassen Sie Text, PDFs, Bilder, PowerPoint-Folien oder Live-Sprachaufnahmen. Gemini transkribiert und speichert alles automatisch im Company Brain.'
+                    : 'Ingest plain text, PDFs, images, PowerPoint decks, audio files, or live microphone dictations—automatically transcribed and indexed into your Company Brain.'}
                 </p>
               </div>
 
@@ -1968,19 +1972,16 @@ export default function HomePage() {
 
       {/* VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS (Evaluate Decision + Stacked Audit History, Company Brain, Connectors) */}
       {activeTab === 'vault' && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-4">
           {tenantInfo && (
             <div className="bg-white rounded-xl border border-slate-200/85 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 font-extrabold text-slate-900">
-                  <Database className="w-3.5 h-3.5 text-blue-600" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
                   <span>{tenantInfo.companyName}</span>
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[11px] font-semibold">
                   {tenantInfo.slug}.mindmittel.de
-                </span>
-                <span className="text-slate-500 font-mono text-[11px]">
-                  DB: <strong>{tenantInfo.dbName}</strong>
                 </span>
               </div>
               {tenantInfo.authMode === 'otp' && (
@@ -2553,7 +2554,7 @@ export default function HomePage() {
                     <p className="text-[12.5px] text-slate-500 mt-0.5">
                       {locale === 'de'
                         ? `Wird unter Ihrer E-Mail (${userEmail}) gespeichert & indexiert.`
-                        : `Attributed to your corporate email (${userEmail}) and indexed into 768-d vectors.`}
+                        : `Attributed to your corporate email (${userEmail}) and stored in your Company Brain.`}
                     </p>
                   </div>
 
@@ -2743,7 +2744,7 @@ export default function HomePage() {
                     placeholder={
                       locale === 'de'
                         ? 'Richtlinien-Text (oder Ergebnis aus Datei-Upload / Sprachaufnahme)...'
-                        : 'Policy text or transcribed content (auto-sliced into Parent & 768-d Child vectors)...'
+                        : 'Policy text or transcribed content (automatically indexed into your Company Brain)...'
                     }
                     className="w-full p-3 text-[13.5px] leading-relaxed liquid-glass-input"
                   />
@@ -2755,7 +2756,7 @@ export default function HomePage() {
                       </span>
                     ) : (
                       <span className="text-[12px] text-slate-500">
-                        Author attribution: <strong>{userEmail}</strong> · 768-d Atlas Vector Store
+                        Author attribution: <strong>{userEmail}</strong> · Isolated Company Brain
                       </span>
                     )}
 
@@ -2914,7 +2915,7 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* ONLINE IN-PLACE DOCUMENT EDITOR MODAL (Updates MongoDB Atlas & Re-Indexes 768-d Vectors) */}
+              {/* ONLINE IN-PLACE DOCUMENT EDITOR MODAL */}
               {editingDocId && (
                 <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
                   <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4">
@@ -2922,13 +2923,13 @@ export default function HomePage() {
                       <div>
                         <h3 className="text-[15.5px] font-semibold text-slate-900">
                           {locale === 'de'
-                            ? 'Dokument online in der Datenbank bearbeiten & neu indexieren'
-                            : 'Edit Document Online in Database & Re-Index Vectors'}
+                            ? 'Richtlinie bearbeiten'
+                            : 'Edit Company Policy'}
                         </h3>
                         <p className="text-[12px] text-slate-500">
                           {locale === 'de'
-                            ? 'Änderungen aktualisieren sofort das Dokument und berechnen die 768-d Vektoren neu.'
-                            : 'Saving updates the record in place, regenerates its 768-d vectors, and re-runs conflict checks.'}
+                            ? 'Änderungen aktualisieren sofort das Dokument und prüfen auf Konflikte.'
+                            : 'Saving updates the policy in place and re-runs conflict checks.'}
                         </p>
                       </div>
                       <button
@@ -2995,10 +2996,10 @@ export default function HomePage() {
                           className="h-8 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-medium shadow-sm"
                         >
                           {isUpdatingDoc
-                            ? 'Re-Indexing...'
+                            ? 'Saving...'
                             : locale === 'de'
-                            ? 'Speichern & Vektoren aktualisieren'
-                            : 'Save & Re-Index Vectors'}
+                            ? 'Änderungen speichern'
+                            : 'Save Changes'}
                         </button>
                       </div>
                     </form>
@@ -3036,10 +3037,9 @@ export default function HomePage() {
                           <span>{doc.department}</span>
                           <span>·</span>
                           <span className="text-blue-600 font-medium">
-                            {doc.childCount} vectors
                             {doc.sectionCount && doc.sectionCount > 1
-                              ? ` (${doc.sectionCount} sections)`
-                              : ''}
+                              ? `${doc.sectionCount} sections`
+                              : `${doc.childCount} sections`}
                           </span>
                           <span>·</span>
                           <span className="text-slate-500 truncate">

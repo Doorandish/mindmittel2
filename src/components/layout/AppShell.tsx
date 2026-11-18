@@ -1,17 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  BrainCircuit,
   Database,
   Activity,
   ArrowUpRight,
-  Home,
   ShieldCheck,
   Plug,
   Settings2,
 } from 'lucide-react';
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
+import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 
 export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors' | 'system';
 
@@ -114,6 +113,16 @@ export function AppShell({
   totalConnectorsCount = 7,
   onOpenAuthModal,
 }: AppShellProps) {
+  const [landingHref, setLandingHref] = useState<string>('https://mindmittel.de');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setLandingHref(
+        buildZoneUrl(null, window.location.host, window.location.protocol)
+      );
+    }
+  }, []);
+
   function navigateToWorkspaceSubTab(subTab: WorkspaceSubTab) {
     onTabChange?.('vault');
     onWorkspaceSubTabChange?.(subTab);
@@ -146,28 +155,26 @@ export function AppShell({
       {activeTab === 'overview' && (
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() => onTabChange?.('overview')}
+            <a
+              href={landingHref}
               className="flex items-center gap-2.5 text-left group shrink-0"
             >
-              <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-600 transition-colors">
-                <BrainCircuit className="w-4 h-4" />
-              </div>
+              <img
+                src="/images/mindmittel-logo.svg"
+                alt="MindMittel Logo"
+                className="w-8 h-8 object-contain shrink-0"
+              />
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-semibold tracking-[-0.02em] text-[15px] text-slate-900">
+                  <span className="font-bold tracking-[-0.02em] text-[16px] text-slate-900">
                     {dict.meta.appName}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 text-slate-600 border border-slate-200/80">
-                    v2
                   </span>
                 </div>
                 <p className="text-[9.5px] font-medium tracking-[0.04em] text-slate-400 uppercase hidden sm:block">
                   {dict.meta.tagline}
                 </p>
               </div>
-            </button>
+            </a>
 
             <nav
               aria-label="Primary Navigation"
@@ -249,18 +256,19 @@ export function AppShell({
         <div className="flex-1 w-full flex flex-col md:flex-row min-h-screen">
           {/* Mobile-Only Compact Bar (since Left Sidebar is hidden on <md screens) */}
           <div className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 h-13 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => onTabChange?.('overview')}
+            <a
+              href={landingHref}
               className="flex items-center gap-2 text-left"
             >
-              <div className="w-7 h-7 rounded-md bg-slate-900 flex items-center justify-center text-white">
-                <BrainCircuit className="w-3.5 h-3.5" />
-              </div>
-              <span className="font-semibold text-[14px] tracking-[-0.02em] text-slate-900">
+              <img
+                src="/images/mindmittel-logo.svg"
+                alt="MindMittel Logo"
+                className="w-7 h-7 object-contain shrink-0"
+              />
+              <span className="font-bold text-[15px] tracking-[-0.02em] text-slate-900">
                 {dict.meta.appName}
               </span>
-            </button>
+            </a>
 
             <div className="inline-flex items-center bg-slate-100 border border-slate-200/80 rounded-md p-0.5 text-[11px] font-medium">
               <button
@@ -297,24 +305,20 @@ export function AppShell({
             <div>
               {/* Sidebar Top Header: Brand Logo on Left + Language Toggle on Right */}
               <div className="px-4 h-14 border-b border-slate-200/70 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => onTabChange?.('overview')}
+                <a
+                  href={landingHref}
                   className="flex items-center gap-2 text-left group min-w-0"
-                  title="Return to Landing Page"
+                  title="mindmittel.de"
                 >
-                  <div className="w-7 h-7 rounded-md bg-slate-900 group-hover:bg-blue-600 transition-colors flex items-center justify-center text-white shrink-0">
-                    <BrainCircuit className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="flex items-baseline gap-1.5 truncate">
-                    <span className="font-semibold tracking-[-0.02em] text-[14px] text-slate-900 leading-none">
-                      {dict.meta.appName}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 font-medium">
-                      v2
-                    </span>
-                  </div>
-                </button>
+                  <img
+                    src="/images/mindmittel-logo.svg"
+                    alt="MindMittel Logo"
+                    className="w-8 h-8 object-contain shrink-0"
+                  />
+                  <span className="font-bold tracking-[-0.02em] text-[15px] text-slate-900 leading-none truncate">
+                    {dict.meta.appName}
+                  </span>
+                </a>
 
                 {/* Integrated Sidebar Language Selector (EN | DE) */}
                 <div
@@ -414,20 +418,6 @@ export function AppShell({
                     </div>
                   </div>
                 ))}
-
-                {/* Landing Page Return Link */}
-                <div className="pt-3 border-t border-slate-200/60">
-                  <button
-                    type="button"
-                    onClick={() => onTabChange?.('overview')}
-                    className="group w-full h-9 px-2.5 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 transition-colors flex items-center gap-2.5 text-left"
-                  >
-                    <Home className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
-                    <span className="tracking-[-0.01em]">
-                      {dict.nav.backToLanding}
-                    </span>
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -483,17 +473,6 @@ export function AppShell({
         className="md:hidden fixed bottom-3 inset-x-4 z-50"
       >
         <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-full px-3 py-2 flex items-center justify-around">
-          <button
-            type="button"
-            onClick={() => onTabChange?.('overview')}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-full text-[11px] font-semibold ${
-              activeTab === 'overview' ? 'text-blue-600' : 'text-slate-500'
-            }`}
-          >
-            <Home className="w-4 h-4" />
-            <span>{dict.nav.backToLanding}</span>
-          </button>
-
           <button
             type="button"
             onClick={() => navigateToWorkspaceSubTab('evaluate')}

@@ -112,4 +112,25 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(marketingSource).not.toContain('Parent-Child RAG');
     expect(marketingSource).not.toContain('768-d');
   });
+
+  it('uses the MindMittel SVG logo linked to landing page, removes sidebar Home button, widens workspace, and hides technical DB/vector jargon', () => {
+    const appShellSource = fs.readFileSync(
+      path.join(rootDir, 'src/components/layout/AppShell.tsx'),
+      'utf-8'
+    );
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    expect(appShellSource).toContain('/images/mindmittel-logo.svg');
+    expect(appShellSource).toContain('landingHref');
+    expect(appShellSource).not.toContain('<Home');
+
+    expect(pageSource).toContain('max-w-6xl');
+    expect(pageSource).not.toContain('768-d');
+    expect(pageSource).not.toContain('Atlas Vector Store');
+    expect(pageSource).not.toContain('DB: <strong>{tenantInfo.dbName}</strong>');
+    expect(pageSource).not.toContain('DB: {tenantInfo.dbName}');
+  });
 });
