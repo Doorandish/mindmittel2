@@ -133,11 +133,34 @@ describe('Dynamic Persian Dual-Layer Living Documentation & Anti-Drift Guard', (
     expect(snapshot.technicalDoc.title).toBeTruthy();
     expect(snapshot.technicalDoc.sections.length).toBeGreaterThanOrEqual(6);
     expect(snapshot.technicalDoc.diagrams.length).toBeGreaterThanOrEqual(3);
+    expect(
+      snapshot.technicalDoc.architectureDecisions.length
+    ).toBeGreaterThanOrEqual(8);
+
+    for (const adr of snapshot.technicalDoc.architectureDecisions) {
+      expect(adr.id).toBeTruthy();
+      expect(adr.titleFa).toBeTruthy();
+      expect(adr.chosenArchitectureFa.length).toBeGreaterThan(20);
+      expect(adr.whyChosenFa.length).toBeGreaterThan(20);
+      expect(adr.alternativesRejectedFa.length).toBeGreaterThanOrEqual(2);
+      expect(adr.limitationsAndTradeoffsFa.length).toBeGreaterThan(20);
+    }
 
     expect(snapshot.nonTechnicalDoc.title).toBeTruthy();
     expect(snapshot.nonTechnicalDoc.sections.length).toBeGreaterThanOrEqual(5);
     expect(snapshot.nonTechnicalDoc.diagrams.length).toBeGreaterThanOrEqual(3);
     expect(snapshot.nonTechnicalDoc.errorShields.length).toBeGreaterThanOrEqual(6);
+    expect(
+      snapshot.nonTechnicalDoc.architectKeyDecisions.length
+    ).toBeGreaterThanOrEqual(8);
+
+    for (const decision of snapshot.nonTechnicalDoc.architectKeyDecisions) {
+      expect(decision.questionFa).toBeTruthy();
+      expect(decision.simpleAnswerFa.length).toBeGreaterThan(20);
+      expect(decision.alternativesComparisonFa.length).toBeGreaterThan(20);
+      expect(decision.limitationsAndConstraintsFa.length).toBeGreaterThan(20);
+      expect(decision.whyItMattersFa.length).toBeGreaterThan(15);
+    }
 
     expect(snapshot.liveMetrics.totalArchitectureNodes).toBe(
       ARCHITECTURE_NODES.length
@@ -202,5 +225,12 @@ describe('Dynamic Persian Dual-Layer Living Documentation & Anti-Drift Guard', (
 
     const adminPageContent = fs.readFileSync(adminPage, 'utf8');
     expect(adminPageContent).toContain('/admin/docs');
+    expect(adminPageContent).toContain('Architecture Docs');
+    expect(/[\u0600-\u06FF]/.test(adminPageContent)).toBe(false);
+
+    const systemPage = path.join(repoRoot, 'src/app/system/page.tsx');
+    const systemPageContent = fs.readFileSync(systemPage, 'utf8');
+    expect(systemPageContent).toContain('/admin/docs');
+    expect(/[\u0600-\u06FF]/.test(systemPageContent)).toBe(false);
   });
 });

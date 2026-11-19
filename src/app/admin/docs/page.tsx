@@ -226,7 +226,7 @@ export default function AdminPersianLivingDocsPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-slate-500">
         <div className="flex items-center gap-2.5 text-sm font-medium">
           <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-          <span>در حال بررسی نشست امنیتی مدیر پلتفرم...</span>
+          <span>Verifying Product Owner session...</span>
         </div>
       </div>
     );
@@ -234,10 +234,7 @@ export default function AdminPersianLivingDocsPage() {
 
   if (!authenticated) {
     return (
-      <div
-        dir="rtl"
-        className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4"
-      >
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-7 sm:p-8 space-y-5 shadow-2xl text-center">
           <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto">
             <Lock className="w-6 h-6" />
@@ -248,11 +245,10 @@ export default function AdminPersianLivingDocsPage() {
               admin.mindmittel.de/admin/docs
             </div>
             <h1 className="text-lg font-extrabold text-white">
-              دسترسی انحصاری مالک پلتفرم (Product Owner)
+              Product Owner Authentication Required
             </h1>
             <p className="text-xs text-slate-400 leading-relaxed">
-              مستندات زنده فنی و غیرفنی معماری سیستم فقط برای مدیر اصلی پلتفرم
-              قابل مشاهده است. لطفاً ابتدا از طریق پنل مدیریت وارد شوید.
+              Living architecture documentation is restricted to authenticated Product Owners. Please sign in via the Control Plane first.
             </p>
           </div>
 
@@ -261,7 +257,7 @@ export default function AdminPersianLivingDocsPage() {
             className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>ورود به پنل مدیریت (/admin)</span>
+            <span>Go to Admin Control Plane (/admin)</span>
           </Link>
         </div>
       </div>
@@ -270,15 +266,17 @@ export default function AdminPersianLivingDocsPage() {
 
   return (
     <div
-      dir="rtl"
       style={{
         fontFamily: "'Vazirmatn', 'Inter', Tahoma, sans-serif",
         lineHeight: 1.8,
       }}
       className="min-h-screen bg-[#f8fafc] text-slate-900"
     >
-      {/* Top Admin Header */}
-      <header className="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800 print:hidden">
+      {/* Top Admin Header (English LTR matching admin.mindmittel.de) */}
+      <header
+        dir="ltr"
+        className="sticky top-0 z-30 bg-slate-900 text-white border-b border-slate-800 print:hidden"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-sm shadow">
@@ -286,19 +284,13 @@ export default function AdminPersianLivingDocsPage() {
             </div>
             <div>
               <div className="text-sm font-extrabold flex items-center gap-2">
-                <span>مرجع مستندات زنده معماری MindMittel V2</span>
-                <span
-                  dir="ltr"
-                  className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-mono"
-                >
+                <span>MindMittel Control Plane · Architecture Docs</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-mono">
                   Auto-Synced with Code
                 </span>
               </div>
-              <div
-                dir="ltr"
-                className="text-[11px] text-slate-400 font-mono text-right"
-              >
-                {ownerEmail} · admin.mindmittel.de/admin/docs
+              <div className="text-[11px] text-slate-400 font-mono">
+                Signed in as {ownerEmail} · admin.mindmittel.de/admin/docs
               </div>
             </div>
           </div>
@@ -310,27 +302,30 @@ export default function AdminPersianLivingDocsPage() {
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>چاپ / ذخیره PDF</span>
+              <span>Print / Save PDF</span>
             </button>
             <Link
               href="/system"
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5"
             >
               <Activity className="w-3.5 h-3.5 text-emerald-400" />
-              <span>لاگ زنده و توپولوژی (/system)</span>
+              <span>System Topology (/system)</span>
             </Link>
             <Link
               href="/admin"
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white inline-flex items-center gap-1.5"
             >
-              <span>بازگشت به مدیریت مشتریان (/admin)</span>
               <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Control Plane (/admin)</span>
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main
+        dir="rtl"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
+      >
         {/* Live Code-Synchronized Telemetry Banner */}
         <section className="bg-gradient-to-l from-slate-900 via-slate-900 to-blue-950 text-white rounded-3xl p-6 sm:p-8 shadow-lg border border-slate-800 space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -603,33 +598,63 @@ export default function AdminPersianLivingDocsPage() {
               </div>
             </div>
 
-            {/* Key Architectural Decisions Explained Simply */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-5">
-              <div className="space-y-1 border-b border-slate-100 pb-4">
+            {/* Key Architectural Decisions Explained Simply (Why Chosen, Rejected Alternatives & Limitations) */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold">
                   <HelpCircle className="w-3.5 h-3.5" />
-                  <span>فلسفه طراحی معماری به زبان ساده</span>
+                  <span>فلسفه طراحی معماری، گزینه‌های جایگزین و محدودیت‌ها به زبان ساده</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">
-                  ۴ سوال کلیدی که هر معمار سیستم یا سرمایه‌گذار فنی می‌پرسد (و پاسخ ساده آن‌ها)
+                  ۸ تصمیم کلیدی معماری: چرا این روش را انتخاب کردیم، چرا جایگزین‌ها رد شدند و چه محدودیتی ایجاد می‌کند؟
                 </h3>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  در مهندسی نرم‌افزار هیچ تصمیمی بدون بده‌بستان (Trade-off) نیست. در این بخش، دلیل انتخاب معماری هر قسمت، مقایسه با گزینه‌های رقیب و محدودیت‌های آن به زبان ساده توضیح داده شده است:
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {snapshot.nonTechnicalDoc.architectKeyDecisions.map(
                   (item, index) => (
                     <div
                       key={index}
-                      className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-2.5"
+                      className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-3 flex flex-col justify-between"
                     >
-                      <h4 className="text-sm font-extrabold text-slate-900">
-                        سوال {index + 1}: {item.questionFa}
-                      </h4>
-                      <p className="text-xs sm:text-[13px] text-slate-700 leading-relaxed">
-                        {item.simpleAnswerFa}
-                      </p>
-                      <div className="p-2.5 rounded-xl bg-indigo-50/80 border border-indigo-200/70 text-xs text-indigo-950">
-                        <span className="font-bold">چرا این تصمیم مهم است؟ </span>
+                      <div className="space-y-3">
+                        <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
+                          {item.questionFa}
+                        </h4>
+
+                        <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 space-y-1">
+                          <div className="text-[11px] font-bold text-blue-900">
+                            ✓ چرا این معماری انتخاب شد؟ (پاسخ ساده)
+                          </div>
+                          <p className="text-xs text-slate-800 leading-relaxed">
+                            {item.simpleAnswerFa}
+                          </p>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-100/90 border border-slate-200/90 space-y-1">
+                          <div className="text-[11px] font-bold text-slate-800">
+                            ✗ چرا گزینه‌های جایگزین رد شدند؟
+                          </div>
+                          <p className="text-xs text-slate-700 leading-relaxed">
+                            {item.alternativesComparisonFa}
+                          </p>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/90 space-y-1">
+                          <div className="text-[11px] font-bold text-amber-900">
+                            ⚠ محدودیت یا بده‌بستان این معماری چیست؟
+                          </div>
+                          <p className="text-xs text-amber-950 leading-relaxed">
+                            {item.limitationsAndConstraintsFa}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-xs text-emerald-950">
+                        <span className="font-bold">ارزش و نتیجه نهایی: </span>
                         {item.whyItMattersFa}
                       </div>
                     </div>
@@ -731,6 +756,128 @@ export default function AdminPersianLivingDocsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Technical Architecture Decision Records (ADRs: Why Chosen, Rejected Alternatives & Limitations) */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="space-y-1.5 border-b border-slate-100 pb-4">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold">
+                  <GitBranch className="w-3.5 h-3.5" />
+                  <span>Architecture Decision Records (ADRs) · مهندسی تصمیمات معماری و محدودیت‌ها</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                  ۸ سند رسمی تصمیمات معماری (ADRs): چرایی انتخاب، مقایسه فنی با جایگزین‌ها و محدودیت‌های سیستم
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  تحلیل عمیق مهندسی برای هر یک از تصمیمات معماری پلتفرم، دلایل رد گزینه‌های رقیب، محدودیت‌های فنی ایجادشده (Trade-offs) و مسیر مقیاس‌پذیری آینده:
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {snapshot.technicalDoc.architectureDecisions.map((adr) => (
+                  <div
+                    key={adr.id}
+                    className="rounded-2xl border border-slate-200/90 bg-slate-50/60 p-5 sm:p-6 space-y-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/80 pb-3">
+                      <div className="space-y-1">
+                        <span
+                          dir="ltr"
+                          className="inline-block px-2.5 py-0.5 rounded-md bg-slate-900 text-white font-mono text-[11px] font-bold"
+                        >
+                          {adr.codeBadge}
+                        </span>
+                        <h4 className="text-base sm:text-lg font-extrabold text-slate-900">
+                          {adr.titleFa}
+                        </h4>
+                      </div>
+                      <span
+                        dir="ltr"
+                        className="text-[11px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-md"
+                      >
+                        {adr.subtitleEn}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                      <div className="p-4 rounded-xl bg-white border border-slate-200/90 space-y-1.5">
+                        <div className="font-extrabold text-slate-900">
+                          معماری انتخاب‌شده (Chosen Architecture):
+                        </div>
+                        <p className="text-slate-700 leading-relaxed">
+                          {adr.chosenArchitectureFa}
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200/90 space-y-1.5">
+                        <div className="font-extrabold text-blue-900">
+                          ✓ چرایی انتخاب این معماری (Engineering Rationale):
+                        </div>
+                        <p className="text-slate-800 leading-relaxed">
+                          {adr.whyChosenFa}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Rejected Alternatives */}
+                    <div className="p-4 rounded-xl bg-white border border-slate-200/90 space-y-2.5 text-xs">
+                      <div className="font-extrabold text-rose-900">
+                        ✗ مقایسه با گزینه‌های جایگزین و دلیل رد شدن آن‌ها (Why Chosen Over Alternatives):
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {adr.alternativesRejectedFa.map((alt, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 rounded-lg bg-rose-50/50 border border-rose-200/70 space-y-1"
+                          >
+                            <div className="font-bold text-slate-900">
+                              {alt.optionNameFa}
+                            </div>
+                            <p className="text-slate-700 leading-relaxed">
+                              {alt.whyRejectedFa}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Limitations & Future Mitigation */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                      <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200/90 space-y-1.5">
+                        <div className="font-extrabold text-amber-900">
+                          ⚠ محدودیت‌ها و بده‌بستان‌های فنی (Limitations & Trade-offs):
+                        </div>
+                        <p className="text-amber-950 leading-relaxed">
+                          {adr.limitationsAndTradeoffsFa}
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200/90 space-y-1.5">
+                        <div className="font-extrabold text-emerald-900">
+                          راهکار مهار محدودیت و مسیر مقیاس‌پذیری (Mitigation & Scale Path):
+                        </div>
+                        <p className="text-emerald-950 leading-relaxed">
+                          {adr.mitigationOrFuturePathFa}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      dir="ltr"
+                      className="flex flex-wrap gap-1.5 pt-1 text-[11px] font-mono text-slate-600"
+                    >
+                      {adr.sourceFiles.map((sf) => (
+                        <span
+                          key={sf}
+                          className="px-2 py-0.5 rounded bg-slate-200/70 border border-slate-300/70"
+                        >
+                          {sf}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Interactive Click-to-Inspect Dual-Layer Node Explorer (Coupled to ARCHITECTURE_NODES) */}

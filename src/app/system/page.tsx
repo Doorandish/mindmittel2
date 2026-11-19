@@ -160,7 +160,7 @@ export default function SystemObservabilityPage() {
               href="/admin/docs"
               className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white inline-flex items-center gap-1.5 shadow-sm transition-colors"
             >
-              <span>مستندات معماری (FA)</span>
+              <span>Architecture Docs</span>
             </Link>
 
             <Link

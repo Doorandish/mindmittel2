@@ -383,7 +383,7 @@ export default function SuperAdminConsolePage() {
               href="/admin/docs"
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white flex items-center gap-1.5 shadow-sm"
             >
-              <span>مستندات معماری (FA) · Docs</span>
+              <span>Architecture Docs</span>
             </a>
             <a
               href="/system"
@@ -404,21 +404,18 @@ export default function SuperAdminConsolePage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div
-          dir="rtl"
-          className="bg-gradient-to-l from-slate-900 via-slate-900 to-indigo-950 text-white rounded-2xl border border-slate-800 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm"
-        >
+        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 text-white rounded-2xl border border-slate-800 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
           <div className="space-y-1">
             <div className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[11px]">
-                زنده و خودکار
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-mono">
+                AUTO-SYNCED
               </span>
               <span>
-                دانشنامه دوگانه معماری سیستم (داکیومنت فنی مهندسی + داکیومنت غیرفنی به زبان ساده با فلوچارت و ۶ سپر ضدخطا)
+                Living System Architecture & Executive Blueprint (Dual-Layer Persian Docs)
               </span>
             </div>
             <p className="text-xs text-slate-300">
-              این دو داکیومنت فارسی مستقیماً به کدهای پروژه متصل هستند و طبق قانون اجباری پروژه با هر تغییر در کد به‌روزرسانی می‌شوند.
+              Dynamic Technical Architecture Specification & Non-Technical System Blueprint with visual flowcharts, ADRs, trade-offs, and 6 error-prevention shields.
             </p>
           </div>
 
@@ -426,7 +423,7 @@ export default function SuperAdminConsolePage() {
             href="/admin/docs"
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold inline-flex items-center gap-2 shadow transition-colors shrink-0"
           >
-            <span>مشاهده ۲ داکیومنت جامع فارسی (/admin/docs)</span>
+            <span>Open Architecture Docs (/admin/docs)</span>
             <ArrowUpRight className="w-4 h-4" />
           </a>
         </div>
