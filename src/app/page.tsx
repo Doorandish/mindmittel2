@@ -157,7 +157,6 @@ export default function HomePage() {
   const [tenantAuthenticated, setTenantAuthenticated] = useState<boolean>(false);
   const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
   const [otpCodeInput, setOtpCodeInput] = useState<string>('');
-  const [sandboxOtpCode, setSandboxOtpCode] = useState<string | null>(null);
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
 
@@ -408,7 +407,6 @@ export default function HomePage() {
   async function handleRequestOtpCode(e: React.FormEvent) {
     e.preventDefault();
     setAuthFeedback(null);
-    setSandboxOtpCode(null);
     setIsSendingOtp(true);
     try {
       const res = await fetch('/api/auth/otp/request', {
@@ -419,9 +417,6 @@ export default function HomePage() {
       const data = await res.json();
       if (data.ok) {
         setOtpStep('code');
-        if (data.sandboxCode) {
-          setSandboxOtpCode(data.sandboxCode);
-        }
       } else {
         setAuthFeedback(data.error ?? 'Could not send verification code.');
       }
@@ -457,7 +452,6 @@ export default function HomePage() {
         setTenantAuthenticated(true);
         setShowAuthModal(false);
         setOtpCodeInput('');
-        setSandboxOtpCode(null);
         fetchBrainDocuments();
         fetchAuditHistory();
         fetchConnectors();
@@ -478,7 +472,6 @@ export default function HomePage() {
     setTenantAuthenticated(false);
     setOtpStep('email');
     setOtpCodeInput('');
-    setSandboxOtpCode(null);
     setDocuments([]);
     setAuditHistory([]);
   }
@@ -1330,19 +1323,6 @@ export default function HomePage() {
             </form>
           ) : (
             <form onSubmit={handleVerifyOtpCode} className="space-y-4">
-              {sandboxOtpCode && (
-                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-                  <div className="font-bold">
-                    {locale === 'de'
-                      ? 'Sandbox-Bestätigungscode (Entwicklungsmodus):'
-                      : 'Sandbox Verification Code (Development Mode):'}
-                  </div>
-                  <div className="font-mono text-lg font-extrabold tracking-widest text-blue-700">
-                    {sandboxOtpCode}
-                  </div>
-                </div>
-              )}
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {locale === 'de'

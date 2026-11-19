@@ -84,15 +84,17 @@ export async function POST(request: NextRequest) {
       ok: true,
       deliveredVia: dispatch.deliveredVia,
       expiresAt: dispatch.expiresAt,
-      ...(dispatch.sandboxCode ? { sandboxCode: dispatch.sandboxCode } : {}),
     });
   } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to send verification code.';
+    const isSmtpError = message.toLowerCase().includes('smtp');
     return NextResponse.json(
       {
         ok: false,
-        error: err instanceof Error ? err.message : 'Failed to send verification code.',
+        error: message,
       },
-      { status: 400 }
+      { status: isSmtpError ? 503 : 400 }
     );
   }
 }

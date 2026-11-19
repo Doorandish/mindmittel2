@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   generateOtpCode,
@@ -93,5 +95,32 @@ describe('OTP email formatting (anti-spam compliance)', () => {
     expect(email.html).toContain('764608');
     expect(email.text).toContain('764608');
     expect(email.text).toContain('hsansbach.mindmittel.de');
+  });
+
+  it('uses Amazon SMTP exclusively with zero Resend code and never renders sandbox OTP codes on the login screen', () => {
+    const repoRoot = process.cwd();
+    const otpServiceSource = fs.readFileSync(
+      path.join(repoRoot, 'src/infrastructure/auth/otpService.ts'),
+      'utf8'
+    );
+    const otpRequestRouteSource = fs.readFileSync(
+      path.join(repoRoot, 'src/app/api/auth/otp/request/route.ts'),
+      'utf8'
+    );
+    const pageSource = fs.readFileSync(
+      path.join(repoRoot, 'src/app/page.tsx'),
+      'utf8'
+    );
+    const smtpClientPath = path.join(
+      repoRoot,
+      'src/infrastructure/email/smtpClient.ts'
+    );
+
+    expect(fs.existsSync(smtpClientPath)).toBe(true);
+    expect(otpServiceSource.toLowerCase()).not.toContain('resend');
+    expect(otpServiceSource).not.toContain('sandboxCode');
+    expect(otpRequestRouteSource).not.toContain('sandboxCode');
+    expect(pageSource).not.toContain('sandboxOtpCode');
+    expect(pageSource).not.toContain('sandboxCode');
   });
 });

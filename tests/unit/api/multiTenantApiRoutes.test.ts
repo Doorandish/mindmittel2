@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST as adminLoginPost } from '@/app/api/admin/session/route';
 import {
@@ -12,6 +12,10 @@ import {
   POST as docsPost,
 } from '@/app/api/brain/documents/route';
 import { resetTenantRepositoryForTests } from '@/infrastructure/tenancy/tenantRepository';
+import {
+  setSmtpSenderForTests,
+  type SmtpMailPayload,
+} from '@/infrastructure/email/smtpClient';
 
 function extractCookieValue(
   setCookieHeader: string | null,
@@ -23,11 +27,20 @@ function extractCookieValue(
 }
 
 describe('End-to-End Multi-Tenant Subdomain API Isolation & OTP Flow', () => {
+  const sentEmails: SmtpMailPayload[] = [];
+
   beforeEach(() => {
     delete process.env.MONGODB_URI;
     delete process.env.GEMINI_API_KEY;
-    delete process.env.RESEND_API_KEY;
+    sentEmails.length = 0;
+    setSmtpSenderForTests(async (payload) => {
+      sentEmails.push(payload);
+    });
     resetTenantRepositoryForTests();
+  });
+
+  afterEach(() => {
+    setSmtpSenderForTests(null);
   });
 
   it('authenticates the product owner on admin.mindmittel.de and provisions a customer tenant', async () => {
@@ -164,7 +177,13 @@ describe('End-to-End Multi-Tenant Subdomain API Isolation & OTP Flow', () => {
     );
     expect(otpReqRes.status).toBe(200);
     const otpReqData = await otpReqRes.json();
-    expect(otpReqData.sandboxCode).toMatch(/^\d{6}$/);
+    expect(otpReqData.deliveredVia).toBe('smtp');
+    expect(otpReqData.sandboxCode).toBeUndefined();
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].to).toBe('cfo@bosch.de');
+    const codeMatch = sentEmails[0].text.match(/\b(\d{6})\b/);
+    expect(codeMatch).not.toBeNull();
+    const deliveredCode = codeMatch![1];
 
     const verifyRes = await otpVerifyPost(
       new NextRequest('https://bosch.mindmittel.de/api/auth/otp/verify', {
@@ -175,7 +194,7 @@ describe('End-to-End Multi-Tenant Subdomain API Isolation & OTP Flow', () => {
         },
         body: JSON.stringify({
           email: 'cfo@bosch.de',
-          code: otpReqData.sandboxCode,
+          code: deliveredCode,
           fullName: 'Bosch CFO',
           department: 'Finance & Legal',
         }),

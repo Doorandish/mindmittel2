@@ -12,6 +12,7 @@ import { getOtpHashingKey } from '@/infrastructure/security/masterKey';
 import { getControlPlaneDb } from '@/infrastructure/db/mongo';
 import { COLLECTIONS } from '@/infrastructure/db/schemas';
 import { systemLogger } from '@/infrastructure/logging/logger';
+import { sendSmtpEmail } from '@/infrastructure/email/smtpClient';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -93,14 +94,13 @@ const hybridOtpStore: OtpStore = {
 };
 
 export interface OtpDispatchResult {
-  deliveredVia: 'resend' | 'webhook' | 'sandbox';
+  deliveredVia: 'smtp';
   expiresAt: number;
-  sandboxCode?: string;
 }
 
 /**
- * Issues a 6-digit OTP for `(tenantSlug, email)` and delivers it via Resend API / HTTP webhook
- * when configured, or returns `sandboxCode` when running in sandbox/testing mode without an email provider.
+ * Issues a 6-digit OTP for `(tenantSlug, email)` and delivers it exclusively via Amazon SMTP (STARTTLS).
+ * Never exposes the plaintext OTP in API responses.
  */
 export async function issueAndSendTenantOtp(params: {
   tenantSlug: string;
@@ -113,54 +113,43 @@ export async function issueAndSendTenantOtp(params: {
     key: getOtpHashingKey(),
   });
 
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  const resendFrom =
-    process.env.EMAIL_FROM?.trim() || 'MindMittel Security <onboarding@resend.dev>';
+  const emailFrom =
+    process.env.EMAIL_FROM?.trim() ||
+    'MindMittel Security <security@mindmittel.de>';
+  const emailContent = buildOtpEmailContent({
+    companyName: params.companyName,
+    tenantSlug: params.tenantSlug,
+    code,
+  });
 
-  if (resendApiKey) {
-    try {
-      const emailContent = buildOtpEmailContent({
-        companyName: params.companyName,
-        tenantSlug: params.tenantSlug,
-        code,
-      });
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: resendFrom,
-          reply_to: 'security@mindmittel.de',
-          to: [params.email.trim().toLowerCase()],
-          subject: emailContent.subject,
-          text: emailContent.text,
-          html: emailContent.html,
-        }),
-      });
-      if (response.ok) {
-        systemLogger.info(
-          'auth.otp',
-          `Dispatched 6-digit OTP to [${params.email}] for tenant [${params.tenantSlug}] via Resend`
-        );
-        return { deliveredVia: 'resend', expiresAt };
+  try {
+    await sendSmtpEmail({
+      from: emailFrom,
+      replyTo: 'security@mindmittel.de',
+      to: params.email.trim().toLowerCase(),
+      subject: emailContent.subject,
+      text: emailContent.text,
+      html: emailContent.html,
+    });
+
+    systemLogger.info(
+      'auth.otp',
+      `Dispatched 6-digit OTP to [${params.email}] for tenant [${params.tenantSlug}] via Amazon SMTP`
+    );
+
+    return { deliveredVia: 'smtp', expiresAt };
+  } catch (err) {
+    systemLogger.error(
+      'auth.otp',
+      `Amazon SMTP OTP delivery failed for [${params.email}] on tenant [${params.tenantSlug}]`,
+      {
+        error: err instanceof Error ? err.message : 'Unknown SMTP error',
       }
-    } catch {
-      // Fall through to sandbox fallback if email provider call fails
-    }
+    );
+    throw new Error(
+      'Failed to send verification code email via SMTP. Please try again or contact support.'
+    );
   }
-
-  systemLogger.info(
-    'auth.otp',
-    `Generated OTP [${code}] for [${params.email}] on tenant [${params.tenantSlug}] (sandbox mode — set RESEND_API_KEY for live email delivery)`
-  );
-
-  return {
-    deliveredVia: 'sandbox',
-    expiresAt,
-    sandboxCode: code,
-  };
 }
 
 export async function verifyTenantOtp(params: {

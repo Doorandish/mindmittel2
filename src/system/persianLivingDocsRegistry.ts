@@ -150,11 +150,11 @@ export const DOCUMENTED_API_ROUTES: readonly DocumentedApiRouteSpec[] = [
     sourceFile: 'src/app/api/auth/otp/request/route.ts',
     zoneScope: 'tenant',
     technicalSummaryFa:
-      'بررسی مجاز بودن ایمیل سازمانی کاربر در لیست دامنه یا ایمیل‌های مجاز Tenant، تولید کد ۶ رقمی یک‌بارمصرف (OTP) با هش امنیتی و ارسال از طریق Resend API (یا نمایش کد Sandbox در محیط دمو/تست).',
+      'بررسی مجاز بودن ایمیل سازمانی کاربر در لیست دامنه یا ایمیل‌های مجاز Tenant، تولید کد ۶ رقمی یک‌بارمصرف (OTP) با هش امنیتی و ارسال انحصاری از طریق Amazon SMTP با رمزنگاری STARTTLS روی پورت ۵۸۷ (بدون افشای کد در پاسخ API یا صفحه لاگین).',
     nonTechnicalSummaryFa:
-      'ارسال کد تایید ۶ رقمی به ایمیل کاری کارمندان شرکت مشتری برای ورود بدون نیاز به حفظ کردن رمز عبور.',
+      'ارسال مستقیم و امن کد تایید ۶ رقمی از طریق سرور ایمیل آمازون (Amazon SMTP) به ایمیل کاری کارمندان شرکت مشتری برای ورود بدون رمز عبور.',
     errorProtectionFa:
-      'جلوگیری از ورود افراد غیرعضو شرکت، محدودیت تعداد درخواست کد و حالت پشتیبان Sandbox در صورت عدم تنظیم سرویس ایمیل.',
+      'جلوگیری از ورود افراد غیرعضو شرکت، محدودیت تعداد درخواست کد (Rate Limiter)، تایم‌اوت ۱۰ ثانیه‌ای SMTP و عدم افشای کد در مرورگر (در صورت خطای ارسال ایمیل کد 503 برمی‌گرداند).',
   },
   {
     endpoint: '/api/auth/otp/verify',
@@ -379,6 +379,7 @@ export const DOCUMENTED_CORE_MODULES: readonly DocumentedCoreModuleSpec[] = [
       'src/core/auth/otp.ts',
       'src/infrastructure/security/masterKey.ts',
       'src/infrastructure/auth/otpService.ts',
+      'src/infrastructure/email/smtpClient.ts',
     ],
     responsibilityFa:
       'رمزنگاری کلیدهای API مشتریان با AES-256-GCM، هش کردن رمزها با scrypt، امضای توکن‌های نشست با HMAC-SHA256 و اعتبارسنجی زمان‌ثابت (timingSafeEqual).',
@@ -1026,12 +1027,13 @@ export const PERSIAN_TECHNICAL_ARCHITECTURE_DOC: {
         },
       ],
       limitationsAndTradeoffsFa:
-        '۱) وابستگی به تحویل ایمیل (Resend API) و احتمال تاخیر چندثانیه‌ای فیلترهای اسپم سازمانی (Mimecast / Proofpoint). ۲) اگر کارمندی از شرکت اخراج شود اما قبل از ابطال ایمیلش کد گرفته باشد، تا پایان عمر کوکی نشست (مگر در صورت خروج یا تغییر کلید) دسترسی دارد.',
+        '۱) وابستگی به تحویل ایمیل از طریق Amazon SMTP (STARTTLS پورت ۵۸۷ در منطقه eu-north-1) و احتمال تاخیر چندثانیه‌ای فیلترهای اسپم سازمانی (Mimecast / Proofpoint). ۲) اگر کارمندی از شرکت اخراج شود اما قبل از ابطال ایمیلش کد گرفته باشد، تا پایان عمر کوکی نشست (مگر در صورت خروج یا تغییر کلید) دسترسی دارد.',
       mitigationOrFuturePathFa:
         'امکان تعریف لیست ایمیل‌های مجاز انفرادی (allowedEmails) در کنار دامنه در پنل ادمین + قابلیت افزودن OIDC/Azure AD به عنوان گزینه مکمل در نسخه‌های Enterprise.',
       sourceFiles: [
         'src/core/auth/otp.ts',
         'src/infrastructure/auth/otpService.ts',
+        'src/infrastructure/email/smtpClient.ts',
         'src/core/security/sessionToken.ts',
       ],
     },
