@@ -159,6 +159,7 @@ export default function HomePage() {
   const [tenantInfo, setTenantInfo] = useState<{
     slug: string;
     companyName: string;
+    logoDataUrl?: string | null;
     dbName: string;
     authMode: 'otp' | 'open';
     isDemo: boolean;
@@ -1219,11 +1220,11 @@ export default function HomePage() {
         <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 p-1.5 overflow-hidden">
                 <img
-                  src="/images/mindmittel-logo.svg"
-                  alt="MindMittel Logo"
-                  className="w-7 h-7 object-contain"
+                  src={tenantInfo.logoDataUrl || '/images/mindmittel-logo.svg'}
+                  alt={`${tenantInfo.companyName} Logo`}
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div className="min-w-0">
@@ -1439,8 +1440,16 @@ export default function HomePage() {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl border border-amber-200/90 shadow-xl p-7 sm:p-8 space-y-6 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
-            <Clock className="w-6 h-6" />
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto p-2 overflow-hidden">
+            {tenantInfo.logoDataUrl ? (
+              <img
+                src={tenantInfo.logoDataUrl}
+                alt={`${tenantInfo.companyName} Logo`}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <Clock className="w-6 h-6" />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1512,6 +1521,8 @@ export default function HomePage() {
       canManageConnectors={canAccessConnectorsTab}
       canManageTeam={canAccessTeamTab}
       pendingUsersCount={pendingUsersCount}
+      companyName={tenantInfo?.companyName}
+      companyLogoUrl={tenantInfo?.logoDataUrl ?? null}
       onSignOut={tenantInfo?.authMode === 'otp' ? handleTenantSignOut : undefined}
     >
       {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated with Multimodal & Tabbed Workspace Capabilities) */}
@@ -2358,16 +2369,6 @@ export default function HomePage() {
       {/* VIEW 2: LEFT-SIDEBAR WORKSPACE CANVAS (Evaluate Decision + Stacked Audit History, Company Brain, Connectors) */}
       {activeTab === 'vault' && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-4 print:max-w-none print:p-0 print:space-y-0">
-          {tenantInfo && (
-            <div className="bg-white rounded-xl border border-slate-200/85 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 font-extrabold text-slate-900">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{tenantInfo.companyName}</span>
-                </span>
-              </div>
-            </div>
-          )}
           {/* Mobile-Only Compact User Identity Bar (Desktop uses the Left Sidebar) */}
           <div className="md:hidden bg-white rounded-xl border border-slate-200/85 px-3.5 py-2.5 flex items-center justify-between gap-3 print:hidden">
             <span className="text-xs font-mono text-slate-700 truncate">
@@ -2609,8 +2610,15 @@ export default function HomePage() {
                     <div className="hidden print:flex items-center justify-between pb-4 mb-2 border-b-2 border-slate-200">
                       <div className="flex items-center gap-3">
                         <img
-                          src="/images/mindmittel-logo.svg"
-                          alt="MindMittel Logo"
+                          src={
+                            tenantInfo?.logoDataUrl ||
+                            '/images/mindmittel-logo.svg'
+                          }
+                          alt={
+                            tenantInfo?.companyName
+                              ? `${tenantInfo.companyName} Logo`
+                              : 'MindMittel Logo'
+                          }
                           className="w-9 h-9 object-contain"
                         />
                         <div>
@@ -4090,6 +4098,13 @@ export default function HomePage() {
             <TeamAccessPanel
               locale={locale}
               currentUserEmail={userEmail}
+              companyName={tenantInfo?.companyName}
+              companyLogoUrl={tenantInfo?.logoDataUrl ?? null}
+              onLogoChanged={(nextLogo) => {
+                setTenantInfo((prev) =>
+                  prev ? { ...prev, logoDataUrl: nextLogo } : prev
+                );
+              }}
               onDepartmentsChanged={(nextDepts) => {
                 if (nextDepts.length > 0) {
                   setTenantDepartments(nextDepts);

@@ -18,11 +18,13 @@ import {
   RefreshCw,
   Shield,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 import { deriveTenantDbName } from '@/core/tenancy/tenantModel';
 import type { AdminTenantView } from '@/infrastructure/tenancy/tenantRepository';
+import { readAndResizeCompanyLogo } from '@/lib/logoUpload';
 
 export default function SuperAdminConsolePage() {
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
@@ -42,6 +44,8 @@ export default function SuperAdminConsolePage() {
   const [allowedEmailDomains, setAllowedEmailDomains] = useState<string>('');
   const [allowedEmails, setAllowedEmails] = useState<string>('');
   const [adminEmails, setAdminEmails] = useState<string>('');
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [clearLogo, setClearLogo] = useState<boolean>(false);
   const [customDbName, setCustomDbName] = useState<string>('');
   const [mongoUri, setMongoUri] = useState<string>('');
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
@@ -129,6 +133,8 @@ export default function SuperAdminConsolePage() {
     setAllowedEmailDomains(tenant.allowedEmailDomains.join(', '));
     setAllowedEmails(tenant.allowedEmails.join(', '));
     setAdminEmails((tenant.adminEmails ?? []).join(', '));
+    setLogoDataUrl(tenant.logoDataUrl ?? null);
+    setClearLogo(false);
     setCustomDbName(tenant.dbName);
     setMongoUri('');
     setGeminiApiKey('');
@@ -146,6 +152,8 @@ export default function SuperAdminConsolePage() {
     setAllowedEmailDomains('');
     setAllowedEmails('');
     setAdminEmails('');
+    setLogoDataUrl(null);
+    setClearLogo(false);
     setCustomDbName('');
     setMongoUri('');
     setGeminiApiKey('');
@@ -168,6 +176,8 @@ export default function SuperAdminConsolePage() {
             ? {
                 slug: editingSlug,
                 companyName,
+                logoDataUrl: clearLogo ? null : logoDataUrl ?? undefined,
+                clearLogo,
                 allowedEmailDomains,
                 allowedEmails,
                 adminEmails,
@@ -180,6 +190,7 @@ export default function SuperAdminConsolePage() {
             : {
                 slug,
                 companyName,
+                logoDataUrl,
                 allowedEmailDomains,
                 allowedEmails,
                 adminEmails,
@@ -204,6 +215,8 @@ export default function SuperAdminConsolePage() {
         setAllowedEmailDomains('');
         setAllowedEmails('');
         setAdminEmails('');
+        setLogoDataUrl(null);
+        setClearLogo(false);
         setCustomDbName('');
         setMongoUri('');
         setGeminiApiKey('');
@@ -498,6 +511,65 @@ export default function SuperAdminConsolePage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Company Logo (optional · PNG, JPG, WEBP)
+                </label>
+                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 bg-slate-50/70">
+                  <div className="w-10 h-10 rounded-lg border border-slate-200 bg-white flex items-center justify-center p-1 overflow-hidden shrink-0">
+                    <img
+                      src={logoDataUrl || '/images/mindmittel-logo.svg'}
+                      alt="Tenant Logo Preview"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 text-[11px] text-slate-500">
+                    {logoDataUrl
+                      ? 'Custom logo ready to save to MongoDB.'
+                      : 'Stored in MongoDB & displayed in sidebar, OTP login, and PDF reports.'}
+                  </div>
+                  <label className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        try {
+                          const resized = await readAndResizeCompanyLogo(file);
+                          setLogoDataUrl(resized);
+                          setClearLogo(false);
+                        } catch (err) {
+                          setFormFeedback({
+                            type: 'err',
+                            message:
+                              err instanceof Error
+                                ? err.message
+                                : 'Invalid logo image.',
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                  {logoDataUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLogoDataUrl(null);
+                        setClearLogo(true);
+                      }}
+                      className="px-2 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-semibold shrink-0"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
                   Subdomain Slug *
                 </label>
                 <div className="flex items-center rounded-xl border border-slate-300 overflow-hidden focus-within:border-blue-600">
@@ -749,6 +821,13 @@ export default function SuperAdminConsolePage() {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
+                        {t.logoDataUrl && (
+                          <img
+                            src={t.logoDataUrl}
+                            alt={`${t.companyName} Logo`}
+                            className="w-6 h-6 object-contain rounded border border-slate-200 bg-white p-0.5 shrink-0"
+                          />
+                        )}
                         <span className="text-sm font-extrabold text-slate-900">
                           {t.companyName}
                         </span>

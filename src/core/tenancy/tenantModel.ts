@@ -8,6 +8,7 @@ export type TenantAuthMode = 'otp' | 'open';
 export interface ResolvedTenant {
   slug: string;
   companyName: string;
+  logoDataUrl?: string | null;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails: string[];
@@ -25,6 +26,7 @@ export const DEMO_TENANT_SLUG = 'demo';
 export const DEMO_TENANT: ResolvedTenant = Object.freeze({
   slug: DEMO_TENANT_SLUG,
   companyName: 'MindMittel Live Demo',
+  logoDataUrl: null,
   allowedEmailDomains: [],
   allowedEmails: [],
   adminEmails: [],
@@ -152,6 +154,7 @@ const dbNameSchema = z
 export interface TenantInputRaw {
   slug?: string;
   companyName?: string;
+  logoDataUrl?: string | null;
   allowedEmailDomains?: string[] | string;
   allowedEmails?: string[] | string;
   adminEmails?: string[] | string;
@@ -164,6 +167,7 @@ export interface TenantInputRaw {
 export interface ParsedTenantInput {
   slug: string;
   companyName: string;
+  logoDataUrl: string | null;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails: string[];
@@ -236,6 +240,32 @@ export function parseCompanyName(value: string | undefined): string {
   return z.string().trim().min(2, 'Company name is required').max(120).parse(value ?? '');
 }
 
+const SAFE_LOGO_DATA_URL_PATTERN =
+  /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=\s]+$/;
+const MAX_LOGO_DATA_URL_LENGTH = 350_000; // ~250 KB raw image
+
+/**
+ * Validates an optional company logo stored as a Base64 Data URI in MongoDB.
+ * Strictly blocks SVG (XSS risk) and arbitrary URLs, allowing only PNG, JPEG, or WEBP up to ~250 KB.
+ */
+export function parseOptionalLogoDataUrl(
+  value: string | null | undefined
+): string | null {
+  if (value === null || value === undefined || value.trim() === '') return null;
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_LOGO_DATA_URL_LENGTH) {
+    throw new Error(
+      'Company logo image is too large. Please upload a PNG, JPEG, or WEBP image under 250 KB.'
+    );
+  }
+  if (!SAFE_LOGO_DATA_URL_PATTERN.test(trimmed)) {
+    throw new Error(
+      'Invalid company logo format. Only PNG, JPEG, or WEBP images are supported.'
+    );
+  }
+  return trimmed;
+}
+
 export function parseTenantInput(raw: TenantInputRaw): ParsedTenantInput {
   const slug = (raw.slug ?? '').trim().toLowerCase();
   if (!isValidTenantSlug(slug)) {
@@ -250,6 +280,7 @@ export function parseTenantInput(raw: TenantInputRaw): ParsedTenantInput {
   return {
     slug,
     companyName: parseCompanyName(raw.companyName),
+    logoDataUrl: parseOptionalLogoDataUrl(raw.logoDataUrl),
     ...policy,
     status: raw.status === 'suspended' ? 'suspended' : 'active',
     dbName: parseOptionalDbName(raw.dbName, slug),

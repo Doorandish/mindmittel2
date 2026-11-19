@@ -6,6 +6,7 @@ import {
   maskConnectionString,
   normalizeEmailDomains,
   isEmailAllowedForTenant,
+  parseOptionalLogoDataUrl,
   parseTenantInput,
   DEMO_TENANT,
 } from '@/core/tenancy/tenantModel';
@@ -113,5 +114,28 @@ describe('DEMO_TENANT', () => {
     expect(DEMO_TENANT.authMode).toBe('open');
     expect(DEMO_TENANT.seedSamplePolicies).toBe(true);
     expect(DEMO_TENANT.isDemo).toBe(true);
+  });
+});
+
+describe('tenant company logo validation (XSS & size safety)', () => {
+  it('accepts safe PNG, JPEG, and WEBP base64 data URIs and rejects SVG or oversized payloads', () => {
+    const validPng =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    expect(parseOptionalLogoDataUrl(validPng)).toBe(validPng);
+    expect(parseOptionalLogoDataUrl('')).toBeNull();
+    expect(parseOptionalLogoDataUrl(null)).toBeNull();
+
+    // Reject SVG (XSS risk)
+    expect(() =>
+      parseOptionalLogoDataUrl('data:image/svg+xml;base64,PHN2Zz48c2NyaXB0Pjwvc2NyaXB0Pjwvc3ZnPg==')
+    ).toThrow(/PNG, JPEG, or WEBP/i);
+
+    // Reject arbitrary URLs / javascript schemes
+    expect(() => parseOptionalLogoDataUrl('https://evil.com/logo.png')).toThrow();
+    expect(() => parseOptionalLogoDataUrl('javascript:alert(1)')).toThrow();
+
+    // Reject oversized (> 350,000 chars)
+    const oversized = `data:image/png;base64,${'A'.repeat(360_000)}`;
+    expect(() => parseOptionalLogoDataUrl(oversized)).toThrow(/too large/i);
   });
 });

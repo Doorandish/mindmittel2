@@ -14,6 +14,7 @@ import {
 } from '@/infrastructure/tenancy/tenantGovernanceRepository';
 import { listBrainDocuments } from '@/infrastructure/rag/brainRepository';
 import { systemLogger } from '@/infrastructure/logging/logger';
+import { updateTenant } from '@/infrastructure/tenancy/tenantRepository';
 
 export const dynamic = 'force-dynamic';
 
@@ -233,6 +234,51 @@ export async function DELETE(request: NextRequest) {
           code: isConflict ? 'DEPARTMENT_HAS_DOCUMENTS' : 'BAD_REQUEST',
         },
         { status: isConflict ? 409 : 400 }
+      );
+    }
+  });
+}
+
+export async function PATCH(request: NextRequest) {
+  return withTenantApi(request, async ({ tenant, userAccess }) => {
+    if (!canManageGovernance(userAccess) || tenant.isDemo) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Only Company Admins can update the company logo.',
+          code: 'FORBIDDEN_ADMIN_ONLY',
+        },
+        { status: 403 }
+      );
+    }
+
+    try {
+      const body = (await request.json()) as {
+        logoDataUrl?: string | null;
+        clearLogo?: boolean;
+      };
+      const updated = await updateTenant(tenant.slug, {
+        logoDataUrl: body.clearLogo ? null : body.logoDataUrl ?? null,
+        clearLogo: Boolean(body.clearLogo),
+      });
+      systemLogger.info(
+        'tenant.governance',
+        `Admin [${userAccess.email}] ${body.clearLogo ? 'cleared' : 'updated'} company logo on [${tenant.slug}]`
+      );
+      return NextResponse.json({
+        ok: true,
+        logoDataUrl: updated.logoDataUrl,
+      });
+    } catch (err) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Failed to update company logo.',
+        },
+        { status: 400 }
       );
     }
   });

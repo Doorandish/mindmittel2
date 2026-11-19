@@ -7,6 +7,7 @@ import {
   parseAccessPolicy,
   parseCompanyName,
   parseOptionalDbName,
+  parseOptionalLogoDataUrl,
   parseOptionalMongoUri,
   parseTenantInput,
   type ResolvedTenant,
@@ -21,6 +22,7 @@ import { COLLECTIONS } from '@/infrastructure/db/schemas';
 export interface StoredTenantRecord {
   slug: string;
   companyName: string;
+  logoDataUrl?: string | null;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails?: string[];
@@ -36,6 +38,7 @@ export interface StoredTenantRecord {
 export interface AdminTenantView {
   slug: string;
   companyName: string;
+  logoDataUrl: string | null;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails: string[];
@@ -51,6 +54,8 @@ export interface AdminTenantView {
 
 export interface TenantUpdateInput {
   companyName?: string;
+  logoDataUrl?: string | null;
+  clearLogo?: boolean;
   allowedEmailDomains?: string[] | string;
   allowedEmails?: string[] | string;
   adminEmails?: string[] | string;
@@ -94,6 +99,7 @@ function toResolvedTenant(record: StoredTenantRecord): ResolvedTenant {
   return {
     slug: record.slug,
     companyName: record.companyName,
+    logoDataUrl: record.logoDataUrl ?? null,
     allowedEmailDomains: record.allowedEmailDomains ?? [],
     allowedEmails: record.allowedEmails ?? [],
     adminEmails: record.adminEmails ?? [],
@@ -118,6 +124,7 @@ function toAdminView(record: StoredTenantRecord): AdminTenantView {
   return {
     slug: record.slug,
     companyName: record.companyName,
+    logoDataUrl: record.logoDataUrl ?? null,
     allowedEmailDomains: record.allowedEmailDomains ?? [],
     allowedEmails: record.allowedEmails ?? [],
     adminEmails: record.adminEmails ?? [],
@@ -202,6 +209,7 @@ export async function createTenant(input: TenantInputRaw): Promise<AdminTenantVi
   const record: StoredTenantRecord = {
     slug: parsed.slug,
     companyName: parsed.companyName,
+    logoDataUrl: parsed.logoDataUrl,
     allowedEmailDomains: parsed.allowedEmailDomains,
     allowedEmails: parsed.allowedEmails,
     adminEmails: parsed.adminEmails,
@@ -296,9 +304,17 @@ export async function updateTenant(
     encryptedGeminiApiKey = encryptSecret(patch.geminiApiKey.trim(), key);
   }
 
+  let logoDataUrl = current.logoDataUrl ?? null;
+  if (patch.clearLogo) {
+    logoDataUrl = null;
+  } else if (patch.logoDataUrl !== undefined) {
+    logoDataUrl = parseOptionalLogoDataUrl(patch.logoDataUrl);
+  }
+
   const updated: StoredTenantRecord = {
     ...current,
     companyName,
+    logoDataUrl,
     allowedEmailDomains: policy.allowedEmailDomains,
     allowedEmails: policy.allowedEmails,
     adminEmails: policy.adminEmails,

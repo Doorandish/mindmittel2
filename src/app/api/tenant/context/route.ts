@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
     tenant: {
       slug: tenant.slug,
       companyName: tenant.companyName,
+      logoDataUrl: tenant.logoDataUrl ?? null,
       dbName: tenant.dbName,
       authMode: tenant.authMode,
       isDemo: tenant.isDemo,

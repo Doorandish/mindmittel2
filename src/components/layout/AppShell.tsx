@@ -76,6 +76,8 @@ export interface AppShellProps {
   canManageConnectors?: boolean;
   canManageTeam?: boolean;
   pendingUsersCount?: number;
+  companyName?: string;
+  companyLogoUrl?: string | null;
   onSignOut?: () => void;
 }
 
@@ -105,9 +107,12 @@ export function AppShell({
   canManageConnectors = true,
   canManageTeam = false,
   pendingUsersCount = 0,
+  companyName,
+  companyLogoUrl,
   onSignOut,
 }: AppShellProps) {
   const [landingHref, setLandingHref] = useState<string>('https://mindmittel.de');
+  const activeLogoSrc = companyLogoUrl || '/images/mindmittel-logo.svg';
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -241,22 +246,29 @@ export function AppShell({
       {activeTab === 'vault' ? (
         <div className="flex-1 w-full flex flex-col md:flex-row min-h-screen">
           {/* Mobile-Only Compact Bar (since Left Sidebar is hidden on <md screens) */}
-          <div className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 h-13 flex items-center justify-between print:hidden">
+          <div className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 h-14 flex items-center justify-between print:hidden">
             <a
               href={landingHref}
-              className="flex items-center gap-2 text-left"
+              className="flex items-center gap-2.5 text-left min-w-0"
             >
               <img
-                src="/images/mindmittel-logo.svg"
-                alt="MindMittel Logo"
-                className="w-7 h-7 object-contain shrink-0"
+                src={activeLogoSrc}
+                alt={companyName ? `${companyName} Logo` : 'MindMittel Logo'}
+                className="w-7 h-7 object-contain rounded-md shrink-0"
               />
-              <span className="font-bold text-[15px] tracking-[-0.02em] text-slate-900">
-                {dict.meta.appName}
-              </span>
+              <div className="min-w-0 leading-tight">
+                <div className="font-bold text-[14.5px] tracking-[-0.02em] text-slate-900 truncate">
+                  {dict.meta.appName}
+                </div>
+                {companyName && (
+                  <div className="text-[11px] font-medium text-slate-500 truncate">
+                    {companyName}
+                  </div>
+                )}
+              </div>
             </a>
 
-            <div className="inline-flex items-center bg-slate-100 border border-slate-200/80 rounded-md p-0.5 text-[11px] font-medium">
+            <div className="inline-flex items-center bg-slate-100 border border-slate-200/80 rounded-md p-0.5 text-[11px] font-medium shrink-0">
               <button
                 type="button"
                 onClick={() => onLocaleChange('en')}
@@ -289,21 +301,28 @@ export function AppShell({
           >
             {/* Top Area: Brand Identity + Language Switcher + Sectioned Navigation */}
             <div>
-              {/* Sidebar Top Header: Brand Logo on Left + Language Toggle on Right */}
-              <div className="px-4 h-14 border-b border-slate-200/70 flex items-center justify-between gap-2">
+              {/* Sidebar Top Header: Company/Brand Logo on Left + Stacked MindMittel & Company Name + Language Toggle on Right */}
+              <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between gap-2">
                 <a
                   href={landingHref}
-                  className="flex items-center gap-2 text-left group min-w-0"
-                  title="mindmittel.de"
+                  className="flex items-center gap-2.5 text-left group min-w-0"
+                  title={companyName || 'mindmittel.de'}
                 >
                   <img
-                    src="/images/mindmittel-logo.svg"
-                    alt="MindMittel Logo"
-                    className="w-8 h-8 object-contain shrink-0"
+                    src={activeLogoSrc}
+                    alt={companyName ? `${companyName} Logo` : 'MindMittel Logo'}
+                    className="w-8 h-8 object-contain rounded-md shrink-0"
                   />
-                  <span className="font-bold tracking-[-0.02em] text-[15px] text-slate-900 leading-none truncate">
-                    {dict.meta.appName}
-                  </span>
+                  <div className="min-w-0">
+                    <div className="font-bold tracking-[-0.02em] text-[15px] text-slate-900 leading-tight truncate">
+                      {dict.meta.appName}
+                    </div>
+                    {companyName && (
+                      <div className="text-[11px] font-medium text-slate-500 leading-tight truncate mt-0.5">
+                        {companyName}
+                      </div>
+                    )}
+                  </div>
                 </a>
 
                 {/* Integrated Sidebar Language Selector (EN | DE) */}
