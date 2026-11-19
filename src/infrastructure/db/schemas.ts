@@ -16,6 +16,7 @@ export const COLLECTIONS = {
   CONNECTORS: 'connectors',
   TENANTS: 'tenants',
   OTP_CHALLENGES: 'otp_challenges',
+  TENANT_DEPARTMENTS: 'tenant_departments',
 } as const;
 
 /**

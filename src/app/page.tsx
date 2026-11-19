@@ -48,6 +48,16 @@ import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
 import type { EnterpriseConnectorItem } from '@/core/connectors/connectorRegistry';
 import type { StoredAuditHistoryEntry } from '@/infrastructure/rag/brainRepository';
 import type { BrainKnowledgeConflictWarning } from '@/core/rag/conflictDetector';
+import {
+  DEFAULT_TENANT_DEPARTMENTS,
+  canAccessDepartment,
+  canEditDocuments,
+  canManageConnectors,
+  canManageGovernance,
+  type TenantDepartmentItem,
+  type TenantUserAccessProfile,
+} from '@/core/auth/rbac';
+import { TeamAccessPanel } from '@/components/governance/TeamAccessPanel';
 
 interface StoredBrainDocumentSummary {
   parentId: string;
@@ -155,6 +165,13 @@ export default function HomePage() {
     allowedEmailDomains: string[];
   } | null>(null);
   const [tenantAuthenticated, setTenantAuthenticated] = useState<boolean>(false);
+  const [userAccess, setUserAccess] = useState<TenantUserAccessProfile | null>(
+    null
+  );
+  const [tenantDepartments, setTenantDepartments] = useState<
+    TenantDepartmentItem[]
+  >([...DEFAULT_TENANT_DEPARTMENTS]);
+  const [pendingUsersCount, setPendingUsersCount] = useState<number>(0);
   const [otpStep, setOtpStep] = useState<'email' | 'code'>('email');
   const [otpCodeInput, setOtpCodeInput] = useState<string>('');
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
@@ -172,7 +189,7 @@ export default function HomePage() {
     []
   );
   const [docTitle, setDocTitle] = useState<string>('');
-  const [docDepartment, setDocDepartment] = useState<string>('Finance & Legal');
+  const [docDepartment, setDocDepartment] = useState<string>('finance-legal');
   const [docSourceType, setDocSourceType] = useState<'upload' | 'slack'>(
     'upload'
   );
@@ -371,6 +388,13 @@ export default function HomePage() {
         setTenantInfo(data.tenant ?? null);
         setTenantStatus('active');
 
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          setTenantDepartments(data.departments);
+        }
+        if (data.userAccess) {
+          setUserAccess(data.userAccess);
+        }
+
         if (data.user) {
           setUserEmail(data.user.email);
           setUserFullName(data.user.fullName);
@@ -387,10 +411,29 @@ export default function HomePage() {
 
         const isAuthed = Boolean(data.authenticated);
         setTenantAuthenticated(isAuthed);
-        if (isAuthed) {
+        const accessObj = data.userAccess as TenantUserAccessProfile | null;
+        const isActiveAccess =
+          !accessObj || accessObj.status === 'active';
+        if (isAuthed && isActiveAccess) {
           fetchBrainDocuments();
           fetchAuditHistory();
-          fetchConnectors();
+          if (!accessObj || canManageConnectors(accessObj)) {
+            fetchConnectors();
+          }
+          if (accessObj && canManageGovernance(accessObj) && !data.tenant?.isDemo) {
+            fetch('/api/tenant/governance')
+              .then((r) => r.json())
+              .then((g) => {
+                if (g.ok && Array.isArray(g.users)) {
+                  setPendingUsersCount(
+                    g.users.filter(
+                      (u: TenantUserAccessProfile) => u.status === 'pending'
+                    ).length
+                  );
+                }
+              })
+              .catch(() => {});
+          }
         }
       } catch {
         setTenantStatus('active');
@@ -449,12 +492,18 @@ export default function HomePage() {
         setUserEmail(data.user.email);
         setUserFullName(data.user.fullName);
         setUserDepartment(data.user.department);
+        const accessObj = (data.userAccess ?? null) as TenantUserAccessProfile | null;
+        setUserAccess(accessObj);
         setTenantAuthenticated(true);
         setShowAuthModal(false);
         setOtpCodeInput('');
-        fetchBrainDocuments();
-        fetchAuditHistory();
-        fetchConnectors();
+        if (!accessObj || accessObj.status === 'active') {
+          fetchBrainDocuments();
+          fetchAuditHistory();
+          if (!accessObj || canManageConnectors(accessObj)) {
+            fetchConnectors();
+          }
+        }
       } else {
         setAuthFeedback(data.error ?? 'Invalid verification code.');
       }
@@ -470,6 +519,7 @@ export default function HomePage() {
   async function handleTenantSignOut() {
     await fetch('/api/auth/session', { method: 'DELETE' });
     setTenantAuthenticated(false);
+    setUserAccess(null);
     setOtpStep('email');
     setOtpCodeInput('');
     setDocuments([]);
@@ -1380,6 +1430,69 @@ export default function HomePage() {
     );
   }
 
+  // Pending Approval Screen (Zero-Trust: New employees await Company Admin approval & department assignment)
+  if (
+    tenantInfo?.authMode === 'otp' &&
+    tenantAuthenticated &&
+    userAccess?.status === 'pending'
+  ) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-amber-200/90 shadow-xl p-7 sm:p-8 space-y-6 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+            <Clock className="w-6 h-6" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-amber-700 font-bold">
+              {tenantInfo.companyName} · {tenantInfo.slug}.mindmittel.de
+            </div>
+            <h1 className="text-xl font-extrabold text-slate-900">
+              {locale === 'de'
+                ? 'Freigabe durch Unternehmens-Admin ausstehend'
+                : 'Awaiting Company Admin Approval'}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              {locale === 'de'
+                ? `Ihre E-Mail (${userEmail}) wurde erfolgreich verifiziert. Ihr Unternehmens-Administrator muss noch Ihre Rolle und zugelassenen Abteilungen freigeben.`
+                : `Your corporate email (${userEmail}) is verified. Your Company Admin needs to approve your role and assign your allowed departments before you can access the workspace.`}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>
+                {locale === 'de' ? 'Status erneut prüfen' : 'Check Approval Status'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={handleTenantSignOut}
+              className="w-full sm:w-auto py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold"
+            >
+              {locale === 'de' ? 'Abmelden' : 'Sign Out'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const canEditBrainDocs = !userAccess || canEditDocuments(userAccess);
+  const canAccessConnectorsTab = !userAccess || canManageConnectors(userAccess);
+  const canAccessTeamTab = Boolean(
+    userAccess && canManageGovernance(userAccess) && !tenantInfo?.isDemo
+  );
+  const accessibleDepartments =
+    userAccess && userAccess.status === 'active'
+      ? tenantDepartments.filter((d) => canAccessDepartment(userAccess, d.id))
+      : tenantDepartments;
+
   return (
     <AppShell
       locale={locale}
@@ -1396,6 +1509,9 @@ export default function HomePage() {
       auditHistoryCount={auditHistory.length}
       enabledConnectorsCount={connectors.filter((c) => c.enabled).length}
       totalConnectorsCount={connectors.length || 7}
+      canManageConnectors={canAccessConnectorsTab}
+      canManageTeam={canAccessTeamTab}
+      pendingUsersCount={pendingUsersCount}
       onSignOut={tenantInfo?.authMode === 'otp' ? handleTenantSignOut : undefined}
     >
       {/* VIEW 1: V1-INSPIRED CRISP ENTERPRISE LANDING PAGE (Updated with Multimodal & Tabbed Workspace Capabilities) */}
@@ -2369,16 +2485,14 @@ export default function HomePage() {
                       >
                         <option value="all">
                           {locale === 'de'
-                            ? 'Bereich: Alle Abteilungen'
-                            : 'Scope: All Departments'}
+                            ? 'Bereich: Alle zugelassenen Abteilungen'
+                            : 'Scope: All Allowed Departments'}
                         </option>
-                        <option value="finance-legal">
-                          {locale === 'de' ? 'Finanzen & Recht' : 'Finance & Legal'}
-                        </option>
-                        <option value="engineering">Engineering</option>
-                        <option value="hr-legal">
-                          {locale === 'de' ? 'Personal & Recht' : 'HR & Legal'}
-                        </option>
+                        {accessibleDepartments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.label}
+                          </option>
+                        ))}
                       </select>
 
                       <span className="text-slate-400 font-mono text-[11.5px] hidden sm:inline">
@@ -3165,26 +3279,13 @@ export default function HomePage() {
                         onChange={(e) => setDocDepartment(e.target.value)}
                         className="w-full h-9 px-3 text-[13px] liquid-glass-input"
                       >
-                        <option value="Finance & Legal">
-                          {locale === 'de'
-                            ? 'Abteilung: Finanzen & Recht'
-                            : 'Department: Finance & Legal'}
-                        </option>
-                        <option value="Engineering">
-                          {locale === 'de'
-                            ? 'Abteilung: Engineering & IT'
-                            : 'Department: Engineering'}
-                        </option>
-                        <option value="HR & Legal">
-                          {locale === 'de'
-                            ? 'Abteilung: Personal & Recht'
-                            : 'Department: HR & Legal'}
-                        </option>
-                        <option value="Executive Board">
-                          {locale === 'de'
-                            ? 'Abteilung: Vorstand / Geschäftsführung'
-                            : 'Department: Executive Board'}
-                        </option>
+                        {accessibleDepartments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {locale === 'de'
+                              ? `Abteilung: ${dept.label}`
+                              : `Department: ${dept.label}`}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -3483,12 +3584,28 @@ export default function HomePage() {
                           <label className="block text-[11.5px] font-medium text-slate-600 mb-1">
                             {locale === 'de' ? 'Abteilung' : 'Department'}
                           </label>
-                          <input
-                            type="text"
+                          <select
+                            aria-label="Edit Department"
                             value={editDepartment}
                             onChange={(e) => setEditDepartment(e.target.value)}
                             className="w-full h-9 px-3 text-[13px] liquid-glass-input"
-                          />
+                          >
+                            {accessibleDepartments.map((dept) => (
+                              <option key={dept.id} value={dept.id}>
+                                {dept.label}
+                              </option>
+                            ))}
+                            {!accessibleDepartments.some(
+                              (d) =>
+                                d.id.toLowerCase() ===
+                                editDepartment.trim().toLowerCase()
+                            ) &&
+                              editDepartment.trim() && (
+                                <option value={editDepartment}>
+                                  {editDepartment}
+                                </option>
+                              )}
+                          </select>
                         </div>
                       </div>
 
@@ -3966,6 +4083,20 @@ export default function HomePage() {
                 );
               })}
             </div>
+          )}
+
+          {/* SECTION 4: COMPANY ADMIN TEAM & ACCESS GOVERNANCE (Admin Only) */}
+          {workspaceSubTab === 'team' && canAccessTeamTab && (
+            <TeamAccessPanel
+              locale={locale}
+              currentUserEmail={userEmail}
+              onDepartmentsChanged={(nextDepts) => {
+                if (nextDepts.length > 0) {
+                  setTenantDepartments(nextDepts);
+                }
+              }}
+              onPendingCountChanged={setPendingUsersCount}
+            />
           )}
         </div>
       )}

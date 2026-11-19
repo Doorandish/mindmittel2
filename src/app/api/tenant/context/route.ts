@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DEMO_TENANT } from '@/core/tenancy/tenantModel';
 import {
+  OPEN_DEMO_USER_ACCESS,
+  type TenantDepartmentItem,
+  type TenantUserAccessProfile,
+} from '@/core/auth/rbac';
+import {
   readTenantSession,
   resolveRequestZone,
 } from '@/infrastructure/http/tenantRequestGuard';
 import { resolveTenantBySlug } from '@/infrastructure/tenancy/tenantRepository';
+import { runWithTenantContext } from '@/infrastructure/tenancy/tenantContext';
+import {
+  getTenantUserAccessProfile,
+  listTenantDepartments,
+} from '@/infrastructure/tenancy/tenantGovernanceRepository';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +36,36 @@ export async function GET(request: NextRequest) {
   }
 
   const session = readTenantSession(request, tenant.slug);
+
+  const { userAccess, departments } = await runWithTenantContext(
+    { tenant, session },
+    async (): Promise<{
+      userAccess: TenantUserAccessProfile | null;
+      departments: TenantDepartmentItem[];
+    }> => {
+      const depts = await listTenantDepartments();
+      if (tenant.authMode === 'open') {
+        return { userAccess: OPEN_DEMO_USER_ACCESS, departments: depts };
+      }
+      if (!session) {
+        return { userAccess: null, departments: depts };
+      }
+      const resolved = await getTenantUserAccessProfile(
+        session.sub,
+        tenant.adminEmails ?? []
+      );
+      return {
+        userAccess: resolved ?? {
+          email: session.sub,
+          fullName: session.name,
+          role: 'evaluator',
+          status: 'pending',
+          allowedDepartments: [],
+        },
+        departments: depts,
+      };
+    }
+  );
 
   return NextResponse.json({
     ok: true,
@@ -49,5 +89,7 @@ export async function GET(request: NextRequest) {
           tenantSlug: session.tenant,
         }
       : null,
+    userAccess,
+    departments,
   });
 }

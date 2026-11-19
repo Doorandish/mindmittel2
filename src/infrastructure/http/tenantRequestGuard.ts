@@ -14,6 +14,11 @@ import {
 import { getSessionSigningKey } from '@/infrastructure/security/masterKey';
 import { resolveTenantBySlug } from '@/infrastructure/tenancy/tenantRepository';
 import { runWithTenantContext } from '@/infrastructure/tenancy/tenantContext';
+import {
+  OPEN_DEMO_USER_ACCESS,
+  type TenantUserAccessProfile,
+} from '@/core/auth/rbac';
+import { getTenantUserAccessProfile } from '@/infrastructure/tenancy/tenantGovernanceRepository';
 
 export const TENANT_SESSION_COOKIE = 'mm_tenant_session';
 export const OWNER_SESSION_COOKIE = 'mm_owner_session';
@@ -140,7 +145,9 @@ export async function withTenantApi(
   handler: (ctx: {
     tenant: ResolvedTenant;
     session: SessionPayload | null;
-  }) => Promise<NextResponse>
+    userAccess: TenantUserAccessProfile;
+  }) => Promise<NextResponse>,
+  options?: { allowPending?: boolean }
 ): Promise<NextResponse> {
   const zone = resolveRequestZone(request);
   const slug = zone.zone === 'tenant' ? zone.slug : DEMO_TENANT.slug;
@@ -180,9 +187,37 @@ export async function withTenantApi(
     );
   }
 
-  return runWithTenantContext({ tenant, session }, () =>
-    handler({ tenant, session })
-  );
+  return runWithTenantContext({ tenant, session }, async () => {
+    let userAccess: TenantUserAccessProfile = OPEN_DEMO_USER_ACCESS;
+
+    if (tenant.authMode === 'otp' && session) {
+      const resolved = await getTenantUserAccessProfile(
+        session.sub,
+        tenant.adminEmails ?? []
+      );
+      userAccess = resolved ?? {
+        email: session.sub,
+        fullName: session.name,
+        role: 'evaluator',
+        status: 'pending',
+        allowedDepartments: [],
+      };
+
+      if (userAccess.status === 'pending' && !options?.allowPending) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Your account is awaiting Company Admin approval and department assignment.',
+            code: 'PENDING_APPROVAL',
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    return handler({ tenant, session, userAccess });
+  });
 }
 
 /**

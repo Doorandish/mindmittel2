@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       !isEmailAllowedForTenant(email, {
         allowedEmailDomains: tenant.allowedEmailDomains,
         allowedEmails: tenant.allowedEmails,
+        adminEmails: tenant.adminEmails,
       })
     ) {
       const domainHint =

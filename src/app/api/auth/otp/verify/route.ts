@@ -11,6 +11,7 @@ import { resolveTenantBySlug } from '@/infrastructure/tenancy/tenantRepository';
 import { verifyTenantOtp } from '@/infrastructure/auth/otpService';
 import { runWithTenantContext } from '@/infrastructure/tenancy/tenantContext';
 import { upsertAuthenticatedUser } from '@/infrastructure/rag/brainRepository';
+import { upsertTenantUserOnLogin } from '@/infrastructure/tenancy/tenantGovernanceRepository';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
       !isEmailAllowedForTenant(email, {
         allowedEmailDomains: tenant.allowedEmailDomains,
         allowedEmails: tenant.allowedEmails,
+        adminEmails: tenant.adminEmails,
       })
     ) {
       return NextResponse.json(
@@ -86,18 +88,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await runWithTenantContext({ tenant, session: null }, () =>
-      upsertAuthenticatedUser({
-        email,
-        fullName: body.fullName,
-        department: body.department,
-        role: body.role,
-      })
+    const { user, userAccess } = await runWithTenantContext(
+      { tenant, session: null },
+      async () => {
+        const upsertedUser = await upsertAuthenticatedUser({
+          email,
+          fullName: body.fullName,
+          department: body.department,
+          role: body.role,
+        });
+        const access = await upsertTenantUserOnLogin({
+          email: upsertedUser.email,
+          fullName: upsertedUser.fullName,
+          tenantAdminEmails: tenant.adminEmails ?? [],
+        });
+        return { user: upsertedUser, userAccess: access };
+      }
     );
 
     const response = NextResponse.json({
       ok: true,
       user,
+      userAccess,
       tenant: {
         slug: tenant.slug,
         companyName: tenant.companyName,

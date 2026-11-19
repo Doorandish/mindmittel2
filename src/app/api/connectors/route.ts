@@ -8,11 +8,22 @@ import {
   toggleConnectorById,
 } from '@/infrastructure/rag/brainRepository';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
+import { canManageConnectors } from '@/core/auth/rbac';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  return withTenantApi(request, async () => {
+  return withTenantApi(request, async ({ userAccess }) => {
+    if (!canManageConnectors(userAccess)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Only Company Admins can access Enterprise Connectors.',
+          code: 'FORBIDDEN_ADMIN_ONLY',
+        },
+        { status: 403 }
+      );
+    }
     const connectors = await getConnectorsList();
     return NextResponse.json({
       ok: true,
@@ -22,7 +33,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return withTenantApi(request, async ({ session }) => {
+  return withTenantApi(request, async ({ session, userAccess }) => {
+    if (!canManageConnectors(userAccess)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Only Company Admins can configure or sync Enterprise Connectors.',
+          code: 'FORBIDDEN_ADMIN_ONLY',
+        },
+        { status: 403 }
+      );
+    }
     try {
       const body = (await request.json()) as {
         action: 'configure' | 'toggle' | 'sync';

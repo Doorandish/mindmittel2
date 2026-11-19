@@ -20,6 +20,7 @@ function makeTenant(slug: string, overrides: Partial<ResolvedTenant> = {}): Reso
     companyName: slug.toUpperCase(),
     allowedEmailDomains: [`${slug}.de`],
     allowedEmails: [],
+    adminEmails: [],
     status: 'active',
     dbName: `mindmittel_${slug}`,
     mongoUri: null,

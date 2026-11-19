@@ -7,11 +7,12 @@ import {
   ShieldCheck,
   Plug,
   LogOut,
+  Users,
 } from 'lucide-react';
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 
-export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors';
+export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors' | 'team';
 
 export interface WorkspaceSidebarSection {
   id: string;
@@ -72,6 +73,9 @@ export interface AppShellProps {
   auditHistoryCount?: number;
   enabledConnectorsCount?: number;
   totalConnectorsCount?: number;
+  canManageConnectors?: boolean;
+  canManageTeam?: boolean;
+  pendingUsersCount?: number;
   onSignOut?: () => void;
 }
 
@@ -98,6 +102,9 @@ export function AppShell({
   auditHistoryCount = 0,
   enabledConnectorsCount = 0,
   totalConnectorsCount = 7,
+  canManageConnectors = true,
+  canManageTeam = false,
+  pendingUsersCount = 0,
   onSignOut,
 }: AppShellProps) {
   const [landingHref, setLandingHref] = useState<string>('https://mindmittel.de');
@@ -121,6 +128,9 @@ export function AppShell({
     }
     if (subTab === 'brain') {
       return `${brainCount}`;
+    }
+    if (subTab === 'team') {
+      return pendingUsersCount > 0 ? `${pendingUsersCount}!` : 'Admin';
     }
     return `${enabledConnectorsCount}/${totalConnectorsCount}`;
   }
@@ -329,65 +339,116 @@ export function AppShell({
 
               {/* Sectioned Single-Line Navigation Rail */}
               <div className="px-3 py-4 space-y-5">
-                {WORKSPACE_SIDEBAR_SECTIONS.map((section) => (
-                  <div key={section.id} className="space-y-1">
-                    <div className="px-2.5 pb-0.5 text-[11px] font-medium text-slate-400 tracking-[0.01em]">
-                      {locale === 'de' ? section.titleDe : section.titleEn}
-                    </div>
+                {WORKSPACE_SIDEBAR_SECTIONS.map((section) => {
+                  const visibleItems = section.items.filter(
+                    (item) =>
+                      item.subTab !== 'connectors' || canManageConnectors
+                  );
+                  if (visibleItems.length === 0) return null;
+                  return (
+                    <div key={section.id} className="space-y-1">
+                      <div className="px-2.5 pb-0.5 text-[11px] font-medium text-slate-400 tracking-[0.01em]">
+                        {locale === 'de' ? section.titleDe : section.titleEn}
+                      </div>
 
-                    <div className="space-y-0.5">
-                      {section.items.map((item) => {
-                        const isActive = workspaceSubTab === item.subTab;
-                        const IconComponent =
-                          item.subTab === 'evaluate'
-                            ? ShieldCheck
-                            : item.subTab === 'brain'
-                            ? Database
-                            : Plug;
+                      <div className="space-y-0.5">
+                        {visibleItems.map((item) => {
+                          const isActive = workspaceSubTab === item.subTab;
+                          const IconComponent =
+                            item.subTab === 'evaluate'
+                              ? ShieldCheck
+                              : item.subTab === 'brain'
+                              ? Database
+                              : Plug;
 
-                        return (
-                          <button
-                            key={item.subTab}
-                            type="button"
-                            onClick={() => navigateToWorkspaceSubTab(item.subTab)}
-                            className={`group relative w-full h-9 px-2.5 rounded-lg text-left transition-all flex items-center justify-between gap-2 ${
-                              isActive
-                                ? 'bg-slate-900/[0.055] text-slate-900 font-semibold'
-                                : 'text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 font-medium'
-                            }`}
-                          >
-                            {isActive && (
-                              <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-blue-600" />
-                            )}
-
-                            <span className="flex items-center gap-2.5 min-w-0">
-                              <IconComponent
-                                className={`w-4 h-4 shrink-0 transition-colors ${
-                                  isActive
-                                    ? 'text-blue-600'
-                                    : 'text-slate-400 group-hover:text-slate-600'
-                                }`}
-                              />
-                              <span className="text-[13px] leading-5 tracking-[-0.01em] truncate">
-                                {locale === 'de' ? item.labelDe : item.labelEn}
-                              </span>
-                            </span>
-
-                            <span
-                              className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                          return (
+                            <button
+                              key={item.subTab}
+                              type="button"
+                              onClick={() => navigateToWorkspaceSubTab(item.subTab)}
+                              className={`group relative w-full h-9 px-2.5 rounded-lg text-left transition-all flex items-center justify-between gap-2 ${
                                 isActive
-                                  ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
-                                  : 'text-slate-400 group-hover:text-slate-600'
+                                  ? 'bg-slate-900/[0.055] text-slate-900 font-semibold'
+                                  : 'text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 font-medium'
                               }`}
                             >
-                              {getBadgeText(item.subTab)}
-                            </span>
-                          </button>
-                        );
-                      })}
+                              {isActive && (
+                                <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-blue-600" />
+                              )}
+
+                              <span className="flex items-center gap-2.5 min-w-0">
+                                <IconComponent
+                                  className={`w-4 h-4 shrink-0 transition-colors ${
+                                    isActive
+                                      ? 'text-blue-600'
+                                      : 'text-slate-400 group-hover:text-slate-600'
+                                  }`}
+                                />
+                                <span className="text-[13px] leading-5 tracking-[-0.01em] truncate">
+                                  {locale === 'de' ? item.labelDe : item.labelEn}
+                                </span>
+                              </span>
+
+                              <span
+                                className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                                  isActive
+                                    ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
+                                    : 'text-slate-400 group-hover:text-slate-600'
+                                }`}
+                              >
+                                {getBadgeText(item.subTab)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
+                  );
+                })}
+
+                {canManageTeam && (
+                  <div className="space-y-1">
+                    <div className="px-2.5 pb-0.5 text-[11px] font-medium text-slate-400 tracking-[0.01em]">
+                      {locale === 'de' ? 'Verwaltung' : 'Administration'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigateToWorkspaceSubTab('team')}
+                      className={`group relative w-full h-9 px-2.5 rounded-lg text-left transition-all flex items-center justify-between gap-2 ${
+                        workspaceSubTab === 'team'
+                          ? 'bg-slate-900/[0.055] text-slate-900 font-semibold'
+                          : 'text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      {workspaceSubTab === 'team' && (
+                        <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-blue-600" />
+                      )}
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <Users
+                          className={`w-4 h-4 shrink-0 transition-colors ${
+                            workspaceSubTab === 'team'
+                              ? 'text-blue-600'
+                              : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                        />
+                        <span className="text-[13px] leading-5 tracking-[-0.01em] truncate">
+                          {locale === 'de' ? 'Team & Zugriff' : 'Team & Access'}
+                        </span>
+                      </span>
+                      <span
+                        className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                          pendingUsersCount > 0
+                            ? 'bg-amber-100 text-amber-900 font-bold'
+                            : workspaceSubTab === 'team'
+                            ? 'bg-white text-slate-700 border border-slate-200/80 shadow-sm'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {getBadgeText('team')}
+                      </span>
+                    </button>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 

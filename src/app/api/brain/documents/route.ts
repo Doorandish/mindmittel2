@@ -9,13 +9,32 @@ import {
 } from '@/infrastructure/rag/brainRepository';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
 import type { DocumentSourceType } from '@/core/rag/chunker';
+import {
+  canAccessDepartment,
+  canEditDocuments,
+  type TenantUserAccessProfile,
+} from '@/core/auth/rbac';
 
 export const dynamic = 'force-dynamic';
 
+function filterDocsForUser<T extends { department: string }>(
+  docs: T[],
+  userAccess: TenantUserAccessProfile
+): T[] {
+  return docs.filter((d) => canAccessDepartment(userAccess, d.department));
+}
+
 export async function GET(request: NextRequest) {
-  return withTenantApi(request, async () => {
-    const documents = await listBrainDocuments();
-    const conflicts = await listBrainDocumentConflicts();
+  return withTenantApi(request, async ({ userAccess }) => {
+    const allDocuments = await listBrainDocuments();
+    const documents = filterDocsForUser(allDocuments, userAccess);
+    const allowedTitles = new Set(documents.map((d) => d.title));
+    const allConflicts = await listBrainDocumentConflicts();
+    const conflicts = allConflicts.filter(
+      (c) =>
+        allowedTitles.has(c.newerDocument.title) &&
+        allowedTitles.has(c.existingDocument.title)
+    );
     return NextResponse.json({
       ok: true,
       documents,
@@ -26,7 +45,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return withTenantApi(request, async ({ session }) => {
+  return withTenantApi(request, async ({ session, userAccess }) => {
     try {
       const body = (await request.json()) as {
         title?: string;
@@ -49,10 +68,23 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const targetDept = body.department ?? 'executive-board';
+      if (!canEditDocuments(userAccess, targetDept)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Insufficient permissions: you do not have edit access to this department.',
+            code: 'FORBIDDEN_DEPARTMENT',
+          },
+          { status: 403 }
+        );
+      }
+
       const result = await ingestDocumentIntoBrain({
         title: body.title,
         content: body.content,
-        department: body.department ?? 'General',
+        department: targetDept,
         sourceType: body.sourceType ?? 'upload',
         tags: body.tags,
         language: body.language ?? 'en',
@@ -60,8 +92,16 @@ export async function POST(request: NextRequest) {
         createdByName: session?.name ?? body.createdByName,
       });
 
-      const documents = await listBrainDocuments();
-      const conflicts = await listBrainDocumentConflicts();
+      const documents = filterDocsForUser(
+        await listBrainDocuments(),
+        userAccess
+      );
+      const allowedTitles = new Set(documents.map((d) => d.title));
+      const conflicts = (await listBrainDocumentConflicts()).filter(
+        (c) =>
+        allowedTitles.has(c.newerDocument.title) &&
+        allowedTitles.has(c.existingDocument.title)
+      );
 
       return NextResponse.json({
         ok: true,
@@ -83,7 +123,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  return withTenantApi(request, async ({ session }) => {
+  return withTenantApi(request, async ({ session, userAccess }) => {
     try {
       const body = (await request.json()) as {
         parentId?: string;
@@ -110,18 +150,39 @@ export async function PUT(request: NextRequest) {
         );
       }
 
+      const targetDept = body.department ?? 'executive-board';
+      if (!canEditDocuments(userAccess, targetDept)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Insufficient permissions: you do not have edit access to this department.',
+            code: 'FORBIDDEN_DEPARTMENT',
+          },
+          { status: 403 }
+        );
+      }
+
       const updated = await updateBrainDocument({
         parentId: body.parentId,
         title: body.title,
         content: body.content,
-        department: body.department ?? 'General',
+        department: targetDept,
         tags: body.tags,
         updatedByEmail: session?.sub ?? body.updatedByEmail,
         updatedByName: session?.name ?? body.updatedByName,
       });
 
-      const documents = await listBrainDocuments();
-      const conflicts = await listBrainDocumentConflicts();
+      const documents = filterDocsForUser(
+        await listBrainDocuments(),
+        userAccess
+      );
+      const allowedTitles = new Set(documents.map((d) => d.title));
+      const conflicts = (await listBrainDocumentConflicts()).filter(
+        (c) =>
+        allowedTitles.has(c.newerDocument.title) &&
+        allowedTitles.has(c.existingDocument.title)
+      );
 
       return NextResponse.json({
         ok: true,
@@ -143,7 +204,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  return withTenantApi(request, async () => {
+  return withTenantApi(request, async ({ userAccess }) => {
     try {
       const parentId = request.nextUrl.searchParams.get('parentId');
       if (!parentId) {
@@ -153,9 +214,36 @@ export async function DELETE(request: NextRequest) {
         );
       }
 
+      const existingDocs = await listBrainDocuments();
+      const targetDoc = existingDocs.find(
+        (d) =>
+          d.parentId === parentId || (d.allParentIds ?? []).includes(parentId)
+      );
+      if (
+        !canEditDocuments(userAccess, targetDoc?.department)
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              'Insufficient permissions: you do not have delete access to this department.',
+            code: 'FORBIDDEN_DEPARTMENT',
+          },
+          { status: 403 }
+        );
+      }
+
       await removeBrainDocument(parentId);
-      const documents = await listBrainDocuments();
-      const conflicts = await listBrainDocumentConflicts();
+      const documents = filterDocsForUser(
+        await listBrainDocuments(),
+        userAccess
+      );
+      const allowedTitles = new Set(documents.map((d) => d.title));
+      const conflicts = (await listBrainDocumentConflicts()).filter(
+        (c) =>
+        allowedTitles.has(c.newerDocument.title) &&
+        allowedTitles.has(c.existingDocument.title)
+      );
 
       return NextResponse.json({
         ok: true,

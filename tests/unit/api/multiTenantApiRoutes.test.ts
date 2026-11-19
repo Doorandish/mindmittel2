@@ -12,6 +12,13 @@ import {
   POST as docsPost,
 } from '@/app/api/brain/documents/route';
 import { resetTenantRepositoryForTests } from '@/infrastructure/tenancy/tenantRepository';
+import { resetTenantGovernanceCachesForTests } from '@/infrastructure/tenancy/tenantGovernanceRepository';
+import {
+  GET as governanceGet,
+  POST as governancePost,
+  PUT as governancePut,
+  DELETE as governanceDelete,
+} from '@/app/api/tenant/governance/route';
 import {
   setSmtpSenderForTests,
   type SmtpMailPayload,
@@ -37,6 +44,7 @@ describe('End-to-End Multi-Tenant Subdomain API Isolation & OTP Flow', () => {
       sentEmails.push(payload);
     });
     resetTenantRepositoryForTests();
+    resetTenantGovernanceCachesForTests();
   });
 
   afterEach(() => {
@@ -247,5 +255,128 @@ describe('End-to-End Multi-Tenant Subdomain API Isolation & OTP Flow', () => {
     expect(
       demoDocsData.documents.map((d: { title: string }) => d.title)
     ).not.toContain('Bosch Secret M&A Strategy 2027');
+
+    // 8. Second employee (analyst@bosch.de) logs in -> lands in Pending Approval (403 on documents)
+    const analystOtpReq = await otpRequestPost(
+      new NextRequest('https://bosch.mindmittel.de/api/auth/otp/request', {
+        method: 'POST',
+        headers: { host: 'bosch.mindmittel.de', 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'analyst@bosch.de' }),
+      })
+    );
+    expect(analystOtpReq.status).toBe(200);
+    const analystCode = sentEmails[sentEmails.length - 1].text.match(/\b(\d{6})\b/)![1];
+    const analystVerify = await otpVerifyPost(
+      new NextRequest('https://bosch.mindmittel.de/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { host: 'bosch.mindmittel.de', 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'analyst@bosch.de', code: analystCode, fullName: 'HR Analyst' }),
+      })
+    );
+    expect(analystVerify.status).toBe(200);
+    const analystVerifyData = await analystVerify.json();
+    expect(analystVerifyData.userAccess.status).toBe('pending');
+    const analystCookie = extractCookieValue(analystVerify.headers.get('set-cookie'), 'mm_tenant_session');
+
+    // Pending user is blocked from reading documents (403 PENDING_APPROVAL)
+    const pendingDocsRes = await docsGet(
+      new NextRequest('https://bosch.mindmittel.de/api/brain/documents', {
+        headers: { host: 'bosch.mindmittel.de', cookie: `mm_tenant_session=${analystCookie}` },
+      })
+    );
+    expect(pendingDocsRes.status).toBe(403);
+
+    // 9. Company Admin (cfo@bosch.de) approves analyst@bosch.de as evaluator restricted ONLY to ['hr-people']
+    const approveRes = await governancePut(
+      new NextRequest('https://bosch.mindmittel.de/api/tenant/governance', {
+        method: 'PUT',
+        headers: {
+          host: 'bosch.mindmittel.de',
+          'content-type': 'application/json',
+          cookie: `mm_tenant_session=${boschSessionCookie}`,
+        },
+        body: JSON.stringify({
+          email: 'analyst@bosch.de',
+          role: 'evaluator',
+          status: 'active',
+          allowedDepartments: ['hr-people'],
+        }),
+      })
+    );
+    expect(approveRes.status).toBe(200);
+
+    // Approved evaluator can read docs (200) but NEVER sees 'Finance & Legal' secret M&A doc!
+    const analystDocsRes = await docsGet(
+      new NextRequest('https://bosch.mindmittel.de/api/brain/documents', {
+        headers: { host: 'bosch.mindmittel.de', cookie: `mm_tenant_session=${analystCookie}` },
+      })
+    );
+    expect(analystDocsRes.status).toBe(200);
+    const analystDocsData = await analystDocsRes.json();
+    expect(analystDocsData.documents).toHaveLength(0);
+
+    // Evaluator cannot create documents (403) or access governance (403)
+    const evalCreateRes = await docsPost(
+      new NextRequest('https://bosch.mindmittel.de/api/brain/documents', {
+        method: 'POST',
+        headers: {
+          host: 'bosch.mindmittel.de',
+          'content-type': 'application/json',
+          cookie: `mm_tenant_session=${analystCookie}`,
+        },
+        body: JSON.stringify({ title: 'Unauthorized', content: 'Blocked', department: 'hr-people' }),
+      })
+    );
+    expect(evalCreateRes.status).toBe(403);
+
+    const evalGovRes = await governanceGet(
+      new NextRequest('https://bosch.mindmittel.de/api/tenant/governance', {
+        headers: { host: 'bosch.mindmittel.de', cookie: `mm_tenant_session=${analystCookie}` },
+      })
+    );
+    expect(evalGovRes.status).toBe(403);
+
+    // 10. Company Admin adds custom department 'Produktion', ingests doc, gets 409 on delete, deletes empty dept (200)
+    const addDeptRes = await governancePost(
+      new NextRequest('https://bosch.mindmittel.de/api/tenant/governance', {
+        method: 'POST',
+        headers: {
+          host: 'bosch.mindmittel.de',
+          'content-type': 'application/json',
+          cookie: `mm_tenant_session=${boschSessionCookie}`,
+        },
+        body: JSON.stringify({ label: 'Produktion' }),
+      })
+    );
+    expect(addDeptRes.status).toBe(200);
+
+    // Add doc to 'produktion', then verify DELETE returns 409 Conflict
+    await docsPost(
+      new NextRequest('https://bosch.mindmittel.de/api/brain/documents', {
+        method: 'POST',
+        headers: {
+          host: 'bosch.mindmittel.de',
+          'content-type': 'application/json',
+          cookie: `mm_tenant_session=${boschSessionCookie}`,
+        },
+        body: JSON.stringify({ title: 'Plant Safety Rules', content: 'Helmets required.', department: 'produktion' }),
+      })
+    );
+    const blockedDeleteDept = await governanceDelete(
+      new NextRequest('https://bosch.mindmittel.de/api/tenant/governance?departmentId=produktion', {
+        method: 'DELETE',
+        headers: { host: 'bosch.mindmittel.de', cookie: `mm_tenant_session=${boschSessionCookie}` },
+      })
+    );
+    expect(blockedDeleteDept.status).toBe(409);
+
+    // Empty department ('operations-it') can be deleted cleanly (200)
+    const okDeleteDept = await governanceDelete(
+      new NextRequest('https://bosch.mindmittel.de/api/tenant/governance?departmentId=operations-it', {
+        method: 'DELETE',
+        headers: { host: 'bosch.mindmittel.de', cookie: `mm_tenant_session=${boschSessionCookie}` },
+      })
+    );
+    expect(okDeleteDept.status).toBe(200);
   });
 });

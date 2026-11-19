@@ -23,6 +23,7 @@ export interface StoredTenantRecord {
   companyName: string;
   allowedEmailDomains: string[];
   allowedEmails: string[];
+  adminEmails?: string[];
   status: TenantStatus;
   dbName: string;
   encryptedMongoUri: string | null;
@@ -37,6 +38,7 @@ export interface AdminTenantView {
   companyName: string;
   allowedEmailDomains: string[];
   allowedEmails: string[];
+  adminEmails: string[];
   status: TenantStatus;
   dbName: string;
   usesCustomDatabase: boolean;
@@ -51,6 +53,7 @@ export interface TenantUpdateInput {
   companyName?: string;
   allowedEmailDomains?: string[] | string;
   allowedEmails?: string[] | string;
+  adminEmails?: string[] | string;
   status?: TenantStatus;
   dbName?: string;
   mongoUri?: string | null;
@@ -93,6 +96,7 @@ function toResolvedTenant(record: StoredTenantRecord): ResolvedTenant {
     companyName: record.companyName,
     allowedEmailDomains: record.allowedEmailDomains ?? [],
     allowedEmails: record.allowedEmails ?? [],
+    adminEmails: record.adminEmails ?? [],
     status: record.status,
     dbName: record.dbName,
     mongoUri: safeDecrypt(record.encryptedMongoUri),
@@ -116,6 +120,7 @@ function toAdminView(record: StoredTenantRecord): AdminTenantView {
     companyName: record.companyName,
     allowedEmailDomains: record.allowedEmailDomains ?? [],
     allowedEmails: record.allowedEmails ?? [],
+    adminEmails: record.adminEmails ?? [],
     status: record.status,
     dbName: record.dbName,
     usesCustomDatabase: Boolean(decryptedUri),
@@ -199,6 +204,7 @@ export async function createTenant(input: TenantInputRaw): Promise<AdminTenantVi
     companyName: parsed.companyName,
     allowedEmailDomains: parsed.allowedEmailDomains,
     allowedEmails: parsed.allowedEmails,
+    adminEmails: parsed.adminEmails,
     status: parsed.status,
     dbName: parsed.dbName,
     encryptedMongoUri: parsed.mongoUri ? encryptSecret(parsed.mongoUri, key) : null,
@@ -254,15 +260,19 @@ export async function updateTenant(
       : current.companyName;
 
   const policy =
-    patch.allowedEmailDomains !== undefined || patch.allowedEmails !== undefined
+    patch.allowedEmailDomains !== undefined ||
+    patch.allowedEmails !== undefined ||
+    patch.adminEmails !== undefined
       ? parseAccessPolicy({
           allowedEmailDomains:
             patch.allowedEmailDomains ?? current.allowedEmailDomains,
           allowedEmails: patch.allowedEmails ?? current.allowedEmails,
+          adminEmails: patch.adminEmails ?? current.adminEmails ?? [],
         })
       : {
           allowedEmailDomains: current.allowedEmailDomains,
           allowedEmails: current.allowedEmails,
+          adminEmails: current.adminEmails ?? [],
         };
 
   const dbName =
@@ -291,6 +301,7 @@ export async function updateTenant(
     companyName,
     allowedEmailDomains: policy.allowedEmailDomains,
     allowedEmails: policy.allowedEmails,
+    adminEmails: policy.adminEmails,
     status: patch.status ?? current.status,
     dbName,
     encryptedMongoUri,

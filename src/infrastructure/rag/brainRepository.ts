@@ -1393,15 +1393,38 @@ export async function syncConnectorDataIntoBrain(params: {
 export async function searchBrainByVectorSimilarity(params: {
   query: string;
   departmentFilter?: string;
+  allowedDepartments?: 'all' | string[];
   topK?: number;
   excludedParentIds?: string[];
 }): Promise<MatchedParentDocumentResult[]> {
+  if (
+    Array.isArray(params.allowedDepartments) &&
+    params.allowedDepartments.length === 0
+  ) {
+    return [];
+  }
+
   await ensureDefaultPoliciesSeeded();
   const vault = getMemoryVault();
   const topK = params.topK ?? 3;
   const excludedSet = new Set(
     (params.excludedParentIds ?? []).map((id) => id.trim()).filter(Boolean)
   );
+
+  // Build strict server-side allowed department candidate set (RBAC Zero-Leak Guard)
+  let allowedDeptCandidates: string[] | null = null;
+  if (Array.isArray(params.allowedDepartments)) {
+    const expanded = new Set<string>();
+    for (const d of params.allowedDepartments) {
+      for (const candidate of resolveDepartmentFilterCandidates(d)) {
+        expanded.add(candidate);
+      }
+    }
+    allowedDeptCandidates = Array.from(expanded);
+  }
+  const allowedDeptSet = allowedDeptCandidates
+    ? new Set(allowedDeptCandidates.map((d) => d.toLowerCase()))
+    : null;
 
   const { vector: queryVector } = await generateGeminiEmbedding768(params.query);
 
@@ -1419,7 +1442,11 @@ export async function searchBrainByVectorSimilarity(params: {
         limit: topK * 3 + excludedSet.size * 3,
       };
 
-      if (
+      if (allowedDeptCandidates) {
+        vectorSearchStage.filter = {
+          'metadata.department': { $in: allowedDeptCandidates },
+        };
+      } else if (
         params.departmentFilter &&
         params.departmentFilter !== 'all' &&
         params.departmentFilter.trim() !== ''
@@ -1465,7 +1492,11 @@ export async function searchBrainByVectorSimilarity(params: {
           const parent =
             parentMap.get(pid) ??
             vault.parents.find((p) => p.parentId === pid);
-          if (parent) {
+          if (
+            parent &&
+            (!allowedDeptSet ||
+              allowedDeptSet.has(parent.metadata.department.trim().toLowerCase()))
+          ) {
             const titleKey = parent.title.trim().toLowerCase();
             const score = Number(Number(hit.score ?? 0.8).toFixed(4));
             const existing = bestByTitle.get(titleKey);
@@ -1501,20 +1532,32 @@ export async function searchBrainByVectorSimilarity(params: {
   // Ensure both Parent documents and Child vectors are hydrated from MongoDB before fallback cosine ranking
   await hydrateVaultFromMongo();
 
-  const searchableChildren =
-    excludedSet.size > 0
-      ? vault.children.filter((c) => !excludedSet.has(c.parentId))
-      : vault.children;
-  const searchableParents =
-    excludedSet.size > 0
-      ? vault.parents.filter((p) => !excludedSet.has(p.parentId))
-      : vault.parents;
+  const searchableChildren = vault.children.filter((c) => {
+    if (excludedSet.has(c.parentId)) return false;
+    if (
+      allowedDeptSet &&
+      !allowedDeptSet.has(c.metadata.department.trim().toLowerCase())
+    ) {
+      return false;
+    }
+    return true;
+  });
+  const searchableParents = vault.parents.filter((p) => {
+    if (excludedSet.has(p.parentId)) return false;
+    if (
+      allowedDeptSet &&
+      !allowedDeptSet.has(p.metadata.department.trim().toLowerCase())
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   return rankParentDocumentsByVectorMatch({
     queryVector,
     children: searchableChildren,
     parents: searchableParents,
-    departmentFilter: params.departmentFilter,
+    departmentFilter: allowedDeptSet ? undefined : params.departmentFilter,
     topK,
   });
 }

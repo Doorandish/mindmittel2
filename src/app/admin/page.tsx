@@ -41,6 +41,7 @@ export default function SuperAdminConsolePage() {
   const [companyName, setCompanyName] = useState<string>('');
   const [allowedEmailDomains, setAllowedEmailDomains] = useState<string>('');
   const [allowedEmails, setAllowedEmails] = useState<string>('');
+  const [adminEmails, setAdminEmails] = useState<string>('');
   const [customDbName, setCustomDbName] = useState<string>('');
   const [mongoUri, setMongoUri] = useState<string>('');
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
@@ -127,6 +128,7 @@ export default function SuperAdminConsolePage() {
     setCompanyName(tenant.companyName);
     setAllowedEmailDomains(tenant.allowedEmailDomains.join(', '));
     setAllowedEmails(tenant.allowedEmails.join(', '));
+    setAdminEmails((tenant.adminEmails ?? []).join(', '));
     setCustomDbName(tenant.dbName);
     setMongoUri('');
     setGeminiApiKey('');
@@ -143,6 +145,7 @@ export default function SuperAdminConsolePage() {
     setCompanyName('');
     setAllowedEmailDomains('');
     setAllowedEmails('');
+    setAdminEmails('');
     setCustomDbName('');
     setMongoUri('');
     setGeminiApiKey('');
@@ -167,6 +170,7 @@ export default function SuperAdminConsolePage() {
                 companyName,
                 allowedEmailDomains,
                 allowedEmails,
+                adminEmails,
                 dbName: customDbName.trim() || undefined,
                 mongoUri: mongoUri.trim() || undefined,
                 clearMongoUri,
@@ -178,6 +182,7 @@ export default function SuperAdminConsolePage() {
                 companyName,
                 allowedEmailDomains,
                 allowedEmails,
+                adminEmails,
                 dbName: customDbName.trim() || undefined,
                 mongoUri: mongoUri.trim() || null,
                 geminiApiKey: geminiApiKey.trim() || null,
@@ -198,6 +203,7 @@ export default function SuperAdminConsolePage() {
         setCompanyName('');
         setAllowedEmailDomains('');
         setAllowedEmails('');
+        setAdminEmails('');
         setCustomDbName('');
         setMongoUri('');
         setGeminiApiKey('');
@@ -541,6 +547,26 @@ export default function SuperAdminConsolePage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Company Admin Email(s) (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  name="tenant_admin_emails"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  value={adminEmails}
+                  onChange={(e) => setAdminEmails(e.target.value)}
+                  placeholder="cio@bosch.de"
+                  className="w-full px-3.5 py-2 text-sm font-mono rounded-xl border border-slate-300 focus:outline-none focus:border-blue-600"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Initial Company Admin(s) automatically receive full access to approve new employees, assign roles/departments, and manage custom departments.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
                   Additional Whitelisted Emails (optional)
                 </label>
                 <input
@@ -794,6 +820,15 @@ export default function SuperAdminConsolePage() {
                           </strong>
                         </span>
                       </div>
+                      {(t.adminEmails ?? []).length > 0 && (
+                        <div className="sm:col-span-2 flex items-center gap-1.5 font-mono truncate text-blue-700">
+                          <Shield className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                          <span>
+                            Company Admin(s):{' '}
+                            <strong>{t.adminEmails.join(', ')}</strong>
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px] font-mono text-slate-500">

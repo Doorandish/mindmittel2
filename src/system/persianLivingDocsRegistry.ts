@@ -258,11 +258,23 @@ export const DOCUMENTED_API_ROUTES: readonly DocumentedApiRouteSpec[] = [
     sourceFile: 'src/app/api/tenant/context/route.ts',
     zoneScope: 'tenant',
     technicalSummaryFa:
-      'تشخیص و بازگرداندن اطلاعات Tenant فعال بر اساس هدرهای Middleware، وضعیت احراز هویت کاربر جاری و پرچم محیط دمو یا مشتری واقعی.',
+      'تشخیص و بازگرداندن اطلاعات Tenant فعال بر اساس هدرهای Middleware، وضعیت احراز هویت کاربر جاری، پروفایل دسترسی RBAC (نقش، وضعیت pending/active و دپارتمان‌های مجاز) و لیست دپارتمان‌های سفارشی شرکت.',
     nonTechnicalSummaryFa:
-      'به صفحه مرورگر اعلام می‌کند که کاربر الان وارد کدام شرکت شده و آیا قبلاً لاگین کرده است یا خیر.',
+      'به صفحه مرورگر اعلام می‌کند کاربر وارد کدام شرکت شده، آیا ادمین او را تایید کرده است یا خیر، و به کدام دپارتمان‌ها دسترسی دارد.',
     errorProtectionFa:
       'رد درخواست در صورت تعلیق بودن Tenant یا عدم تطابق امضای کوکی با ساب‌دامین فعلی.',
+  },
+  {
+    endpoint: '/api/tenant/governance',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    sourceFile: 'src/app/api/tenant/governance/route.ts',
+    zoneScope: 'tenant',
+    technicalSummaryFa:
+      'درگاه اختصاصی مدیر شرکت (Company Admin فقط با نقش admin): مشاهده لیست کاربران و وضعیت تایید (Pending/Active)، تخصیص یکی از ۳ نقش (admin/editor/evaluator) و دپارتمان‌های مجاز (* یا لیست دپارتمان‌ها)، و افزودن یا حذف دپارتمان‌های سفارشی شرکت با بررسی تعداد اسناد.',
+    nonTechnicalSummaryFa:
+      'پنل مدیریت تیم و دسترسی‌ها برای مدیر هر شرکت مشتری: تایید کارمندان تازه‌وارد، مشخص کردن دپارتمان‌های مجاز هر نفر و تعریف دپارتمان‌های اختصاصی شرکت.',
+    errorProtectionFa:
+      'قفل ضدِ حذف آخرین ادمین شرکت (Anti-Lockout Guard) و مسدودسازی حذف دپارتمان دارای سند با کد 409 Conflict تا زمانی که اسناد آن جابه‌جا یا حذف شوند.',
   },
 ];
 
@@ -1099,6 +1111,38 @@ export const PERSIAN_TECHNICAL_ARCHITECTURE_DOC: {
         'tests/unit/system/loggerAndDocs.test.ts',
       ],
     },
+    {
+      id: 'adr-09-tenant-rbac-pending-approval-and-custom-departments',
+      codeBadge: 'ADR-09 · 3-Role RBAC, Pending Approval & Custom Departments',
+      titleFa: 'کنترل دسترسی ۳ نقشه (Admin/Editor/Evaluator)، تایید اولیه Pending Approval و دپارتمان‌های سفارشی شرکت با فیلتر اجباری RAG در سرور',
+      subtitleEn: 'Zero-Trust Pending Onboarding + Server-Enforced Department Scoping in Vector Search + Safe Department Deletion',
+      chosenArchitectureFa:
+        'ایمیل مدیر اولیه شرکت در admin.mindmittel.de تعریف می‌شود. کارمندان تازه‌وارد پس از تایید کد ۶ رقمی OTP در وضعیت Pending Approval قرار می‌گیرند تا Company Admin نقش آن‌ها (admin / editor / evaluator) و دپارتمان‌های مجازشان (* یا زیرمجموعه خاص) را تایید کند. فیلتر allowedDepartments مستقیماً در لایه سرور روی searchBrainByVectorSimilarity و listBrainDocuments اعمال می‌شود و حذف دپارتمان دارای سند با کد 409 مسدود می‌گردد.',
+      whyChosenFa:
+        'جلوگیری ۱۰۰٪ از نشت اسناد محرمانه یک دپارتمان (مثلاً HR یا مالی) از طریق پاسخ‌های هوش مصنوعی به کارمندان دپارتمان‌های دیگر (Zero RAG Leak)، عدم نیاز به مدیریت پیچیده Suspend (چون شرکت‌ها هنگام خروج کارمند ایمیل او را قطع می‌کنند)، و جلوگیری از یتیم شدن اسناد هنگام حذف دپارتمان.',
+      alternativesRejectedFa: [
+        {
+          optionNameFa: 'گزینه جایگزین ۱: فیلتر کردن دپارتمان‌ها صرفاً در رابط کاربری (Frontend-Only Filtering)',
+          whyRejectedFa:
+            'بسیار ناامن است؛ چون موتور جستجوی برداری و Gemini همچنان به اسناد دپارتمان‌های غیرمجاز دسترسی می‌داشتند و اطلاعات محرمانه را در گزارش ممیزی لو می‌دادند.',
+        },
+        {
+          optionNameFa: 'گزینه جایگزین ۲: انتقال خودکار یا حذف آبشاری اسناد هنگام حذف یک دپارتمان',
+          whyRejectedFa:
+            'ممکن است ادمین به اشتباه دپارتمان مهمی را حذف کند و اسناد آن به دپارتمان عمومی منتقل شده و در دسترس افراد غیرمجاز قرار گیرند.',
+        },
+      ],
+      limitationsAndTradeoffsFa:
+        '۱) هر کارمند تازه‌وارد برای اولین بار تا زمان تایید توسط Company Admin نمی‌تواند از سیستم استفاده کند (تاخیر Onboarding به نفع امنیت Zero-Trust). ۲) برای حذف یک دپارتمان دارای سند، ادمین ابتدا باید در بخش Company Brain اسناد آن دپارتمان را ویرایش کرده و به دپارتمان دیگری منتقل کند یا حذف نماید.',
+      mitigationOrFuturePathFa:
+        'نمایش شمارنده زنده تعداد کاربران Pending در سایدبار ادمین و نمایش دقیق تعداد اسناد هر دپارتمان در تب Team & Access به همراه Anti-Lockout Guard برای جلوگیری از تنزل آخرین ادمین فعال شرکت.',
+      sourceFiles: [
+        'src/core/auth/rbac.ts',
+        'src/infrastructure/tenancy/tenantGovernanceRepository.ts',
+        'src/app/api/tenant/governance/route.ts',
+        'src/components/governance/TeamAccessPanel.tsx',
+      ],
+    },
   ],
 };
 
@@ -1553,6 +1597,17 @@ export const PERSIAN_NON_TECHNICAL_BLUEPRINT_DOC: {
         'محدودیت این روش چیست؟ برای تغییر متن یک سند خارجی، کاربر باید فایل اصلی را در Google Drive ویرایش کند و دکمه Sync را بزند؛ همچنین اگر بخواهد یک سند را در ۳ تصمیم متوالی کنار بگذارد، باید قبل از هر تصمیم دکمه 1x Exclude را بزند.',
       whyItMattersFa:
         'حفظ یکپارچگی منبع حقیقت سازمان و جلوگیری ۱۰۰٪ از فراموشی یا دستکاری پنهانی قوانین.',
+    },
+    {
+      questionFa: '۹. چرا کارمندان تازه‌وارد در وضعیت «در انتظار تایید ادمین» (Pending Approval) قرار می‌گیرند و چرا دپارتمان دارای سند حذف نمی‌شود؟',
+      simpleAnswerFa:
+        'وقتی کارمندی برای اولین بار وارد سایت شرکت می‌شود، تا زمانی که مدیر داخلی شرکت (Company Admin) نقش او (ادمین / ویرایشگر / ارزیاب) و دپارتمان‌های مجازش را مشخص و تایید نکند، هیچ سندی را نمی‌بیند و هوش مصنوعی هم هیچ جوابی از روی اسناد محرمانه به او نمی‌دهد.',
+      alternativesComparisonFa:
+        'گزینه‌های دیگر چه بودند؟ اگر ورود همه کارمندان را به صورت خودکار باز می‌گذاشتیم، هر کارمند جدیدی می‌توانست قبل از تنظیم دسترسی، به قوانین محرمانه مالی یا منابع انسانی دسترسی پیدا کند. همچنین اگر اجازه حذف دپارتمان دارای سند را می‌دادیم، اسناد آن دپارتمان بی‌سرپرست می‌شدند یا به اشتباه عمومی می‌شدند.',
+      limitationsAndConstraintsFa:
+        'محدودیت این روش چیست؟ کارمند تازه‌وارد برای اولین ورود باید منتظر یک کلیک تایید مدیر شرکت بماند؛ و مدیر شرکت برای حذف یک دپارتمان قدیمی ابتدا باید اسناد زیرمجموعه آن را به دپارتمان دیگری منتقل یا حذف کند.',
+      whyItMattersFa:
+        'امنیت کامل Zero-Trust در سطح دپارتمان (حتی داخل پاسخ‌های هوش مصنوعی) و جلوگیری از پاک شدن یا گم شدن اتفاقی اسناد سازمانی.',
     },
   ],
 };

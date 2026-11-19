@@ -10,6 +10,7 @@ export interface ResolvedTenant {
   companyName: string;
   allowedEmailDomains: string[];
   allowedEmails: string[];
+  adminEmails: string[];
   status: TenantStatus;
   dbName: string;
   mongoUri: string | null;
@@ -26,6 +27,7 @@ export const DEMO_TENANT: ResolvedTenant = Object.freeze({
   companyName: 'MindMittel Live Demo',
   allowedEmailDomains: [],
   allowedEmails: [],
+  adminEmails: [],
   status: 'active',
   dbName: 'mindmittel_demo',
   mongoUri: null,
@@ -120,12 +122,17 @@ export function normalizeEmailList(input: string[] | string | undefined): string
 
 export function isEmailAllowedForTenant(
   rawEmail: string,
-  policy: { allowedEmailDomains: string[]; allowedEmails: string[] }
+  policy: {
+    allowedEmailDomains: string[];
+    allowedEmails: string[];
+    adminEmails?: string[];
+  }
 ): boolean {
   const email = rawEmail.trim().toLowerCase();
   const parsed = z.string().email().safeParse(email);
   if (!parsed.success) return false;
   if (policy.allowedEmails.includes(email)) return true;
+  if ((policy.adminEmails ?? []).includes(email)) return true;
   const domain = email.slice(email.lastIndexOf('@') + 1);
   return policy.allowedEmailDomains.includes(domain);
 }
@@ -147,6 +154,7 @@ export interface TenantInputRaw {
   companyName?: string;
   allowedEmailDomains?: string[] | string;
   allowedEmails?: string[] | string;
+  adminEmails?: string[] | string;
   status?: TenantStatus;
   dbName?: string;
   mongoUri?: string | null;
@@ -158,6 +166,7 @@ export interface ParsedTenantInput {
   companyName: string;
   allowedEmailDomains: string[];
   allowedEmails: string[];
+  adminEmails: string[];
   status: TenantStatus;
   dbName: string;
   mongoUri: string | null;
@@ -189,15 +198,28 @@ function validateEmails(emails: string[]): void {
 export function parseAccessPolicy(raw: {
   allowedEmailDomains?: string[] | string;
   allowedEmails?: string[] | string;
-}): { allowedEmailDomains: string[]; allowedEmails: string[] } {
+  adminEmails?: string[] | string;
+}): {
+  allowedEmailDomains: string[];
+  allowedEmails: string[];
+  adminEmails: string[];
+} {
   const allowedEmailDomains = normalizeEmailDomains(raw.allowedEmailDomains);
   const allowedEmails = normalizeEmailList(raw.allowedEmails);
+  const adminEmails = normalizeEmailList(raw.adminEmails);
   validateDomains(allowedEmailDomains);
   validateEmails(allowedEmails);
-  if (allowedEmailDomains.length === 0 && allowedEmails.length === 0) {
-    throw new Error('At least one allowed company email domain or email address is required.');
+  validateEmails(adminEmails);
+  if (
+    allowedEmailDomains.length === 0 &&
+    allowedEmails.length === 0 &&
+    adminEmails.length === 0
+  ) {
+    throw new Error(
+      'At least one allowed company email domain, admin email, or email address is required.'
+    );
   }
-  return { allowedEmailDomains, allowedEmails };
+  return { allowedEmailDomains, allowedEmails, adminEmails };
 }
 
 export function parseOptionalMongoUri(value: string | null | undefined): string | null {

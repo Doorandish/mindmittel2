@@ -21,6 +21,7 @@ import {
 import { systemLogger } from '@/infrastructure/logging/logger';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
 import { runWithHeartbeatStream } from '@/infrastructure/http/streamingResponse';
+import { resolveEffectiveDepartmentFilter } from '@/core/auth/rbac';
 import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 
 export const dynamic = 'force-dynamic';
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return withTenantApi(request, async ({ session }) =>
+  return withTenantApi(request, async ({ session, userAccess }) =>
     runWithHeartbeatStream(request, async () => {
       try {
         const body = (await request.json()) as {
@@ -152,14 +153,19 @@ export async function POST(request: NextRequest) {
           )
         : undefined;
 
+      const effectiveAllowedDepts = resolveEffectiveDepartmentFilter(
+        userAccess,
+        body.departmentFilter
+      );
       const hasGeminiKey = Boolean(resolveGeminiApiKey());
 
-      // 1 & 2. Retrieve matching Parent documents, resolve optimal Gemini model, and fetch excluded doc metadata in parallel
+      // 1 & 2. Retrieve matching Parent documents (strictly scoped by RBAC allowedDepartments), resolve optimal Gemini model, and fetch excluded doc metadata in parallel
       const [rawMatchedParents, modelSelection, allDocsForDisclosure] =
         await Promise.all([
           searchBrainByVectorSimilarity({
             query: decisionProposal,
             departmentFilter: body.departmentFilter,
+            allowedDepartments: effectiveAllowedDepts,
             topK: 3,
             excludedParentIds,
           }),

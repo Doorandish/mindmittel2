@@ -10,6 +10,7 @@ import { systemLogger } from '@/infrastructure/logging/logger';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
 import { runWithHeartbeatStream } from '@/infrastructure/http/streamingResponse';
 import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
+import { canEditDocuments } from '@/core/auth/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +20,18 @@ export const dynamic = 'force-dynamic';
  * processes them via Google Gemini Multimodal API (`inlineData`), and returns normalized text ready for Company Brain ingestion.
  */
 export async function POST(request: NextRequest) {
-  return withTenantApi(request, async () =>
+  return withTenantApi(request, async ({ userAccess }) =>
     runWithHeartbeatStream(request, async () => {
+      if (!canEditDocuments(userAccess)) {
+        return {
+          status: 403,
+          body: {
+            ok: false,
+            error:
+              'Insufficient permissions: only Company Admins and Knowledge Editors can upload files.',
+          },
+        };
+      }
       try {
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
