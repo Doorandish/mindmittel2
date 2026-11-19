@@ -104,32 +104,34 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       sourceFiles: [
         'src/core/rag/multimodalExtractor.ts',
         'src/app/api/brain/extract/route.ts',
+        'src/infrastructure/http/streamingResponse.ts',
         'tests/unit/core/rag/multimodalExtractor.test.ts',
       ],
       apiContracts: [
-        'POST /api/brain/extract (multipart/form-data: file)',
+        'POST /api/brain/extract (multipart/form-data: file, x-mindmittel-stream: 1)',
         'classifyMultimodalInput(fileName: string, mimeType: string)',
         'extractTextFromPlainBuffer(buffer: Buffer, fileName: string)',
+        'runWithHeartbeatStream(request, work)',
       ],
       dataPipeline:
-        'File or Live WebM Voice Stream -> classifyMultimodalInput() -> Base64 inlineData sent to dynamically selected Gemini model -> returns clean structured text into Company Brain editor.',
+        'File or Live WebM Voice Stream -> NDJSON Heartbeat Stream flushes initial byte in < 5ms (every 8s keep-alive) -> classifyMultimodalInput() -> Base64 inlineData sent to dynamically selected Gemini model (18s per-model timeout) -> returns clean structured text into Company Brain editor.',
       errorHandlingAndFallbacks:
-        'If GEMINI_API_KEY is unconfigured or offline, falls back to local buffer extraction and deterministic transcription preview so uploads never fail.',
+        'NDJSON 8s heartbeat prevents Heroku H12 30s timeout on large PDFs/audio; if GEMINI_API_KEY is unconfigured or offline, falls back to local buffer extraction and deterministic transcription preview so uploads never fail.',
       envVars: ['GEMINI_API_KEY'],
     },
   },
   {
     id: 'dynamic-gemini-router',
-    title: 'Autonomous Gemini Model Selector & Embedding Engine',
+    title: 'Autonomous Gemini Model Selector, 15m Circuit Breaker & Embedding Engine',
     category: 'ai',
     status: 'healthy',
     technical: {
       architecturePattern:
-        'Functional Core / Imperative Shell with Autonomous Query Intent Classification & 768-d Embeddings',
+        'Functional Core / Imperative Shell with Autonomous Query Intent Classification, 15-Minute Model Circuit Breaker & 768-d Embeddings',
       stack: [
         '@google/genai',
         'Google Gemini REST API (/v1beta/models & text-embedding-004)',
-        'TypeScript Pure Scoring & Intent Classifier',
+        'TypeScript Pure Scoring, Circuit Breaker Cooldown & Intent Classifier',
       ],
       sourceFiles: [
         'src/core/ai/modelRanking.ts',
@@ -140,12 +142,13 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       apiContracts: [
         'inferProfileFromQuery(query: string): "fast" | "reasoning"',
         'geminiModelSelector.selectModel(profile)',
+        'geminiModelSelector.executeWithModelFallback(profile, fn)',
         'generateGeminiEmbedding768(text: string): Promise<{ vector: number[]; modelUsed: string }>',
       ],
       dataPipeline:
-        '1) inferProfileFromQuery() analyzes decision complexity -> 2) selectModel() ranks live Gemini models -> 3) generateGeminiEmbedding768() produces 768-dimensional vectors.',
+        '1) inferProfileFromQuery() analyzes decision complexity -> 2) selectModel() filters out unhealthy models and ranks live Gemini models (ensuring a 2.x fallback) -> 3) executeWithModelFallback() quarantines failing models for 15 minutes -> 4) generateGeminiEmbedding768() produces 768-dimensional vectors.',
       errorHandlingAndFallbacks:
-        'Automatic multi-model failover on HTTP 429/503; if GEMINI_API_KEY is absent or offline, generateGeminiEmbedding768 seamlessly falls back to the deterministic 768-d semantic vector engine.',
+        '15-minute Circuit Breaker cooldown immediately skips models failing with HTTP 404/429/5xx, TypeError: fetch failed, or 18s AbortSignal.timeout; if GEMINI_API_KEY is absent or offline, generateGeminiEmbedding768 seamlessly falls back to the deterministic 768-d semantic vector engine.',
       envVars: ['GEMINI_API_KEY'],
     },
   },

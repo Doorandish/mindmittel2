@@ -157,6 +157,13 @@ export default function SystemObservabilityPage() {
             </div>
 
             <Link
+              href="/admin/docs"
+              className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white inline-flex items-center gap-1.5 shadow-sm transition-colors"
+            >
+              <span>مستندات معماری (FA)</span>
+            </Link>
+
+            <Link
               href="/admin"
               className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 shadow-sm transition-colors"
             >
