@@ -250,7 +250,32 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
 
     expect(auditRouteSource).toContain('Promise.all');
     expect(auditRouteSource).toContain('modelSelection');
-    expect(pageSource).toContain('await res.text()');
-    expect(pageSource).toContain('JSON.parse(rawText)');
+    expect(pageSource).toContain('fetchJsonWithHeartbeat');
+  });
+
+  it('streams NDJSON heartbeat responses on /api/brain/extract and /api/brain/audit to prevent Heroku H12 30s timeouts', () => {
+    const streamHelperPath = path.join(
+      rootDir,
+      'src/infrastructure/http/streamingResponse.ts'
+    );
+    expect(fs.existsSync(streamHelperPath)).toBe(true);
+
+    const extractRouteSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/api/brain/extract/route.ts'),
+      'utf-8'
+    );
+    const auditRouteSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/api/brain/audit/route.ts'),
+      'utf-8'
+    );
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+
+    expect(extractRouteSource).toContain('runWithHeartbeatStream');
+    expect(auditRouteSource).toContain('runWithHeartbeatStream');
+    expect(pageSource).toContain('fetchJsonWithHeartbeat');
+    expect(pageSource).toContain('x-mindmittel-stream');
   });
 });

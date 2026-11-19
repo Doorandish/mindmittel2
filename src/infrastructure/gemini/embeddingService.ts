@@ -29,6 +29,7 @@ export async function generateGeminiEmbedding768(
           },
           outputDimensionality: EMBEDDING_DIMENSIONS,
         }),
+        signal: AbortSignal.timeout(8_000),
       });
 
       if (response.ok) {

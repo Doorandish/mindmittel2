@@ -100,4 +100,55 @@ describe('Dynamic Gemini Model Selector (Imperative Shell: Cache & Fallback)', (
     expect(fallbackSelection.selectedModel.modelId).toBe('gemini-2.5-flash');
     expect(fallbackSelection.staleCacheFallback).toBe(true);
   });
+
+  it('recovers from fetch failed / timeout errors and temporarily quarantines unhealthy models via 15-minute circuit breaker cooldown', async () => {
+    const modelsWithUnstableTop: RawGeminiModelInfo[] = [
+      {
+        name: 'models/gemini-3.8-flash',
+        displayName: 'Gemini 3.8 Flash',
+        supportedGenerationMethods: ['generateContent'],
+      },
+      ...mockModelsResponse,
+    ];
+
+    let currentTime = 2_000_000;
+    const selector = createDynamicModelSelector({
+      fetchAvailableModels: vi.fn().mockResolvedValue(modelsWithUnstableTop),
+      now: () => currentTime,
+    });
+
+    const firstAttempted: string[] = [];
+    const firstResult = await selector.executeWithFallback(
+      'fast',
+      async (modelId) => {
+        firstAttempted.push(modelId);
+        if (modelId === 'gemini-3.8-flash') {
+          throw new TypeError('fetch failed');
+        }
+        return `Recovered via ${modelId}`;
+      }
+    );
+
+    expect(firstResult.output).toBe('Recovered via gemini-2.5-flash');
+    expect(firstResult.usedModelId).toBe('gemini-2.5-flash');
+    expect(firstAttempted).toEqual(['gemini-3.8-flash', 'gemini-2.5-flash']);
+
+    // 10 seconds later (inside 15-min cooldown): gemini-3.8-flash must be skipped immediately!
+    currentTime += 10_000;
+    const secondAttempted: string[] = [];
+    const secondResult = await selector.executeWithFallback(
+      'fast',
+      async (modelId) => {
+        secondAttempted.push(modelId);
+        return `Fast path via ${modelId}`;
+      }
+    );
+    expect(secondResult.usedModelId).toBe('gemini-2.5-flash');
+    expect(secondAttempted).toEqual(['gemini-2.5-flash']);
+
+    // 16 minutes later (past 15-min cooldown): gemini-3.8-flash is eligible again
+    currentTime += 16 * 60 * 1000;
+    const afterCooldown = await selector.selectModel('fast');
+    expect(afterCooldown.selectedModel.modelId).toBe('gemini-3.8-flash');
+  });
 });

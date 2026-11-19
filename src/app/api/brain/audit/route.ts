@@ -20,6 +20,7 @@ import {
 } from '@/core/audit/germanRegulatoryAdvisor';
 import { systemLogger } from '@/infrastructure/logging/logger';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
+import { runWithHeartbeatStream } from '@/infrastructure/http/streamingResponse';
 import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 
 export const dynamic = 'force-dynamic';
@@ -77,6 +78,7 @@ Return ONLY valid JSON with this exact structure:
         responseMimeType: 'application/json',
       },
     }),
+    signal: AbortSignal.timeout(18_000),
   });
 
   if (!response.ok) {
@@ -118,28 +120,29 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return withTenantApi(request, async ({ session }) => {
-    try {
-      const body = (await request.json()) as {
-        decisionProposal?: string;
-        departmentFilter?: string;
-        locale?: 'en' | 'de';
-        auditedByEmail?: string;
-        auditedByName?: string;
-        excludedParentIds?: string[];
-      };
+  return withTenantApi(request, async ({ session }) =>
+    runWithHeartbeatStream(request, async () => {
+      try {
+        const body = (await request.json()) as {
+          decisionProposal?: string;
+          departmentFilter?: string;
+          locale?: 'en' | 'de';
+          auditedByEmail?: string;
+          auditedByName?: string;
+          excludedParentIds?: string[];
+        };
 
-      const decisionProposal = body.decisionProposal?.trim();
-      if (!decisionProposal) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              'Please enter a management decision or policy question to audit.',
-          },
-          { status: 400 }
-        );
-      }
+        const decisionProposal = body.decisionProposal?.trim();
+        if (!decisionProposal) {
+          return {
+            status: 400,
+            body: {
+              ok: false,
+              error:
+                'Please enter a management decision or policy question to audit.',
+            },
+          };
+        }
 
       const locale = body.locale === 'de' ? 'de' : 'en';
       const inferredProfile = inferProfileFromQuery(decisionProposal);
@@ -300,23 +303,26 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      return NextResponse.json({
-        ok: true,
-        report: finalReport,
-        entry: savedEntry,
-        history,
-      });
+      return {
+        body: {
+          ok: true,
+          report: finalReport,
+          entry: savedEntry,
+          history,
+        },
+      };
     } catch (err) {
-      return NextResponse.json(
-        {
+      return {
+        status: 500,
+        body: {
           ok: false,
           error:
             err instanceof Error ? err.message : 'Audit evaluation failed',
         },
-        { status: 500 }
-      );
+      };
     }
-  });
+    })
+  );
 }
 
 export async function DELETE(request: NextRequest) {

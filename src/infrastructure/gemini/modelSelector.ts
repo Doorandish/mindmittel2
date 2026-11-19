@@ -17,11 +17,13 @@ export interface ModelSelectionResult {
 export interface DynamicModelSelectorOptions {
   apiKey?: string;
   ttlMs?: number;
+  cooldownMs?: number;
   now?: () => number;
   fetchAvailableModels?: () => Promise<RawGeminiModelInfo[]>;
 }
 
 const DEFAULT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const DEFAULT_CIRCUIT_BREAKER_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Calls the official Google Gemini REST endpoint to list all models available to the API key.
@@ -42,6 +44,7 @@ export async function fetchModelsFromGeminiApi(
     headers: {
       Accept: 'application/json',
     },
+    signal: AbortSignal.timeout(8_000),
   });
 
   if (!response.ok) {
@@ -55,7 +58,8 @@ export async function fetchModelsFromGeminiApi(
 }
 
 /**
- * Determines whether an error thrown during model inference warrants falling back to the next model.
+ * Determines whether an error thrown during model inference warrants tripping the circuit breaker
+ * and falling back to the next candidate model.
  */
 function isRecoverableModelError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return true;
@@ -64,18 +68,25 @@ function isRecoverableModelError(error: unknown): boolean {
     // 404 (model deprecated/not found), 429 (rate limit), 500/502/503/504 (transient server errors)
     return status === 404 || status === 429 || status >= 500;
   }
+  const name = (error as { name?: string }).name ?? '';
+  if (name === 'TimeoutError' || name === 'AbortError' || name === 'TypeError') {
+    return true;
+  }
   const msg = error instanceof Error ? error.message : String(error);
-  return /(429|503|500|404|quota|rate limit|overloaded|unavailable)/i.test(msg);
+  return /(429|503|500|404|quota|rate limit|overloaded|unavailable|fetch failed|timeout|timed out|abort|network|socket|econnreset)/i.test(
+    msg
+  );
 }
 
 /**
  * Creates a stateful Dynamic Model Selector instance with TTL caching, stale-if-error resilience,
- * and automatic runtime fallback execution.
+ * 15-minute Circuit Breaker cooldown for unhealthy models, and automatic runtime fallback execution.
  */
 export function createDynamicModelSelector(
   options: DynamicModelSelectorOptions = {}
 ) {
   const ttlMs = options.ttlMs ?? DEFAULT_CACHE_TTL_MS;
+  const cooldownMs = options.cooldownMs ?? DEFAULT_CIRCUIT_BREAKER_COOLDOWN_MS;
   const now = options.now ?? (() => Date.now());
   const fetcher =
     options.fetchAvailableModels ??
@@ -86,6 +97,21 @@ export function createDynamicModelSelector(
 
   let cachedModels: RawGeminiModelInfo[] | null = null;
   let cacheExpiresAt = 0;
+  const unhealthyUntilByModel = new Map<string, number>();
+
+  function isModelHealthy(modelId: string, currentTs: number): boolean {
+    const unhealthyUntil = unhealthyUntilByModel.get(modelId);
+    if (unhealthyUntil === undefined) return true;
+    if (currentTs >= unhealthyUntil) {
+      unhealthyUntilByModel.delete(modelId);
+      return true;
+    }
+    return false;
+  }
+
+  function markModelUnhealthy(modelId: string): void {
+    unhealthyUntilByModel.set(modelId, now() + cooldownMs);
+  }
 
   async function getModelCatalog(): Promise<{
     models: RawGeminiModelInfo[];
@@ -127,28 +153,57 @@ export function createDynamicModelSelector(
   async function selectModel(
     profile: ModelSelectionProfile = 'fast'
   ): Promise<ModelSelectionResult> {
+    const currentTs = now();
     const { models, fromCache, staleCacheFallback } = await getModelCatalog();
-    const ranked = rankGeminiModels(models, profile);
+    const allRanked = rankGeminiModels(models, profile);
+    const healthyRanked = allRanked.filter((m) =>
+      isModelHealthy(m.modelId, currentTs)
+    );
+    const effectiveRanked =
+      healthyRanked.length > 0 ? healthyRanked : allRanked;
+
+    const selectedModel = effectiveRanked[0];
+    const fallbackChain = effectiveRanked.slice(1, 5);
+
+    // Ensure a proven generation-2.5 baseline model is included at the tail of fallbackChain if all top entries are 3.x
+    const proven25 = effectiveRanked.find(
+      (m) =>
+        m.version >= 2.0 &&
+        m.version < 3.0 &&
+        m.modelId !== selectedModel.modelId &&
+        !fallbackChain.some((f) => f.modelId === m.modelId)
+    );
+    if (proven25) {
+      fallbackChain.push(proven25);
+    }
 
     return {
-      selectedModel: ranked[0],
-      fallbackChain: ranked.slice(1, 4),
+      selectedModel,
+      fallbackChain,
       fromCache,
       staleCacheFallback,
-      evaluatedAt: new Date(now()).toISOString(),
+      evaluatedAt: new Date(currentTs).toISOString(),
     };
   }
 
   async function executeWithFallback<T>(
     profile: ModelSelectionProfile,
     operation: (modelId: string) => Promise<T>,
-    maxAttempts = 3
+    maxAttempts = 4
   ): Promise<{ output: T; usedModelId: string; attempts: number }> {
     const selection = await selectModel(profile);
-    const candidates = [
-      selection.selectedModel,
-      ...selection.fallbackChain,
-    ].slice(0, maxAttempts);
+    const allCandidates = [selection.selectedModel, ...selection.fallbackChain];
+    const candidates = allCandidates.slice(0, maxAttempts);
+
+    // If a 2.x fallback exists beyond maxAttempts and all earlier candidates are 3.x, include it as final safety net
+    const lastCandidate = allCandidates[allCandidates.length - 1];
+    if (
+      lastCandidate &&
+      lastCandidate.version < 3.0 &&
+      !candidates.some((c) => c.modelId === lastCandidate.modelId)
+    ) {
+      candidates.push(lastCandidate);
+    }
 
     let lastError: unknown;
 
@@ -163,6 +218,9 @@ export function createDynamicModelSelector(
         };
       } catch (err) {
         lastError = err;
+        if (isRecoverableModelError(err)) {
+          markModelUnhealthy(candidate.modelId);
+        }
         if (!isRecoverableModelError(err) || i === candidates.length - 1) {
           throw err;
         }
@@ -175,6 +233,7 @@ export function createDynamicModelSelector(
   function clearCache(): void {
     cachedModels = null;
     cacheExpiresAt = 0;
+    unhealthyUntilByModel.clear();
   }
 
   return {

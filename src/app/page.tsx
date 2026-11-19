@@ -541,6 +541,45 @@ export default function HomePage() {
     openLiveWorkspace('brain');
   }
 
+  async function fetchJsonWithHeartbeat<T = Record<string, unknown>>(
+    url: string,
+    init?: RequestInit
+  ): Promise<T | null> {
+    const headers = new Headers(init?.headers ?? {});
+    headers.set('x-mindmittel-stream', '1');
+    const res = await fetch(url, { ...init, headers });
+    const rawText = await res.text();
+    const lines = rawText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(lines[i]) as {
+          type?: string;
+          data?: T;
+        } & T;
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.type === 'result' && parsed.data !== undefined) {
+            return parsed.data;
+          }
+          if (parsed.type !== 'heartbeat') {
+            return parsed as T;
+          }
+        }
+      } catch {
+        // Ignore non-JSON or HTML lines
+      }
+    }
+
+    try {
+      return JSON.parse(rawText) as T;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleMultimodalFileUpload(
     file: File,
     sourceLabel = 'file'
@@ -556,21 +595,32 @@ export default function HomePage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/brain/extract', {
+      const data = await fetchJsonWithHeartbeat<{
+        ok?: boolean;
+        extractedText?: string;
+        suggestedTitle?: string;
+        category?: string;
+        error?: string;
+      }>('/api/brain/extract', {
         method: 'POST',
         body: formData,
       });
-      const data = await res.json();
 
-      if (data.ok && data.extractedText) {
+      if (!data) {
+        setExtractionStatus(
+          locale === 'de'
+            ? 'Der Server ist vorübergehend ausgelastet. Bitte versuchen Sie es in wenigen Sekunden erneut.'
+            : 'The server is temporarily busy. Please try again in a few seconds.'
+        );
+      } else if (data.ok && data.extractedText) {
         setDocContent(data.extractedText);
         if (!docTitle.trim() && data.suggestedTitle) {
           setDocTitle(data.suggestedTitle);
         }
         setExtractionStatus(
           locale === 'de'
-            ? `✓ Erfolgreich in verarbeitbaren Text umgewandelt (${data.category.toUpperCase()})`
-            : `✓ Converted ${sourceLabel} into structured text (${data.category.toUpperCase()})`
+            ? `✓ Erfolgreich in verarbeitbaren Text umgewandelt (${(data.category ?? 'text').toUpperCase()})`
+            : `✓ Converted ${sourceLabel} into structured text (${(data.category ?? 'text').toUpperCase()})`
         );
       } else {
         setExtractionStatus(data.error ?? 'Extraction failed');
@@ -643,7 +693,11 @@ export default function HomePage() {
         .map((t) => t.trim())
         .filter(Boolean);
 
-      const res = await fetch('/api/brain/documents', {
+      const data = await fetchJsonWithHeartbeat<{
+        ok?: boolean;
+        documents?: StoredBrainDocumentSummary[];
+        conflicts?: BrainKnowledgeConflictWarning[];
+      }>('/api/brain/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -658,8 +712,7 @@ export default function HomePage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.ok) {
+      if (data?.ok) {
         syncDocumentsAndConflicts(
           data.documents ?? [],
           Array.isArray(data.conflicts) ? data.conflicts : undefined
@@ -735,7 +788,11 @@ export default function HomePage() {
         .map((t) => t.trim())
         .filter(Boolean);
 
-      const res = await fetch('/api/brain/documents', {
+      const data = await fetchJsonWithHeartbeat<{
+        ok?: boolean;
+        documents?: StoredBrainDocumentSummary[];
+        conflicts?: BrainKnowledgeConflictWarning[];
+      }>('/api/brain/documents', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -748,8 +805,7 @@ export default function HomePage() {
           updatedByName: userFullName,
         }),
       });
-      const data = await res.json();
-      if (data.ok) {
+      if (data?.ok) {
         syncDocumentsAndConflicts(
           data.documents ?? [],
           Array.isArray(data.conflicts) ? data.conflicts : undefined
@@ -865,7 +921,13 @@ export default function HomePage() {
     );
 
     try {
-      const res = await fetch('/api/brain/audit', {
+      const data = await fetchJsonWithHeartbeat<{
+        ok?: boolean;
+        report?: ExecutiveAuditReport;
+        entry?: { auditedByEmail?: string };
+        history?: StoredAuditHistoryEntry[];
+        error?: string;
+      }>('/api/brain/audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -879,25 +941,10 @@ export default function HomePage() {
         }),
       });
 
-      const rawText = await res.text();
       stepTimers.forEach((timer) => clearTimeout(timer));
 
       // Sequentially check off any remaining steps so the user sees every task ticked
       setAuditCompletedSteps(AUDIT_PIPELINE_STEPS.length);
-
-      let data: {
-        ok?: boolean;
-        report?: ExecutiveAuditReport;
-        entry?: { auditedByEmail?: string };
-        history?: StoredAuditHistoryEntry[];
-        error?: string;
-      } | null = null;
-
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        data = null;
-      }
 
       if (!data) {
         setAuditError(
@@ -1009,7 +1056,15 @@ export default function HomePage() {
     setConnectorFeedback(null);
 
     try {
-      const res = await fetch('/api/connectors', {
+      const data = await fetchJsonWithHeartbeat<{
+        ok?: boolean;
+        connectors?: EnterpriseConnectorItem[];
+        documents?: StoredBrainDocumentSummary[];
+        conflicts?: BrainKnowledgeConflictWarning[];
+        unchanged?: boolean;
+        syncedTitle?: string;
+        error?: string;
+      }>('/api/connectors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1019,8 +1074,13 @@ export default function HomePage() {
           userName: userFullName,
         }),
       });
-      const data = await res.json();
-      if (data.ok) {
+      if (!data) {
+        setConnectorFeedback(
+          locale === 'de'
+            ? 'Der Server ist vorübergehend ausgelastet. Bitte versuchen Sie es in wenigen Sekunden erneut.'
+            : 'The server is temporarily busy. Please try again in a few seconds.'
+        );
+      } else if (data.ok) {
         if (Array.isArray(data.connectors)) {
           setConnectors(data.connectors);
         }
