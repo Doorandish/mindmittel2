@@ -2,10 +2,11 @@
 
 ## Mandatory Zero-Drift Living Documentation Rule
 
-Every code change, feature addition, bug fix, or architectural refactor in **MindMittel V2** **MUST** be accompanied by a synchronous update to the dual Persian living documentation rendered on `admin.mindmittel.de/admin/docs`:
+Whenever any code in `src/core/`, `src/infrastructure/`, or `src/app/api/` is modified, added, or removed in **MindMittel**, you **MUST** synchronously update BOTH the written living documentation AND the interactive 7-zone architecture blueprint rendered on `admin.mindmittel.de/admin/docs`:
 
-1. **Registry File to Update on Every Code Change**:
+1. **Registry Files to Update on Every Code Change**:
    - `src/system/persianLivingDocsRegistry.ts`
+   - `src/system/interactiveBlueprintRegistry.ts` (zones, modules, Persian inspector mechanics, and directional connections rendered by `src/components/docs/InteractiveArchitectureBlueprint.tsx`)
    - `src/system/architectureRegistry.ts`
 
 2. **Two Dynamic Persian Documents on `admin.mindmittel.de/admin/docs` (`src/app/admin/docs/page.tsx`)**:

@@ -30,8 +30,9 @@ import {
   getLivePersianDocsSnapshot,
   type VisualFlowDiagramSpec,
 } from '@/system/persianLivingDocsRegistry';
+import { InteractiveArchitectureBlueprint } from '@/components/docs/InteractiveArchitectureBlueprint';
 
-type DocTabMode = 'both' | 'non-technical' | 'technical';
+type DocTabMode = 'both' | 'blueprint' | 'non-technical' | 'technical';
 
 function getToneClasses(
   tone: 'blue' | 'indigo' | 'emerald' | 'amber' | 'rose' | 'slate'
@@ -417,7 +418,18 @@ export default function AdminPersianLivingDocsPage() {
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                نمایش یکپارچه هر ۲ داکیومنت (کامل)
+                نمایش یکپارچه (نقشه + هر ۲ داکیومنت)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('blueprint')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeTab === 'blueprint'
+                    ? 'bg-sky-600 text-white shadow'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                نقشه تعاملی معماری (Blueprint)
               </button>
               <button
                 type="button"
@@ -455,6 +467,13 @@ export default function AdminPersianLivingDocsPage() {
             </div>
           </div>
         </section>
+
+        {/* ===================================================================== */}
+        {/* INTERACTIVE LIVING ARCHITECTURE BLUEPRINT (ZONES 0–6)                 */}
+        {/* ===================================================================== */}
+        {(activeTab === 'both' || activeTab === 'blueprint') && (
+          <InteractiveArchitectureBlueprint />
+        )}
 
         {/* ===================================================================== */}
         {/* DOCUMENT 1 (NON-TECHNICAL): UNDER THE HOOD IN PLAIN PERSIAN           */}

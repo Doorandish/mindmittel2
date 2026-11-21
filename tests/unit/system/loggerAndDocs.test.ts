@@ -18,6 +18,12 @@ import {
   DOCUMENTED_ENTERPRISE_CONNECTORS,
   getLivePersianDocsSnapshot,
 } from '@/system/persianLivingDocsRegistry';
+import {
+  BLUEPRINT_ZONES,
+  BLUEPRINT_MODULES,
+  BLUEPRINT_CONNECTIONS,
+  getBlueprintModuleById,
+} from '@/system/interactiveBlueprintRegistry';
 import { createInitialConnectorsState } from '@/core/connectors/connectorRegistry';
 
 describe('Live Ring-Buffer Logger & Secret Redaction', () => {
@@ -232,5 +238,76 @@ describe('Dynamic Persian Dual-Layer Living Documentation & Anti-Drift Guard', (
     const systemPageContent = fs.readFileSync(systemPage, 'utf8');
     expect(systemPageContent).toContain('/admin/docs');
     expect(/[\u0600-\u06FF]/.test(systemPageContent)).toBe(false);
+  });
+
+  it('provides a complete 7-zone Interactive Architecture Blueprint with valid source file references, dedicated AI Router & DB hubs, and auto-sync rule enforcement', () => {
+    // 1. Verify all 7 required architectural zones (Zone 0 to Zone 6)
+    expect(BLUEPRINT_ZONES.map((z) => z.id)).toEqual([
+      'zone-0',
+      'zone-1',
+      'zone-2',
+      'zone-3',
+      'zone-4',
+      'zone-5',
+      'zone-6',
+    ]);
+
+    // 2. Verify every module has clean Persian inspector content and existing source files
+    expect(BLUEPRINT_MODULES.length).toBeGreaterThanOrEqual(12);
+    for (const mod of BLUEPRINT_MODULES) {
+      expect(mod.titleFa.length).toBeGreaterThan(3);
+      expect(mod.roleSummaryFa.length).toBeGreaterThan(15);
+      expect(mod.whatItDoesFa.length).toBeGreaterThan(30);
+      expect(mod.internalMechanicsFa.length).toBeGreaterThanOrEqual(2);
+      expect(mod.inputsFa.length).toBeGreaterThanOrEqual(1);
+      expect(mod.outputsFa.length).toBeGreaterThanOrEqual(1);
+      expect(mod.sourceFiles.length).toBeGreaterThanOrEqual(1);
+
+      for (const relPath of mod.sourceFiles) {
+        const absPath = path.join(repoRoot, relPath);
+        expect(fs.existsSync(absPath)).toBe(true);
+      }
+    }
+
+    // 3. Verify dedicated AI Model Router (Zone 3) has explicit connections to Extraction, Embedding, and Audit
+    const routerModules = BLUEPRINT_MODULES.filter((m) => m.zoneId === 'zone-3');
+    expect(routerModules.length).toBeGreaterThanOrEqual(1);
+    const routerToTargets = BLUEPRINT_CONNECTIONS.filter((c) =>
+      routerModules.some((rm) => rm.id === c.fromModuleId || rm.id === c.toModuleId)
+    );
+    expect(routerToTargets.length).toBeGreaterThanOrEqual(3);
+
+    // 4. Verify dedicated Database & Dual-Layer Storage (Zone 5) has connections from Ingestion, RAG, Connectors, and Audit
+    const dbModules = BLUEPRINT_MODULES.filter((m) => m.zoneId === 'zone-5');
+    expect(dbModules.length).toBeGreaterThanOrEqual(1);
+    const dbLinks = BLUEPRINT_CONNECTIONS.filter((c) =>
+      dbModules.some((dm) => dm.id === c.toModuleId || dm.id === c.fromModuleId)
+    );
+    expect(dbLinks.length).toBeGreaterThanOrEqual(4);
+
+    // 5. Verify every connection points to valid modules and carries Persian inspector explanations
+    for (const conn of BLUEPRINT_CONNECTIONS) {
+      expect(getBlueprintModuleById(conn.fromModuleId)).toBeDefined();
+      expect(getBlueprintModuleById(conn.toModuleId)).toBeDefined();
+      expect(conn.labelFa.length).toBeGreaterThan(3);
+      expect(conn.whatItDoesFa.length).toBeGreaterThan(20);
+      expect(conn.internalMechanicsFa.length).toBeGreaterThan(20);
+      expect(conn.payloadSummaryFa.length).toBeGreaterThan(10);
+    }
+
+    // 6. Verify auto-sync rules cover src/core/, src/infrastructure/, src/app/api/ and interactiveBlueprintRegistry.ts
+    const ruleContent = fs.readFileSync(
+      path.join(repoRoot, '.agents/rules/living-persian-docs.md'),
+      'utf8'
+    );
+    const agentsContent = fs.readFileSync(
+      path.join(repoRoot, 'AGENTS.md'),
+      'utf8'
+    );
+    expect(ruleContent).toContain('src/system/interactiveBlueprintRegistry.ts');
+    expect(ruleContent).toContain('src/core/');
+    expect(ruleContent).toContain('src/infrastructure/');
+    expect(ruleContent).toContain('src/app/api/');
+    expect(agentsContent).toContain('src/system/interactiveBlueprintRegistry.ts');
   });
 });
