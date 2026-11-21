@@ -162,6 +162,35 @@ function getConnectionColor(conn: BlueprintConnectionSpec): string {
   return fromMod ? ZONE_PALETTES[fromMod.zoneId].strokeHex : '#3b82f6';
 }
 
+function RichPersianText({ text }: { text: string }) {
+  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return (
+    <>
+      {tokens.map((token, idx) => {
+        if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
+          return (
+            <strong key={idx} className="font-extrabold text-slate-950">
+              {token.slice(2, -2)}
+            </strong>
+          );
+        }
+        if (token.startsWith('`') && token.endsWith('`') && token.length > 2) {
+          return (
+            <code
+              key={idx}
+              dir="ltr"
+              className="inline-block mx-0.5 px-1.5 py-0.5 rounded-md bg-slate-900/5 border border-slate-300/60 font-mono text-[11.5px] text-slate-800 align-baseline"
+            >
+              {token.slice(1, -1)}
+            </code>
+          );
+        }
+        return <React.Fragment key={idx}>{token}</React.Fragment>;
+      })}
+    </>
+  );
+}
+
 function ModuleIcon({
   iconKey,
   className = 'w-4 h-4',
@@ -1132,7 +1161,7 @@ export function InteractiveArchitectureBlueprint() {
                       ۱. وظیفه این ماژول چیست؟
                     </h4>
                     <p className="text-xs sm:text-[13.5px] leading-8 opacity-95">
-                      {selection.module.whatItDoesFa}
+                      <RichPersianText text={selection.module.whatItDoesFa} />
                     </p>
                   </div>
 
@@ -1150,8 +1179,8 @@ export function InteractiveArchitectureBlueprint() {
                           <div className="text-xs sm:text-sm font-bold text-slate-900">
                             {step.stepTitleFa}
                           </div>
-                          <p className="text-xs sm:text-[13px] text-slate-700 leading-7">
-                            {step.detailFa}
+                          <p className="text-xs sm:text-[13px] text-slate-700 leading-8">
+                            <RichPersianText text={step.detailFa} />
                           </p>
                           <div
                             dir="ltr"
@@ -1177,7 +1206,9 @@ export function InteractiveArchitectureBlueprint() {
                         </div>
                         <ul className="space-y-1.5 text-xs text-slate-700 list-disc list-inside leading-relaxed">
                           {selection.module.inputsFa.map((inp, i) => (
-                            <li key={i}>{inp}</li>
+                            <li key={i}>
+                              <RichPersianText text={inp} />
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -1187,7 +1218,9 @@ export function InteractiveArchitectureBlueprint() {
                         </div>
                         <ul className="space-y-1.5 text-xs text-slate-700 list-disc list-inside leading-relaxed">
                           {selection.module.outputsFa.map((out, i) => (
-                            <li key={i}>{out}</li>
+                            <li key={i}>
+                              <RichPersianText text={out} />
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -1265,7 +1298,7 @@ export function InteractiveArchitectureBlueprint() {
                       ۱. وظیفه این ارتباط چیست؟
                     </h4>
                     <p className="text-xs sm:text-[13.5px] leading-8">
-                      {selection.connection.whatItDoesFa}
+                      <RichPersianText text={selection.connection.whatItDoesFa} />
                     </p>
                   </div>
 
@@ -1273,8 +1306,10 @@ export function InteractiveArchitectureBlueprint() {
                     <h4 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-2">
                       ۲. مکانیزم دقیق و منطق داخلی انتقال
                     </h4>
-                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/75 p-4 text-xs sm:text-[13px] text-slate-700 leading-7">
-                      {selection.connection.internalMechanicsFa}
+                    <div className="rounded-2xl border border-slate-200/90 bg-slate-50/75 p-4 text-xs sm:text-[13px] text-slate-700 leading-8">
+                      <RichPersianText
+                        text={selection.connection.internalMechanicsFa}
+                      />
                     </div>
                   </div>
 
