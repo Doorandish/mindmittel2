@@ -278,4 +278,23 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(pageSource).toContain('fetchJsonWithHeartbeat');
     expect(pageSource).toContain('x-mindmittel-stream');
   });
+
+  it('removes "V2" from the page title and replaces Local/On-Premise AI claims on the landing page with Zero AI Training guarantees', () => {
+    const layoutSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/layout.tsx'),
+      'utf-8'
+    );
+    const marketingSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/marketing/page.tsx'),
+      'utf-8'
+    );
+
+    expect(layoutSource).not.toContain('MindMittel V2');
+    expect(layoutSource).toContain('MindMittel —');
+
+    expect(marketingSource).not.toMatch(/lokale\s+(On-Premise-)?KI/i);
+    expect(marketingSource).not.toMatch(/Local\s+(On-Premise\s+)?AI/i);
+    expect(marketingSource).toContain('Kein KI-Training');
+    expect(marketingSource).toContain('Zero AI Training');
+  });
 });

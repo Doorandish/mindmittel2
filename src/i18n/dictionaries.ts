@@ -147,12 +147,12 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
       titleBlue: 'Audit Management',
       titleBlack2: 'Decisions in Real Time.',
       subtitle:
-        'MindMittel V2 transforms scattered corporate policies, board minutes, and team communications into a centralized Company Brain—evaluating strategic decisions against company rules before risks happen.',
+        'MindMittel transforms scattered corporate policies, board minutes, and team communications into a centralized Company Brain—evaluating strategic decisions against company rules before risks happen.',
       primaryCta: 'Launch Live App',
       trust1: 'Real-time Audits',
       trust2: 'Parent-Child Vector Vault',
       trust3: 'English & German Reports',
-      mockupWindowTitle: 'MindMittel V2 — Executive Audit Engine',
+      mockupWindowTitle: 'MindMittel — Executive Audit Engine',
       mockupPhase1: 'PHASE 1 — INJECT & SLICE',
       mockupDoc1Title: 'Strategy & Board Note',
       mockupDoc1Sub:
@@ -292,12 +292,12 @@ export const dictionaries: Record<SupportedLocale, AppDictionary> = {
       titleBlue: 'Management-Entscheidungen',
       titleBlack2: 'in Echtzeit prüfen.',
       subtitle:
-        'MindMittel V2 verwandelt verstreute Richtlinien, Protokolle und Team-Kommunikation in ein zentrales Company Brain – und prüft strategische Entscheidungen gegen Unternehmensregeln, bevor Risiken entstehen.',
+        'MindMittel verwandelt verstreute Richtlinien, Protokolle und Team-Kommunikation in ein zentrales Company Brain – und prüft strategische Entscheidungen gegen Unternehmensregeln, bevor Risiken entstehen.',
       primaryCta: 'Live-App starten',
       trust1: 'Echtzeit-Audits',
       trust2: 'Parent-Child Vektor-Archiv',
       trust3: 'Berichte auf Deutsch & Englisch',
-      mockupWindowTitle: 'MindMittel V2 — Executive Audit Engine',
+      mockupWindowTitle: 'MindMittel — Executive Audit Engine',
       mockupPhase1: 'PHASE 1 — ERFASSEN & ZERLEGEN',
       mockupDoc1Title: 'Strategie- & Vorstandsnotiz',
       mockupDoc1Sub:

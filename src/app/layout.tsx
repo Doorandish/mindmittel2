@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'MindMittel V2 — Knowledge & AI Governance Engine',
+  title: 'MindMittel — Knowledge & AI Governance Engine',
   description:
     'Enterprise AI Governance & Leadership Audit Platform with Parent-Child Vector RAG, MongoDB Atlas Vector Search, and Autonomous Google Gemini Routing.',
 };

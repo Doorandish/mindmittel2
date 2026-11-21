@@ -51,7 +51,7 @@ const LANDING_COPY = {
       workspaceError: 'Bitte geben Sie eine gültige Unternehmens-Subdomain ein (z. B. bosch).',
       trust1: 'Eigene Datenbank pro Firma',
       trust2: 'Zugang nur per Firmen-E-Mail',
-      trust3: 'Cloud- oder lokale KI möglich',
+      trust3: 'Kein KI-Training mit Ihren Daten',
     },
     diagram: {
       header: 'LIVE GOVERNANCE- & PRÜFFLUSS',
@@ -65,7 +65,7 @@ const LANDING_COPY = {
       src3Sub: 'Drive, Zoom, Meet',
       zoneLabel: 'ISOLIERTE UNTERNEHMENSUMGEBUNG • KEIN DATENABFLUSS',
       engineTitle: 'MindMittel Engine',
-      engineSub: 'Konfliktprüfung • Deutsches Recht • Cloud / Lokale KI',
+      engineSub: 'Konfliktprüfung • Deutsches Recht • Kein KI-Training',
       auditTitle: 'Vorstandsprüfung',
       auditBadge: 'FREIGABEBEREIT',
       pill1: 'Quellenbelege',
@@ -102,7 +102,7 @@ const LANDING_COPY = {
         },
       ],
       bar1: '✓ Kein Datenabfluss zwischen Unternehmen',
-      bar2: '✓ Cloud- oder private lokale KI',
+      bar2: '✓ Kein KI-Training mit Firmendaten',
       bar3: '✓ Deutsche Compliance integriert',
     },
     value: {
@@ -132,7 +132,7 @@ const LANDING_COPY = {
         },
         {
           title: 'Ihr eigener Unternehmens-Workspace',
-          desc: 'Jede Organisation erhält unter ihrfirma.mindmittel.de eine eigene Datenbank sowie die Option für lokale KI im eigenen Haus.',
+          desc: 'Jede Organisation erhält unter ihrfirma.mindmittel.de eine eigene Datenbank in Deutschland sowie einen eigenen Enterprise-API-Schlüssel ohne Modelltraining.',
         },
         {
           title: 'Volle Transparenz für Entscheider',
@@ -165,8 +165,8 @@ const LANDING_COPY = {
           desc: 'Der Zutritt zu Ihrer Subdomain ist strikt auf verifizierte Mitarbeiter Ihrer offiziellen E-Mail-Domain per 6-stelligem Einmalcode beschränkt.',
         },
         {
-          title: 'Cloud- oder lokale On-Premise-KI',
-          desc: 'Nutzen Sie wahlweise Enterprise-Cloud-KI oder binden Sie Ihr eigenes lokales KI-Modell direkt im Unternehmen an.',
+          title: 'Kein KI-Training mit Unternehmensdaten',
+          desc: 'Ihre Richtlinien, Verträge und Entscheidungsprotokolle werden niemals zum Trainieren von KI-Modellen verwendet – geschützt durch Enterprise-API-Verträge und eigene Mandantenschlüssel.',
         },
         {
           title: 'Null Datenabfluss zwischen Mandanten',
@@ -181,7 +181,7 @@ const LANDING_COPY = {
         'Testen Sie MindMittel sofort in unserer öffentlichen Live-Demo oder aktivieren Sie Ihren eigenen geschützten Unternehmens-Workspace.',
       button: 'Live-Demo starten (demo.mindmittel.de)',
       footnote:
-        'DSGVO-orientiert • Mandantengetrennt • Cloud oder lokale KI im Unternehmen • Ansbach, Bayern',
+        'DSGVO-orientiert • Mandantengetrennt • Kein KI-Training mit Kundendaten • Ansbach, Bayern',
     },
     footer: {
       tagline:
@@ -217,7 +217,7 @@ const LANDING_COPY = {
       workspaceError: 'Please enter a valid company subdomain (e.g. bosch).',
       trust1: 'Dedicated Company Database',
       trust2: 'Verified Corporate Email Access',
-      trust3: 'Cloud or Local AI Ready',
+      trust3: 'Zero AI Training on Your Data',
     },
     diagram: {
       header: 'LIVE GOVERNANCE & AUDIT FLOW',
@@ -231,7 +231,7 @@ const LANDING_COPY = {
       src3Sub: 'Drive, Zoom, Meet',
       zoneLabel: 'ISOLATED COMPANY ENVIRONMENT • ZERO DATA LEAKAGE',
       engineTitle: 'MindMittel Engine',
-      engineSub: 'Conflict Check • German Law Guard • Cloud / Local AI',
+      engineSub: 'Conflict Check • German Law Guard • Zero AI Training',
       auditTitle: 'Executive Audit',
       auditBadge: 'READY FOR SIGN-OFF',
       pill1: 'Policy Citations',
@@ -268,7 +268,7 @@ const LANDING_COPY = {
         },
       ],
       bar1: '✓ Zero Cross-Company Leakage',
-      bar2: '✓ Cloud or Private Local AI',
+      bar2: '✓ Zero AI Training on Company Data',
       bar3: '✓ German Compliance Built-In',
     },
     value: {
@@ -298,7 +298,7 @@ const LANDING_COPY = {
         },
         {
           title: 'Your Own Branded Workspace',
-          desc: 'Each organization receives yourcompany.mindmittel.de with its own private database and optional local/on-premise AI deployment.',
+          desc: 'Each organization receives yourcompany.mindmittel.de with its own isolated database in Germany and dedicated enterprise API keys with zero model training.',
         },
         {
           title: 'Full Executive Transparency',
@@ -331,8 +331,8 @@ const LANDING_COPY = {
           desc: 'Access to your subdomain is strictly restricted to verified employees with your official company email domain via a 6-digit one-time code.',
         },
         {
-          title: 'Cloud or Local On-Premise AI',
-          desc: 'Run seamlessly with enterprise cloud AI or connect your own private, local in-house AI model for maximum data control.',
+          title: 'Zero AI Training on Company Data',
+          desc: 'Your policies, contracts, and executive audit logs are never used to train AI models—protected by enterprise API terms and dedicated tenant keys.',
         },
         {
           title: 'Zero Cross-Company Leakage',
@@ -347,7 +347,7 @@ const LANDING_COPY = {
         'Test MindMittel immediately in our public preview or activate your dedicated company workspace.',
       button: 'Launch Live Demo (demo.mindmittel.de)',
       footnote:
-        'DSGVO Ready • Tenant-Isolated • Private Cloud or Local On-Premise AI • Ansbach, Germany',
+        'DSGVO Ready • Tenant-Isolated • Zero AI Training on Customer Data • Ansbach, Germany',
     },
     footer: {
       tagline:
