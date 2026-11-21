@@ -309,5 +309,31 @@ describe('Dynamic Persian Dual-Layer Living Documentation & Anti-Drift Guard', (
     expect(ruleContent).toContain('src/infrastructure/');
     expect(ruleContent).toContain('src/app/api/');
     expect(agentsContent).toContain('src/system/interactiveBlueprintRegistry.ts');
+
+    // 7. Verify bundled Vazirmatn font and interactive SVG connection overlay
+    const vazirmatnFont = path.join(
+      repoRoot,
+      'public/fonts/Vazirmatn-VariableFont_wght.ttf'
+    );
+    expect(fs.existsSync(vazirmatnFont)).toBe(true);
+
+    const globalsCss = fs.readFileSync(
+      path.join(repoRoot, 'src/app/globals.css'),
+      'utf8'
+    );
+    expect(globalsCss).toContain("font-family: 'Vazirmatn'");
+    expect(globalsCss).toContain('/fonts/Vazirmatn-VariableFont_wght.ttf');
+
+    const blueprintComponent = fs.readFileSync(
+      path.join(
+        repoRoot,
+        'src/components/docs/InteractiveArchitectureBlueprint.tsx'
+      ),
+      'utf8'
+    );
+    expect(blueprintComponent).toContain('ResizeObserver');
+    expect(blueprintComponent).toContain('<svg');
+    expect(blueprintComponent).toContain('ai-hub');
+    expect(blueprintComponent).toContain('db-hub');
   });
 });

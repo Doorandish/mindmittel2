@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@keyframes blueprintFlowDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.blueprint-animated-edge {
+  animation: blueprintFlowDash 1.4s linear infinite;
+}
+
 :root {
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
