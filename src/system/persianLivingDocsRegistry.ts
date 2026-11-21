@@ -931,7 +931,7 @@ export const PERSIAN_TECHNICAL_ARCHITECTURE_DOC: {
       titleFa: 'مسیریاب پویای مدل‌های Gemini با قرنطینه ۱۵ دقیقه‌ای (Circuit Breaker) و تضمین نسل 2.x',
       subtitleEn: 'Live Model Discovery + 18s Per-Attempt Timeout + 15-Minute Unhealthy Model Quarantine',
       chosenArchitectureFa:
-        'سیستم لیست زنده مدل‌های گوگل را استعلام و کش (۵ دقیقه) می‌کند، به مدل‌ها امتیاز می‌دهد، روی هر فراخوانی تایم‌اوت ۱۸ ثانیه‌ای می‌گذارد و هر مدلی را که خطای شبکه (fetch failed / TimeoutError) یا HTTP 404/429/5xx بدهد به مدت ۱۵ دقیقه قرنطینه می‌کند.',
+        'سیستم لیست زنده مدل‌های گوگل را استعلام و کش (۵ دقیقه) می‌کند، مدل‌های غیرمتنی و تولید تصویر (مانند -image / Nano Banana / customtools / embedding / tts) را به صورت سخت‌گیرانه فیلتر می‌کند، به مدل‌های متنی امتیاز می‌دهد، روی هر فراخوانی تایم‌اوت ۱۸ ثانیه‌ای می‌گذارد و هر مدلی را که خطای شبکه (fetch failed / TimeoutError) یا HTTP 404/429/5xx بدهد به مدت ۱۵ دقیقه قرنطینه می‌کند.',
       whyChosenFa:
         'گوگل به صورت مداوم مدل‌های پیش‌نمایش جدید (مانند خانواده 3.x) را به لیست API اضافه می‌کند که گاهی در برخی مناطق جغرافیایی یا روی فایل‌های PDF با خطای fetch failed هنگ می‌کنند. بدون Circuit Breaker، هر درخواست جدید دوباره روی مدل خراب ۳۰ ثانیه معطل شده و با خطای H12 شکست می‌خورد.',
       alternativesRejectedFa: [

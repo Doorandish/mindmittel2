@@ -125,6 +125,47 @@ describe('Dynamic Gemini Model Ranking & Autonomous Query Intent Classifier (Fun
     ).toBe('reasoning');
   });
 
+  it('strictly excludes image-generation models (e.g. gemini-3-pro-image, gemini-3.1-flash-image / Nano Banana) from text/reasoning ranking', () => {
+    const modelsWithImageVariants: RawGeminiModelInfo[] = [
+      ...sampleModels,
+      {
+        name: 'models/gemini-3-pro-image',
+        displayName: 'Nano Banana Pro',
+        supportedGenerationMethods: ['generateContent'],
+      },
+      {
+        name: 'models/gemini-3-pro-image-preview',
+        displayName: 'Nano Banana Pro',
+        supportedGenerationMethods: ['generateContent'],
+      },
+      {
+        name: 'models/gemini-3.1-flash-image',
+        displayName: 'Nano Banana 2',
+        supportedGenerationMethods: ['generateContent'],
+      },
+      {
+        name: 'models/gemini-3.1-pro-preview-customtools',
+        displayName: 'Gemini 3.1 Pro Preview Custom Tools',
+        supportedGenerationMethods: ['generateContent'],
+      },
+    ];
+
+    const reasoningRanked = rankGeminiModels(
+      modelsWithImageVariants,
+      'reasoning'
+    );
+    const fastRanked = rankGeminiModels(modelsWithImageVariants, 'fast');
+
+    expect(reasoningRanked[0].modelId).toBe('gemini-2.5-pro');
+    expect(
+      reasoningRanked.some((m) => m.modelId.includes('image'))
+    ).toBe(false);
+    expect(
+      reasoningRanked.some((m) => m.modelId.includes('customtools'))
+    ).toBe(false);
+    expect(fastRanked.some((m) => m.modelId.includes('image'))).toBe(false);
+  });
+
   it('throws a clear error when no compatible text generation models are available', () => {
     const incompatibleOnly: RawGeminiModelInfo[] = [
       {

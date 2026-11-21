@@ -28,6 +28,9 @@ const EXCLUDED_MODEL_PATTERNS = [
   /\btts\b/i,
   /imagen/i,
   /image-generation/i,
+  /(?:^|-)image(?:-|$)/i,
+  /nano\s*banana/i,
+  /customtools/i,
   /vision-only/i,
   /\baqa\b/i,
   /veo/i,
@@ -107,8 +110,9 @@ export function isTextGenerationCandidate(raw: RawGeminiModelInfo): boolean {
     return false;
   }
 
+  const displayName = raw.displayName ?? '';
   for (const pattern of EXCLUDED_MODEL_PATTERNS) {
-    if (pattern.test(modelId)) {
+    if (pattern.test(modelId) || pattern.test(displayName)) {
       return false;
     }
   }
