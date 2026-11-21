@@ -337,10 +337,11 @@ export const DOCUMENTED_CORE_MODULES: readonly DocumentedCoreModuleSpec[] = [
       'src/core/ai/modelRanking.ts',
       'src/infrastructure/gemini/modelSelector.ts',
       'src/infrastructure/gemini/embeddingService.ts',
+      'src/core/rag/embeddingReconciler.ts',
       'src/infrastructure/tenancy/geminiKey.ts',
     ],
     responsibilityFa:
-      'تشخیص خودکار پیچیدگی درخواست (fast در برابر reasoning)، امتیازدهی به مدل‌های زنده گوگل، اجرای حلقه Fallback با تایم‌اوت ۱۸ ثانیه‌ای و قرنطینه ۱۵ دقیقه‌ای مدل‌های معیوب.',
+      'تشخیص خودکار پیچیدگی درخواست (fast در برابر reasoning)، امتیازدهی به مدل‌های زنده گوگل، اجرای حلقه Fallback با تایم‌اوت ۱۸ ثانیه‌ای، قرنطینه ۱۵ دقیقه‌ای مدل‌های معیوب و ارتقای خودکار ۵ دقیقه‌ای بردارهای آفلاین به text-embedding-004.',
     interactionWithOtherModulesFa:
       'سرویس پایه برای استخراج فایل (/api/brain/extract)، ممیزی تصمیم (/api/brain/audit) و تولید بردارهای ۷۶۸ بُعدی.',
     failureRecoveryFa:
@@ -1464,10 +1465,10 @@ export const PERSIAN_NON_TECHNICAL_BLUEPRINT_DOC: {
       threatScenarioFa:
         'چه می‌شود اگر در یک لحظه کل سرویس هوش مصنوعی گوگل در دنیا قطع شود یا کلید API یک مشتری تمام شده باشد؟',
       howShieldPreventsItFa:
-        'سیستم در داخل خودش یک «موتور ریاضی و قانونی پشتیبان» دارد. اگر تمام مدل‌های گوگل در دسترس نباشند، موتور داخلی هم بردارهای ۷۶۸ عددی را خودش محاسبه می‌کند، هم متن فایل را استخراج می‌کند و هم تضاد تصمیم با قوانین شرکت و قوانین آلمان را بدون نیاز به اینترنت خارجی ارزیابی می‌کند.',
+        'سیستم در داخل خودش یک «موتور ریاضی و قانونی پشتیبان» دارد. اگر مدل‌های گوگل موقتاً در دسترس نباشند، موتور داخلی بردارهای ۷۶۸ عددی را خودش محاسبه می‌کند تا کار کاربر متوقف نشود، و سپس هر ۵ دقیقه در پس‌زمینه دوباره تلاش می‌کند آن بردارهای موقت را به بردار آنلاین text-embedding-004 ارتقا داده و نسخه آفلاین را پاک کند.',
       userExperienceResultFa:
-        'سیستم در هیچ شرایطی متوقف نمی‌شود (Zero Downtime) و همیشه یک گزارش معتبر تحویل می‌دهد.',
-      sourceFileRef: 'src/core/audit/decisionEvaluator.ts, src/infrastructure/gemini/embeddingService.ts',
+        'سیستم در هیچ شرایطی متوقف نمی‌شود (Zero Downtime) و به‌محض بازگشت سرویس گوگل، کیفیت جستجو به‌صورت خودکار به ۱۰۰٪ حالت آنلاین برمی‌گردد.',
+      sourceFileRef: 'src/core/audit/decisionEvaluator.ts, src/infrastructure/gemini/embeddingService.ts, src/core/rag/embeddingReconciler.ts',
     },
     {
       id: 'shield-4-dual-memory-vault',

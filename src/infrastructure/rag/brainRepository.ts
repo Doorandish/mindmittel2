@@ -5,11 +5,21 @@ import {
   type RawGovernanceDocumentInput,
 } from '@/core/rag/chunker';
 import {
+  generateDeterministicSemanticEmbedding,
   rankParentDocumentsByVectorMatch,
   resolveDepartmentFilterCandidates,
   type EmbeddedChildChunk,
   type MatchedParentDocumentResult,
 } from '@/core/rag/vectorMath';
+import {
+  DEFAULT_RECONCILE_BATCH_SIZE,
+  OFFLINE_EMBEDDING_MODEL,
+  RECONCILE_INTERVAL_MS,
+  createTenantEmbeddingReconcileScheduler,
+  reconcileOfflineChunksBatch,
+  type PendingOfflineChunk,
+  type ReconcileBatchResult,
+} from '@/core/rag/embeddingReconciler';
 import {
   detectBrainDocumentConflicts,
   type BrainKnowledgeConflictWarning,
@@ -22,6 +32,7 @@ import {
 } from '@/infrastructure/db/schemas';
 import { getMindMittelDb } from '@/infrastructure/db/mongo';
 import { generateGeminiEmbedding768 } from '@/infrastructure/gemini/embeddingService';
+import { resolveGeminiApiKey } from '@/infrastructure/tenancy/geminiKey';
 import { systemLogger } from '@/infrastructure/logging/logger';
 import type { ExecutiveAuditReport } from '@/core/audit/decisionEvaluator';
 import {
@@ -39,7 +50,9 @@ import {
 import {
   getActiveTenant,
   getActiveTenantKey,
+  runWithTenantContext,
 } from '@/infrastructure/tenancy/tenantContext';
+import type { ResolvedTenant } from '@/core/tenancy/tenantModel';
 import { isProtectedDemoDocument } from '@/core/demo/demoPolicy';
 
 export interface VectorSearchDiagnosticStatus {
@@ -179,6 +192,130 @@ function getMemoryVault(): InMemoryBrainVault {
 
 export function getVectorSearchDiagnosticStatus(): VectorSearchDiagnosticStatus {
   return getMemoryVault().vectorDiagnostic;
+}
+
+const tenantSnapshotByKey = new Map<string, ResolvedTenant | null>();
+
+/**
+ * Upgrades pending offline-embedded chunks (`deterministic-semantic-768d`) for the active tenant
+ * into online `text-embedding-004` vectors and atomically replaces them in MongoDB & RAM.
+ */
+export async function reconcileOfflineEmbeddingsForActiveTenant(): Promise<ReconcileBatchResult> {
+  if (!resolveGeminiApiKey()) {
+    return {
+      upgradedCount: 0,
+      remainingEstimate: 0,
+      geminiStillUnavailable: false,
+    };
+  }
+
+  const vault = getMemoryVault();
+  const pendingMap = new Map<string, PendingOfflineChunk>();
+
+  if (isMongoConfigured()) {
+    try {
+      const db = await getMindMittelDb();
+      const mongoPending = await db
+        .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
+        .find({ embeddingModel: OFFLINE_EMBEDDING_MODEL })
+        .limit(DEFAULT_RECONCILE_BATCH_SIZE)
+        .toArray();
+
+      for (const rec of mongoPending) {
+        pendingMap.set(rec.childId, {
+          childId: rec.childId,
+          embeddingInput: `${rec.metadata.department} ${rec.metadata.tags.join(' ')} ${rec.text}`,
+        });
+      }
+    } catch {
+      // Fall through to in-memory pending scan
+    }
+  }
+
+  for (const child of vault.children) {
+    if (
+      child.embeddingModel === OFFLINE_EMBEDDING_MODEL &&
+      !pendingMap.has(child.childId)
+    ) {
+      pendingMap.set(child.childId, {
+        childId: child.childId,
+        embeddingInput: `${child.metadata.department} ${child.metadata.tags.join(' ')} ${child.text}`,
+      });
+    }
+  }
+
+  const pendingChunks = Array.from(pendingMap.values());
+  if (pendingChunks.length === 0) {
+    return {
+      upgradedCount: 0,
+      remainingEstimate: 0,
+      geminiStillUnavailable: false,
+    };
+  }
+
+  const result = await reconcileOfflineChunksBatch({
+    pendingChunks,
+    batchSize: DEFAULT_RECONCILE_BATCH_SIZE,
+    embedOnline: generateGeminiEmbedding768,
+    onChunkUpgraded: async (childId, vector, modelUsed) => {
+      // Atomically replace offline vector with online vector in RAM
+      const memChild = vault.children.find((c) => c.childId === childId);
+      if (memChild) {
+        memChild.embedding = vector;
+        memChild.embeddingModel = modelUsed;
+      }
+
+      // Atomically replace offline vector with online vector in MongoDB
+      if (isMongoConfigured()) {
+        try {
+          const db = await getMindMittelDb();
+          await db
+            .collection<VectorStoreRecord>(COLLECTIONS.VECTOR_STORE)
+            .updateOne(
+              { childId },
+              {
+                $set: {
+                  embedding: vector,
+                  embeddingModel: modelUsed,
+                  updatedAt: new Date(),
+                },
+              }
+            );
+        } catch {
+          // Will be retried on next 5-minute tick if DB write failed
+        }
+      }
+    },
+  });
+
+  if (result.upgradedCount > 0) {
+    systemLogger.info(
+      'ai.embedding',
+      `Self-healed ${result.upgradedCount} offline vector(s) -> online text-embedding-004 (${result.remainingEstimate} remaining)`
+    );
+  }
+
+  return result;
+}
+
+const embeddingReconcileScheduler = createTenantEmbeddingReconcileScheduler({
+  intervalMs: RECONCILE_INTERVAL_MS,
+  runForTenant: async (tenantKey) => {
+    const tenant = tenantSnapshotByKey.get(tenantKey) ?? null;
+    if (tenant) {
+      return runWithTenantContext({ tenant, session: null }, () =>
+        reconcileOfflineEmbeddingsForActiveTenant()
+      );
+    }
+    return reconcileOfflineEmbeddingsForActiveTenant();
+  },
+});
+
+function scheduleOfflineEmbeddingReconciliationForActiveTenant(): void {
+  if (!resolveGeminiApiKey()) return;
+  const tenantKey = getActiveTenantKey();
+  tenantSnapshotByKey.set(tenantKey, getActiveTenant() ?? null);
+  embeddingReconcileScheduler.schedule(tenantKey);
 }
 
 /**
@@ -429,14 +566,21 @@ async function hydrateVaultFromMongo(): Promise<void> {
 
     if (remoteVectors.length > 0) {
       const existingChildIds = new Set(vault.children.map((c) => c.childId));
+      let hasOfflineVectors = false;
       for (const rawVec of remoteVectors) {
         const { _id: _omit, ...cleanChild } = rawVec as VectorStoreRecord & {
           _id?: unknown;
         };
+        if (cleanChild.embeddingModel === OFFLINE_EMBEDDING_MODEL) {
+          hasOfflineVectors = true;
+        }
         if (!existingChildIds.has(cleanChild.childId)) {
           vault.children.push(cleanChild);
           existingChildIds.add(cleanChild.childId);
         }
+      }
+      if (hasOfflineVectors) {
+        scheduleOfflineEmbeddingReconciliationForActiveTenant();
       }
     }
   } catch {
@@ -536,7 +680,14 @@ export async function ingestDocumentIntoBrain(params: {
     embeddedChildren.push({
       ...child,
       embedding: vector,
+      embeddingModel: modelUsed,
     });
+  }
+
+  if (
+    embeddedChildren.some((c) => c.embeddingModel === OFFLINE_EMBEDDING_MODEL)
+  ) {
+    scheduleOfflineEmbeddingReconciliationForActiveTenant();
   }
 
   for (const parent of attributedParents) {
@@ -905,7 +1056,14 @@ export async function updateBrainDocument(params: {
     embeddedChildren.push({
       ...child,
       embedding: vector,
+      embeddingModel: modelUsed,
     });
+  }
+
+  if (
+    embeddedChildren.some((c) => c.embeddingModel === OFFLINE_EMBEDDING_MODEL)
+  ) {
+    scheduleOfflineEmbeddingReconciliationForActiveTenant();
   }
 
   // Atomically replace all old sibling parent chunks and child vectors in memory
@@ -1426,7 +1584,54 @@ export async function searchBrainByVectorSimilarity(params: {
     ? new Set(allowedDeptCandidates.map((d) => d.toLowerCase()))
     : null;
 
-  const { vector: queryVector } = await generateGeminiEmbedding768(params.query);
+  const { vector: queryVector, modelUsed: queryModelUsed } =
+    await generateGeminiEmbedding768(params.query);
+
+  // Zero-Gap Dual-Space Bridge: if any chunks are still awaiting 5-minute online upgrade,
+  // also score those pending offline chunks in their native deterministic space so they are never invisible.
+  const scorePendingOfflineChunks = (): MatchedParentDocumentResult[] => {
+    if (queryModelUsed === OFFLINE_EMBEDDING_MODEL) return [];
+    const pendingOfflineChildren = vault.children.filter((c) => {
+      if (c.embeddingModel !== OFFLINE_EMBEDDING_MODEL) return false;
+      if (excludedSet.has(c.parentId)) return false;
+      if (
+        allowedDeptSet &&
+        !allowedDeptSet.has(c.metadata.department.trim().toLowerCase())
+      ) {
+        return false;
+      }
+      return true;
+    });
+    if (pendingOfflineChildren.length === 0) return [];
+    const offlineQueryVector = generateDeterministicSemanticEmbedding(
+      params.query
+    );
+    return rankParentDocumentsByVectorMatch({
+      queryVector: offlineQueryVector,
+      children: pendingOfflineChildren,
+      parents: vault.parents.filter((p) => !excludedSet.has(p.parentId)),
+      departmentFilter: allowedDeptSet ? undefined : params.departmentFilter,
+      topK,
+    });
+  };
+
+  const mergeWithPendingOffline = (
+    primaryResults: MatchedParentDocumentResult[]
+  ): MatchedParentDocumentResult[] => {
+    const pendingHits = scorePendingOfflineChunks();
+    if (pendingHits.length === 0) return primaryResults;
+    const byTitle = new Map<string, MatchedParentDocumentResult>();
+    for (const item of [...primaryResults, ...pendingHits]) {
+      const key = item.title.trim().toLowerCase();
+      const existing = byTitle.get(key);
+      if (!existing || item.similarityScore > existing.similarityScore) {
+        byTitle.set(key, item);
+      }
+    }
+    return Array.from(byTitle.values())
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, topK);
+  };
 
   if (isMongoConfigured()) {
     try {
@@ -1521,7 +1726,7 @@ export async function searchBrainByVectorSimilarity(params: {
 
         if (results.length > 0) {
           vault.vectorDiagnostic.state = 'ACTIVE_ON_ATLAS';
-          return results;
+          return mergeWithPendingOffline(results);
         }
       }
     } catch {
@@ -1553,11 +1758,13 @@ export async function searchBrainByVectorSimilarity(params: {
     return true;
   });
 
-  return rankParentDocumentsByVectorMatch({
-    queryVector,
-    children: searchableChildren,
-    parents: searchableParents,
-    departmentFilter: allowedDeptSet ? undefined : params.departmentFilter,
-    topK,
-  });
+  return mergeWithPendingOffline(
+    rankParentDocumentsByVectorMatch({
+      queryVector,
+      children: searchableChildren,
+      parents: searchableParents,
+      departmentFilter: allowedDeptSet ? undefined : params.departmentFilter,
+      topK,
+    })
+  );
 }

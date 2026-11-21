@@ -378,16 +378,24 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
           'اگر به هر دلیلی API جمنای در دسترس نباشد، سیستم خطا نمی‌دهد! تابع `generateDeterministicSemanticEmbedding` همان لحظه در خودِ سرور یک بردار ۷۶۸ بعدی می‌سازد: ۶۴ عدد اول برای ۶ موضوع اصلی کسب‌وکار (مالی، هیئت‌مدیره، اسکرام، نقض قانون، امنیت/DSGVO و HR به دو زبان انگلیسی و آلمانی)، ۴۴۸ عدد بعدی برای اثرانگشت کلمات، و ۲۵۶ عدد آخر برای ریشه‌کلمات ۳ حرفی تا حتی غلط املایی یا پسوندهای آلمانی هم پیدا شوند.',
         codeRef: 'src/core/rag/vectorMath.ts → generateDeterministicSemanticEmbedding()',
       },
+      {
+        stepTitleFa: '۳. خودترمیمی پس‌زمینه هر ۵ دقیقه (تبدیل خودکار بردار آفلاین به آنلاین)',
+        detailFa:
+          'اگر در زمان آپلود، جمنای موقتاً قطع بوده و بردار آفلاین ذخیره شده باشد، یک تایمر پس‌زمینه سبک برای همان سازمان روشن می‌شود و **هر ۵ دقیقه** (`RECONCILE_INTERVAL_MS`) تکه‌های آفلاین را (در دسته‌های ۲۰تایی) دوباره به `text-embedding-004` می‌فرستد. به محض وصل شدن جمنای، بردار آنلاین جدید **به‌صورت اتمیک جایگزین بردار آفلاین** در MongoDB و رم می‌شود (بردار آفلاین پاک می‌شود) و پس از صفر شدن صف، تایمر خودش را خاموش می‌کند. در صورت ری‌استارت سرور هم `hydrateVaultFromMongo` صف باقی‌مانده را خودکار دوباره بیدار می‌کند.',
+        codeRef:
+          'src/core/rag/embeddingReconciler.ts → reconcileOfflineChunksBatch() & createTenantEmbeddingReconcileScheduler()',
+      },
     ],
     inputsFa: [
       'تکه‌های ۴۰۰ کاراکتری فرزند هنگام ثبت سند جدید، یا متن تصمیم مدیر هنگام ارزیابی',
     ],
     outputsFa: [
-      'بردار عددی ۷۶۸ بعدی برای ذخیره در `vector_store` یا جستجوی معنایی',
+      'بردار عددی ۷۶۸ بعدی برای ذخیره در `vector_store` یا جستجوی معنایی (همراه با ارتقای خودکار ۵ دقیقه‌ای به بردار آنلاین)',
     ],
     sourceFiles: [
       'src/infrastructure/gemini/embeddingService.ts',
       'src/core/rag/vectorMath.ts',
+      'src/core/rag/embeddingReconciler.ts',
     ],
   },
   {
@@ -415,10 +423,11 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
         codeRef: 'src/core/rag/vectorMath.ts → rankParentDocumentsByVectorMatch() & computeCosineSimilarity()',
       },
       {
-        stepTitleFa: '۳. هرس کردن اسناد کم‌ارتباط (Citation Pruning)',
+        stepTitleFa: '۳. پل دوگانه بدون نقطه کور (در ۵ دقیقه انتظار) و هرس استنادات',
         detailFa:
-          'تابع `filterRelevantCitations` بهترین سند یافت‌شده را همیشه نگه می‌دارد، اما اسناد دوم و سوم را فقط وقتی قبول می‌کند که نمره‌شان حداقل `0.70` باشد و فاصله نمره‌شان با سند اول بیشتر از `0.15` نباشد. این کار جلوی وارد شدن اسناد بی‌ربط به گزارش نهایی را می‌گیرد.',
-        codeRef: 'src/core/audit/decisionEvaluator.ts → filterRelevantCitations()',
+          'اگر سندی به تازگی در حالت قطعی ذخیره شده باشد و هنوز در صف ۵ دقیقه‌ای تبدیل به بردار آنلاین باشد، `searchBrainByVectorSimilarity` در کنار جستجوی آنلاین، همان چند تکه آفلاین را هم در فضای ریاضی خودش می‌سنجد و نتایج را ترکیب می‌کند تا حتی یک ثانیه هم نقطه کور وجود نداشته باشد. در نهایت `filterRelevantCitations` اسناد کم‌ارتباط (زیر `0.70` یا افت بیش از `0.15`) را هرس می‌کند.',
+        codeRef:
+          'src/infrastructure/rag/brainRepository.ts → mergeWithPendingOffline() & src/core/audit/decisionEvaluator.ts → filterRelevantCitations()',
       },
     ],
     inputsFa: [

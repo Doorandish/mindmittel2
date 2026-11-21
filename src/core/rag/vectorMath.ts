@@ -6,6 +6,7 @@ import type {
 
 export interface EmbeddedChildChunk extends ChildVectorChunk {
   embedding: number[];
+  embeddingModel?: string;
 }
 
 export interface MatchedParentDocumentResult {
