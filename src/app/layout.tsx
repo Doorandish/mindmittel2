@@ -15,15 +15,48 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'MindMittel — Knowledge & AI Governance Engine',
+  metadataBase: new URL('https://mindmittel.de'),
+  title: {
+    default:
+      'MindMittel — KI-Entscheidungs- & Compliance-Berater für den Mittelstand',
+    template: '%s | MindMittel',
+  },
   description:
-    'Enterprise AI Governance & Leadership Audit Platform with Parent-Child Vector RAG, MongoDB Atlas Vector Search, and Autonomous Google Gemini Routing.',
+    'Prüfen Sie Management-Entscheidungen vorab gegen interne Richtlinien sowie BetrVG §87, DSGVO, EU AI Act und NIS-2. Isolierte Datenbank pro Firma, kein KI-Training mit Ihren Daten.',
+  keywords: [
+    'MindMittel',
+    'KI Governance Mittelstand',
+    'Compliance Prüfung Management',
+    'BetrVG §87 Betriebsrat Check',
+    'DSGVO EU AI Act NIS-2',
+    'Company Brain',
+  ],
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'de_DE',
+    alternateLocale: ['en_US'],
+    url: 'https://mindmittel.de',
+    siteName: 'MindMittel',
+    title:
+      'MindMittel — KI-Entscheidungs- & Compliance-Berater für den Mittelstand',
+    description:
+      'Prüfen Sie Management-Entscheidungen gegen Ihr Unternehmenswissen sowie BetrVG §87, DSGVO, EU AI Act und NIS-2 – mit eigener Datenbank pro Firma und ohne KI-Training.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title:
+      'MindMittel — KI-Entscheidungs- & Compliance-Berater für den Mittelstand',
+    description:
+      'Interne Richtlinien, BetrVG §87, DSGVO, EU AI Act & NIS-2 vorab prüfen – isolierte Datenbank pro Firma, kein KI-Training.',
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   themeColor: '#ffffff',
 };
 

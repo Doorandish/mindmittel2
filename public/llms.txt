@@ -1,0 +1,25 @@
+# MindMittel
+
+> KI-Entscheidungs- & Compliance-Governance-Plattform für den deutschen Mittelstand (AI Decision & Compliance Governance Engine for German Mittelstand Executives).
+
+## Overview
+MindMittel consolidates scattered corporate policies, board charters, PDFs, presentations, audio notes, and connected workplace knowledge (Google Drive, Slack, Notion, MS Teams, Confluence) into an isolated **Company Brain**. Before executives sign contracts or roll out organizational changes, MindMittel audits proposed management decisions against:
+1. Internal company policies, approval limits, and governance rules (with exact source citations).
+2. Contradictory internal policies (automated numeric threshold and policy polarity conflict detection).
+3. Four statutory German & EU regulatory baselines:
+   - **BetrVG (§87, §90, §111)** — German Works Council (Betriebsrat) co-determination triggers.
+   - **DSGVO / GDPR & BDSG §26** — Personal data processing, third-country transfers, and DPIA (DSFA) triggers.
+   - **EU AI Act (Art. 4, 26, 50 & Annex III)** — High-risk employment AI obligations and transparency duties.
+   - **NIS-2 Directive (Art. 20, 21 & BSIG)** — Cybersecurity risk-management weakening and supply-chain governance.
+
+## Data Sovereignty & Privacy Architecture
+- **Strict Multi-Tenant Isolation:** Dedicated subdomain (`<company>.mindmittel.de`) and isolated database per company.
+- **Zero AI Training on Company Data:** Customer data is never used to train external AI models; companies can connect their own dedicated enterprise Gemini API key.
+- **Role- & Department-Based Access Control (RBAC):** Server-side department scoping (`admin`, `editor`, `evaluator`) with corporate email OTP authentication and Zero-Trust approval onboarding.
+
+## Key URLs
+- Main Website: https://mindmittel.de
+- Open Interactive Live Demo (no registration required): https://demo.mindmittel.de
+
+## Target Audience
+Managing Directors (Geschäftsführer), CFOs, General Counsel, HR Directors, and Department Heads at mid-sized companies (Mittelstand) in Germany, Austria, and Switzerland (DACH).

@@ -164,10 +164,11 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
         codeRef: 'src/middleware.ts → resolveHostZone() in src/core/tenancy/hostResolver.ts',
       },
       {
-        stepTitleFa: '۲. قفل کردن درهای اشتباه و زدن برچسب روی درخواست',
+        stepTitleFa: '۲. قفل کردن درهای اشتباه، محافظت SEO و زدن برچسب روی درخواست',
         detailFa:
-          'تابع `routeRequestForZone` اجازه نمی‌دهد کسی از طریق ساب‌دامین یک شرکت، آدرس پنل مدیریت کل (`/admin`) را باز کند؛ اگر کسی چنین تلاشی کند فوری خطای `404` می‌گیرد. برای درخواست‌های مجاز، یک برچسب داخلی (`x-mindmittel-zone` و `x-mindmittel-tenant`) روی پرونده درخواست می‌چسباند تا بخش‌های بعدی دقیقاً بدانند این درخواست مال کدام شرکت است.',
-        codeRef: 'src/core/tenancy/zoneRouting.ts → routeRequestForZone()',
+          'تابع `routeRequestForZone` اجازه نمی‌دهد کسی از طریق ساب‌دامین یک شرکت، آدرس پنل مدیریت کل (`/admin`) را باز کند؛ در صورت مغایرت فوری خطای `404` می‌دهد. هم‌زمان `buildRobotsForHost` فقط روی `mindmittel.de` اجازه ایندکس به گوگل و ربات‌های جستجوی AI می‌دهد و روی `admin.` و ساب‌دامین‌های مشتریان دستور صریح `Disallow: /` صادر می‌کند تا فضای خصوصی هیچ شرکتی در گوگل ایندکس نشود.',
+        codeRef:
+          'src/core/tenancy/zoneRouting.ts → routeRequestForZone() & src/core/seo/seoPolicies.ts → buildRobotsForHost()',
       },
     ],
     inputsFa: [
@@ -181,6 +182,7 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
       'src/middleware.ts',
       'src/core/tenancy/hostResolver.ts',
       'src/core/tenancy/zoneRouting.ts',
+      'src/core/seo/seoPolicies.ts',
     ],
   },
   {

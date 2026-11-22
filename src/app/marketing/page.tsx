@@ -23,6 +23,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
+import { MARKETING_JSON_LD } from '@/core/seo/seoPolicies';
 import type { SupportedLocale } from '@/i18n/dictionaries';
 
 const LANDING_COPY = {
@@ -395,6 +396,10 @@ export default function MarketingLandingPage() {
 
   return (
     <div className="min-h-screen bg-[#faf8ff] text-[#131b2e] antialiased flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(MARKETING_JSON_LD) }}
+      />
       <style>{`
         @keyframes flowDash {
           to { stroke-dashoffset: -24px; }
