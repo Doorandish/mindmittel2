@@ -13,11 +13,14 @@ import {
   filterRelevantCitations,
   type AuditVerdict,
   type ExecutiveAuditReport,
+  type MatchedParentContextInput,
 } from '@/core/audit/decisionEvaluator';
 import {
   applyGermanAdvisoryToReport,
   evaluateGermanRegulatoryAdvisory,
+  type GermanRegulatoryAdvisory,
 } from '@/core/audit/germanRegulatoryAdvisor';
+import { buildExecutiveAuditPrompt } from '@/core/audit/auditPromptBuilder';
 import { systemLogger } from '@/infrastructure/logging/logger';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
 import { runWithHeartbeatStream } from '@/infrastructure/http/streamingResponse';
@@ -32,38 +35,20 @@ export const dynamic = 'force-dynamic';
  */
 async function callGeminiAuditSynthesis(params: {
   decisionProposal: string;
-  matchedContextText: string;
+  matchedParents: readonly MatchedParentContextInput[];
+  germanAdvisory: GermanRegulatoryAdvisory;
   modelId: string;
   locale: 'en' | 'de';
 }): Promise<Partial<ExecutiveAuditReport> | null> {
   const apiKey = resolveGeminiApiKey();
   if (!apiKey) return null;
 
-  const langInstruction =
-    params.locale === 'de'
-      ? 'Respond entirely in formal German (Deutsch).'
-      : 'Respond entirely in clear executive English.';
-
-  const prompt = `You are the MindMittel V2 Executive Governance & Leadership Audit Engine.
-${langInstruction}
-Evaluate the following proposed management decision against the retrieved Company Brain parent documents.
-
-Proposed Management Decision:
-"${params.decisionProposal}"
-
-Retrieved Company Brain Context (Parent Documents):
-${params.matchedContextText}
-
-Return ONLY valid JSON with this exact structure:
-{
-  "verdict": "CERTIFIED" | "CONDITIONAL" | "POLICY_CONFLICT",
-  "alignmentScore": <number between 10 and 99>,
-  "executiveSummary": "<2-sentence executive verdict summary>",
-  "strategicEvaluation": "<detailed policy cross-examination referencing specific clauses>",
-  "pros": ["<advantage 1>", "<advantage 2>"],
-  "cons": ["<risk or violation 1>", "<risk or violation 2>"],
-  "roadmap": ["<step 1>", "<step 2>", "<step 3>"]
-}`;
+  const prompt = buildExecutiveAuditPrompt({
+    decisionProposal: params.decisionProposal,
+    matchedParents: params.matchedParents,
+    locale: params.locale,
+    germanAdvisory: params.germanAdvisory,
+  });
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     params.modelId
@@ -184,7 +169,7 @@ export async function POST(request: NextRequest) {
           ? 'gemini-2.5-pro'
           : 'gemini-2.5-flash');
 
-      // 3. Build baseline deterministic report
+      // 3. Build baseline deterministic report & German regulatory pre-screen
       const baselineReport = evaluateDecisionAgainstPoliciesHeuristic({
         decisionProposal,
         matchedParents,
@@ -193,23 +178,22 @@ export async function POST(request: NextRequest) {
         locale,
       });
 
+      const germanAdvisory = evaluateGermanRegulatoryAdvisory({
+        decisionProposal,
+        matchedParents,
+      });
+
       // 4. Enhance with live Gemini synthesis only if model catalog selection succeeded in this request
       if (hasGeminiKey && modelSelection) {
         try {
-          const contextText = matchedParents
-            .map(
-              (m, i) =>
-                `[Document ${i + 1}: ${m.title} | Dept: ${m.department}]\n${m.fullParentContent}`
-            )
-            .join('\n\n');
-
           const { output: llmPartial, usedModelId } =
             await geminiModelSelector.executeWithFallback(
               inferredProfile,
               async (modelId) =>
                 callGeminiAuditSynthesis({
                   decisionProposal,
-                  matchedContextText: contextText,
+                  matchedParents,
+                  germanAdvisory,
                   modelId,
                   locale,
                 })
@@ -254,11 +238,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 5. German Regulatory & Betriebsrat Advisory (applied after LLM synthesis so it cannot be overridden)
-      const germanAdvisory = evaluateGermanRegulatoryAdvisory({
-        decisionProposal,
-        matchedParents,
-      });
+      // 5. Enforce German Regulatory & Betriebsrat Verdict Guard AFTER LLM synthesis so it cannot be overridden
       const finalReport = applyGermanAdvisoryToReport(
         baselineReport,
         germanAdvisory,

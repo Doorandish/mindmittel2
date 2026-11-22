@@ -370,11 +370,12 @@ export const DOCUMENTED_CORE_MODULES: readonly DocumentedCoreModuleSpec[] = [
     layer: 'Domain Core (src/core)',
     moduleName: 'Hybrid Decision Evaluator & Deterministic DACH Regulatory Advisor',
     sourceFiles: [
+      'src/core/audit/auditPromptBuilder.ts',
       'src/core/audit/decisionEvaluator.ts',
       'src/core/audit/germanRegulatoryAdvisor.ts',
     ],
     responsibilityFa:
-      'ترکیب تحلیل عمیق LLM با قواعد قطعی و غیرقابل‌چشم‌پوشی قوانین آلمان و اروپا (BetrVG §87/§111 شورای کار، DSGVO ماده ۳۵/۲۸، EU AI Act و NIS-2) به همراه شفافیت اسناد کنارگذاشته‌شده (Excluded Documents Disclosure).',
+      'ساخت پرامپت ضدتوهم و ضدتزریق با مقیاس دقیق نمره‌دهی و قالب اجرایی ۴۵ ثانیه‌ای، ترکیب تحلیل عمیق LLM با قواعد قطعی و غیرقابل‌چشم‌پوشی قوانین آلمان و اروپا (BetrVG §87/§111 شورای کار، DSGVO ماده ۳۵/۲۸، EU AI Act و NIS-2) به همراه شفافیت اسناد کنارگذاشته‌شده.',
     interactionWithOtherModulesFa:
       'نتایج جستجوی برداری را از brainRepository گرفته و پس از سنتز Gemini، قوانین آلمان را به صورت قطعی روی گزارش اعمال می‌کند.',
     failureRecoveryFa:

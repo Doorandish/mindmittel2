@@ -544,20 +544,22 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
           'src/core/audit/decisionEvaluator.ts → evaluateDecisionAgainstPoliciesHeuristic()',
       },
       {
-        stepTitleFa: '۲. مرحله دوم: تحلیل عمیق و دقیق با هوش مصنوعی در قالب JSON',
+        stepTitleFa: '۲. مرحله دوم: پرامپت مهندسی‌شده سطح مدیرعامل (ضدتوهم، ضدتزریق و با مقیاس نمره)',
         detailFa:
-          'سپس متن کامل اسناد والد همراه با تصمیم مدیر از طریق **مسیریاب AI (Zone 3)** به مدل انتخاب‌شده ارسال می‌شود (`callGeminiAuditSynthesis`). به مدل دستور داده می‌شود با خلاقیت بسیار پایین (`temperature: 0.2` برای جلوگیری از خیال‌پردازی) و دقیقاً در قالب `JSON` استاندارد پاسخ دهد تا خلاصه مدیریتی، ارزیابی راهبردی، مزایا، معایب و نقشه راه با دقت بالا جایگزین گزارش پایه شوند.',
-        codeRef: 'src/app/api/brain/audit/route.ts → callGeminiAuditSynthesis()',
+          'تابع `buildExecutiveAuditPrompt` پرامپت تخصصی ممیزی را با استاندارد ۴۵ ثانیه‌ای خوانش مدیرعامل می‌سازد: ورودی‌ها داخل تگ‌های XML (`<proposed_decision>` و `<company_brain_documents>`) ایزوله می‌شوند تا از تزریق پرامپت (Prompt Injection) جلوگیری شود؛ در صورت نبود سند مرتبط، قانون صریح ضدتوهم (`status="EMPTY"`) مانع اختراع بند ساختگی می‌شود؛ مقیاس دقیق نمره (`10-44` تعارض، `45-79` مشروط، `80-99` تایید) و هشدارهای پیش‌غربالگری قوانین آلمان در پرامپت تزریق شده و نقشه راه ۳ مرحله‌ای با تعیین دقیق مسئول هر گام (`[Role] Action — Deliverable`) تولید می‌گردد.',
+        codeRef:
+          'src/core/audit/auditPromptBuilder.ts → buildExecutiveAuditPrompt() & src/app/api/brain/audit/route.ts → callGeminiAuditSynthesis()',
       },
     ],
     inputsFa: [
-      'متن تصمیم پیشنهادی مدیر + زبان انتخابی (`EN` / `DE`) + اسناد والد مرتبط از Zone 2',
+      'متن تصمیم پیشنهادی مدیر + زبان انتخابی (`EN` / `DE`) + اسناد والد مرتبط از Zone 2 + سیگنال‌های پیش‌غربالگری قوانین آلمان',
     ],
     outputsFa: [
-      'گزارش ارزیابی اولیه (`ExecutiveAuditReport`) برای عبور اجباری از غربالگر قوانین آلمان',
+      'گزارش ارزیابی اولیه (`ExecutiveAuditReport`) برای عبور اجباری از گارد تنزل حکم قوانین آلمان',
     ],
     sourceFiles: [
       'src/app/api/brain/audit/route.ts',
+      'src/core/audit/auditPromptBuilder.ts',
       'src/core/audit/decisionEvaluator.ts',
     ],
   },
