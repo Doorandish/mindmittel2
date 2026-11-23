@@ -38,6 +38,8 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       sourceFiles: [
         'src/app/page.tsx',
         'src/components/layout/AppShell.tsx',
+        'src/components/governance/TeamAccessPanel.tsx',
+        'src/components/governance/CompanyProfilePanel.tsx',
         'src/components/glass/GlassCard.tsx',
         'src/i18n/dictionaries.ts',
         'src/app/globals.css',
@@ -98,8 +100,9 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'MIME/Extension Classifier + Gemini Multimodal inlineData Extraction + Plain Buffer Fallback',
       stack: [
         'Next.js FormData Stream Handler (/api/brain/extract)',
-        'Google Gemini Multimodal API (PDF, Image OCR, PPTX, Audio Transcription)',
-        'UTF-8 & Printable Run Buffer Extractor',
+        'Native OpenXML Word (.docx) & PowerPoint (.pptx) Parsers',
+        'Google Gemini Multimodal API (PDF, Image OCR, Audio Transcription)',
+        'UTF-8 & Native PDF/Plain Buffer Fallback Extractors',
       ],
       sourceFiles: [
         'src/core/rag/multimodalExtractor.ts',
@@ -110,7 +113,8 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       apiContracts: [
         'POST /api/brain/extract (multipart/form-data: file, x-mindmittel-stream: 1)',
         'classifyMultimodalInput(fileName: string, mimeType: string)',
-        'extractTextFromPlainBuffer(buffer: Buffer, fileName: string)',
+        'extractTextFromDocxBuffer(buffer: Buffer, fileName: string)',
+        'extractTextFromPptxBuffer(buffer: Buffer, fileName: string)',
         'runWithHeartbeatStream(request, work)',
       ],
       dataPipeline:
@@ -137,6 +141,7 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'src/core/ai/modelRanking.ts',
         'src/infrastructure/gemini/modelSelector.ts',
         'src/infrastructure/gemini/embeddingService.ts',
+        'src/core/rag/embeddingReconciler.ts',
         'src/app/api/ai/models/route.ts',
       ],
       apiContracts: [
@@ -148,7 +153,7 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
       dataPipeline:
         '1) inferProfileFromQuery() analyzes decision complexity -> 2) selectModel() filters out unhealthy models and ranks live Gemini models (ensuring a 2.x fallback) -> 3) executeWithModelFallback() quarantines failing models for 15 minutes -> 4) generateGeminiEmbedding768() produces 768-dimensional vectors.',
       errorHandlingAndFallbacks:
-        '15-minute Circuit Breaker cooldown immediately skips models failing with HTTP 404/429/5xx, TypeError: fetch failed, or 18s AbortSignal.timeout; if GEMINI_API_KEY is absent or offline, generateGeminiEmbedding768 seamlessly falls back to the deterministic 768-d semantic vector engine.',
+        '15-minute Circuit Breaker cooldown immediately skips models failing with HTTP 404/429/5xx, TypeError: fetch failed, or 18s AbortSignal.timeout; if GEMINI_API_KEY is absent or offline, generateGeminiEmbedding768 falls back to the deterministic 768-d semantic vector engine and a 5-minute background reconciler (embeddingReconciler.ts) automatically upgrades pending offline vectors to text-embedding-004 once online.',
       envVars: ['GEMINI_API_KEY'],
     },
   },
@@ -197,20 +202,24 @@ export const ARCHITECTURE_NODES: readonly TechnicalNodeSpec[] = [
         'Deterministic Heuristic Baseline',
       ],
       sourceFiles: [
+        'src/core/audit/auditPromptBuilder.ts',
+        'src/core/audit/germanLegalCorpus.ts',
         'src/core/audit/decisionEvaluator.ts',
         'src/core/audit/germanRegulatoryAdvisor.ts',
         'src/app/api/brain/audit/route.ts',
         'tests/unit/core/audit/vectorAndAuditEngine.test.ts',
         'tests/unit/core/audit/germanRegulatoryAdvisor.test.ts',
+        'tests/unit/core/audit/germanLegalCorpus.test.ts',
       ],
       apiContracts: [
-        'POST /api/brain/audit -> ExecutiveAuditReport (incl. germanAdvisory)',
-        'evaluateDecisionAgainstPoliciesHeuristic(params)',
-        'evaluateGermanRegulatoryAdvisory({ decisionProposal, matchedParents })',
+        'POST /api/brain/audit -> ExecutiveAuditReport (incl. germanAdvisory & matchedLegalArticles)',
+        'buildExecutiveAuditPrompt(params) (XML anti-injection, 10-44/45-79/80-99 rubric, Legal RAG)',
+        'retrieveRelevantGermanLegalArticles({ decisionProposal, companyProfile })',
+        'evaluateGermanRegulatoryAdvisory({ decisionProposal, matchedParents, companyProfile })',
         'applyGermanAdvisoryToReport(report, advisory, locale)',
       ],
       dataPipeline:
-        'Decision Proposal -> 768-d vector retrieval of top Parent policies -> autonomous Gemini Pro/Flash synthesis -> German statutory screening (BetrVG §87/§111, DSGVO, EU AI Act, NIS-2) + Company Brain knowledge-coverage check -> outputs Verdict (CERTIFIED / CONDITIONAL / POLICY_CONFLICT), Alignment %, Pros/Cons, Citations, Roadmap and DACH Advisory.',
+        'Decision Proposal -> 768-d vector retrieval of top Parent policies (with zero-gap dual-space bridge) -> 20-article German/EU Legal RAG retrieval (respecting Company Profile Betriebsrat & NIS-2 toggles) -> autonomous Gemini Pro/Flash synthesis via XML-isolated prompt -> post-LLM deterministic German statutory guard (BetrVG/BAG, DSGVO/BDSG, EU AI Act Art. 5, NIS-2/BSIG) -> outputs Verdict, Alignment %, Pros/Cons, Citations, Roadmap and DACH Advisory.',
       errorHandlingAndFallbacks:
         'If live Gemini API call times out or is unconfigured, evaluateDecisionAgainstPoliciesHeuristic() deterministically evaluates policy conflicts. The German advisory is fully deterministic, applied after LLM synthesis so it cannot be overridden, and only ever downgrades a CERTIFIED verdict to CONDITIONAL when a statute is triggered.',
       envVars: ['GEMINI_API_KEY'],
