@@ -513,10 +513,10 @@ export default function MarketingLandingPage() {
 
       <main className="w-full pt-16 flex-1">
         {/* HERO SECTION */}
-        <section className="relative w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8 pb-12 sm:pt-12 sm:pb-16 overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center relative z-10">
-            {/* Left 7 Columns */}
-            <div className="lg:col-span-7 flex flex-col gap-4">
+        <section className="relative w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8 pb-12 sm:pt-10 sm:pb-14 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center relative z-10">
+            {/* Left 6 Columns */}
+            <div className="lg:col-span-6 flex flex-col gap-4">
               <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full bg-[#f2f3ff] shadow-sm border border-[#c3c6d7]/50">
                 <span className="w-2 h-2 rounded-full bg-[#006c4a] pulsing-dot" />
                 <span className="font-mono text-[11px] uppercase tracking-wider text-[#131b2e] font-semibold">
@@ -633,9 +633,9 @@ export default function MarketingLandingPage() {
               </div>
             </div>
 
-            {/* Right 5 Columns: Optimized Executive Audit Visual */}
-            <div className="lg:col-span-5 w-full flex items-center justify-center">
-              <div className="relative w-full max-w-[480px] lg:max-w-[540px] mx-auto">
+            {/* Right 6 Columns: Optimized Executive Audit Visual */}
+            <div className="lg:col-span-6 w-full flex items-center justify-center">
+              <div className="relative w-full max-w-[560px] lg:max-w-[620px] mx-auto">
                 <img
                   src="/images/hero-executive-audit.webp"
                   alt={
@@ -643,16 +643,16 @@ export default function MarketingLandingPage() {
                       ? 'MindMittel Live Vorstandsprüfung: Risiko-Score 42/100, BetrVG-Warnung, DSGVO & EU AI Act Prüfung mit Quellenbelegen aus PDF, DOCX, Drive, Slack, Teams, Notion, Confluence, Zoom und Meet'
                       : 'MindMittel Live Executive Audit: Risk Score 42/100, BetrVG alert, GDPR & EU AI Act verification with source citations from PDF, DOCX, Drive, Slack, Teams, Notion, Confluence, Zoom and Meet'
                   }
-                  width={1024}
-                  height={1024}
+                  width={928}
+                  height={928}
                   fetchPriority="high"
                   decoding="async"
                   className="w-full h-auto block select-none"
                   style={{
                     maskImage:
-                      'radial-gradient(ellipse 92% 92% at 50% 50%, black 78%, transparent 100%)',
+                      'radial-gradient(ellipse 96% 96% at 50% 50%, black 82%, transparent 100%)',
                     WebkitMaskImage:
-                      'radial-gradient(ellipse 92% 92% at 50% 50%, black 78%, transparent 100%)',
+                      'radial-gradient(ellipse 96% 96% at 50% 50%, black 82%, transparent 100%)',
                   }}
                 />
               </div>
