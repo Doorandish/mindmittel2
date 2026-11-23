@@ -5,6 +5,7 @@ export const MAX_MULTIMODAL_FILE_BYTES = 15 * 1024 * 1024; // 15 MB guard for Ba
 export type MultimodalInputCategory =
   | 'text'
   | 'pdf'
+  | 'docx'
   | 'image'
   | 'presentation'
   | 'audio';
@@ -78,6 +79,21 @@ export function classifyMultimodalInput(
   }
 
   if (
+    lowerMime ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    lowerMime.includes('wordprocessingml') ||
+    lowerName.endsWith('.docx')
+  ) {
+    return {
+      category: 'docx',
+      normalizedMimeType:
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      extractionPrompt:
+        'Extract all headings, policy clauses, tables, and rules from this Word document into clean, structured plain text for enterprise RAG indexing.',
+    };
+  }
+
+  if (
     lowerMime.includes('presentation') ||
     lowerMime.includes('powerpoint') ||
     /\.(ppt|pptx|key)$/.test(lowerName)
@@ -130,11 +146,137 @@ export function extractTextFromPlainBuffer(
 
 function decodeXmlEntities(text: string): string {
   return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) =>
+      String.fromCodePoint(parseInt(hex, 16))
+    )
+    .replace(/&#(\d+);/g, (_, dec: string) =>
+      String.fromCodePoint(parseInt(dec, 10))
+    )
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'");
+}
+
+function extractWordMlParagraphs(xmlString: string): string[] {
+  const paragraphs: string[] = [];
+  const pRegex = /<w:p(?:\s[^>]*)?>([\s\S]*?)<\/w:p>/gi;
+  let pMatch: RegExpExecArray | null = pRegex.exec(xmlString);
+
+  while (pMatch !== null) {
+    const pBody = pMatch[1]
+      .replace(/<w:tab(?:\s[^>]*)?\/>/gi, ' ')
+      .replace(/<w:br(?:\s[^>]*)?\/>/gi, '\n');
+
+    const textParts: string[] = [];
+    const tRegex = /<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/gi;
+    let tMatch: RegExpExecArray | null = tRegex.exec(pBody);
+    while (tMatch !== null) {
+      textParts.push(decodeXmlEntities(tMatch[1]));
+      tMatch = tRegex.exec(pBody);
+    }
+
+    const joined = textParts.join('').replace(/[ \t]+/g, ' ').trim();
+    if (joined.length > 0) {
+      paragraphs.push(joined);
+    }
+    pMatch = pRegex.exec(xmlString);
+  }
+
+  return paragraphs;
+}
+
+/**
+ * Native Microsoft Word (.docx) OpenXML Text Extractor.
+ * Unpacks ZIP-deflated `word/document.xml` (plus headers, footers, footnotes) directly on the server
+ * and extracts `<w:p>` paragraphs and `<w:t>` text runs with full UTF-8 / German umlaut fidelity.
+ */
+export function extractTextFromDocxBuffer(
+  buffer: Buffer,
+  fileName: string
+): string {
+  const collectedSegments: string[] = [];
+
+  let offset = 0;
+  while (offset + 30 <= buffer.length) {
+    const signature = buffer.readUInt32LE(offset);
+    if (signature !== 0x04034b50) {
+      offset += 1;
+      continue;
+    }
+
+    const compressionMethod = buffer.readUInt16LE(offset + 8);
+    const compressedSize = buffer.readUInt32LE(offset + 18);
+    const fileNameLength = buffer.readUInt16LE(offset + 26);
+    const extraFieldLength = buffer.readUInt16LE(offset + 28);
+    const dataStart = offset + 30 + fileNameLength + extraFieldLength;
+
+    if (dataStart > buffer.length) break;
+
+    const entryName = buffer
+      .subarray(offset + 30, offset + 30 + fileNameLength)
+      .toString('utf-8');
+
+    // Handle ZIP entries both with explicit compressedSize and streaming data descriptors (compressedSize === 0)
+    let dataEnd: number;
+    if (compressedSize > 0) {
+      dataEnd = Math.min(dataStart + compressedSize, buffer.length);
+    } else {
+      const nextLocal = buffer.indexOf(
+        Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+        dataStart
+      );
+      const nextCentral = buffer.indexOf(
+        Buffer.from([0x50, 0x4b, 0x01, 0x02]),
+        dataStart
+      );
+      const candidates = [nextLocal, nextCentral].filter((pos) => pos > dataStart);
+      dataEnd =
+        candidates.length > 0 ? Math.min(...candidates) : buffer.length;
+    }
+
+    const isRelevantWordXml =
+      entryName === 'word/document.xml' ||
+      /^word\/(header\d*|footer\d*|footnotes|endnotes)\.xml$/i.test(entryName);
+
+    if (isRelevantWordXml) {
+      try {
+        const rawSlice = buffer.subarray(dataStart, dataEnd);
+        const xmlBuf =
+          compressionMethod === 8
+            ? zlib.inflateRawSync(rawSlice)
+            : compressionMethod === 0
+              ? rawSlice
+              : null;
+
+        if (xmlBuf) {
+          const paragraphs = extractWordMlParagraphs(xmlBuf.toString('utf-8'));
+          if (paragraphs.length > 0) {
+            collectedSegments.push(paragraphs.join('\n\n'));
+          }
+        }
+      } catch {
+        // Continue scanning remaining entries if a single ZIP entry fails
+      }
+    }
+
+    offset = dataEnd > offset ? dataEnd : offset + 30;
+  }
+
+  // Also scan raw UTF-8 XML directly (supports uncompressed XML test fixtures)
+  if (collectedSegments.length === 0) {
+    const directParagraphs = extractWordMlParagraphs(buffer.toString('utf-8'));
+    if (directParagraphs.length > 0) {
+      collectedSegments.push(directParagraphs.join('\n\n'));
+    }
+  }
+
+  if (collectedSegments.length > 0) {
+    return collectedSegments.join('\n\n').trim();
+  }
+
+  return extractTextFromPlainBuffer(buffer, fileName);
 }
 
 function extractDrawingMlTextNodes(xmlString: string): string[] {

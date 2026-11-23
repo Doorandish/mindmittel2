@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return withTenantApi(request, async ({ session, userAccess }) =>
+  return withTenantApi(request, async ({ tenant, session, userAccess }) =>
     runWithHeartbeatStream(request, async () => {
       try {
         const body = (await request.json()) as {
@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
       const germanAdvisory = evaluateGermanRegulatoryAdvisory({
         decisionProposal,
         matchedParents,
+        companyProfile: tenant.complianceProfile,
       });
 
       // 4. Enhance with live Gemini synthesis only if model catalog selection succeeded in this request

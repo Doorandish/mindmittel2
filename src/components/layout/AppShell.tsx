@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  Building2,
   Database,
   ArrowUpRight,
   ShieldCheck,
@@ -12,7 +13,12 @@ import {
 import type { AppDictionary, SupportedLocale } from '@/i18n/dictionaries';
 import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 
-export type WorkspaceSubTab = 'evaluate' | 'brain' | 'connectors' | 'team';
+export type WorkspaceSubTab =
+  | 'evaluate'
+  | 'brain'
+  | 'connectors'
+  | 'team'
+  | 'company-profile';
 
 export interface WorkspaceSidebarSection {
   id: string;
@@ -464,6 +470,36 @@ export function AppShell({
                         }`}
                       >
                         {getBadgeText('team')}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToWorkspaceSubTab('company-profile')
+                      }
+                      className={`group relative w-full h-9 px-2.5 rounded-lg text-left transition-all flex items-center justify-between gap-2 ${
+                        workspaceSubTab === 'company-profile'
+                          ? 'bg-slate-900/[0.055] text-slate-900 font-semibold'
+                          : 'text-slate-600 hover:bg-slate-900/[0.03] hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      {workspaceSubTab === 'company-profile' && (
+                        <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-blue-600" />
+                      )}
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <Building2
+                          className={`w-4 h-4 shrink-0 transition-colors ${
+                            workspaceSubTab === 'company-profile'
+                              ? 'text-blue-600'
+                              : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                        />
+                        <span className="text-[13px] leading-5 tracking-[-0.01em] truncate">
+                          {locale === 'de'
+                            ? 'Unternehmensprofil'
+                            : 'Company Profile'}
+                        </span>
                       </span>
                     </button>
                   </div>

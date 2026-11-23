@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import zlib from 'node:zlib';
 import {
   classifyMultimodalInput,
+  extractTextFromDocxBuffer,
   extractTextFromPlainBuffer,
   extractTextFromPptxBuffer,
   validateMultimodalFileSize,
@@ -90,5 +92,40 @@ describe('Multimodal File & Audio Transcription Classifier & Workspace UX Rules'
     // Audit Executive Decision tab should include live step-by-step execution checklist
     expect(pageSource).toContain('AUDIT_PIPELINE_STEPS');
     expect(pageSource).toContain('auditCompletedSteps');
+  });
+
+  it('classifies and extracts clean paragraph text from compressed Word (.docx) OpenXML archives', () => {
+    expect(
+      classifyMultimodalInput(
+        'betriebsvereinbarung.docx',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ).category
+    ).toBe('docx');
+    expect(classifyMultimodalInput('policy.docx', '').category).toBe('docx');
+
+    // Construct a real ZIP local file entry containing compressed word/document.xml
+    const xml =
+      '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Reisekostenrichtlinie 2026 &amp; Freigaben</w:t></w:r></w:p><w:p><w:r><w:t>Ausgaben über 10.000 € benötigen die Freigabe des CFO.</w:t></w:r></w:p></w:body></w:document>';
+    const compressed = zlib.deflateRawSync(Buffer.from(xml, 'utf-8'));
+    const entryName = Buffer.from('word/document.xml', 'utf-8');
+    const header = Buffer.alloc(30);
+    header.writeUInt32LE(0x04034b50, 0); // PK\x03\x04
+    header.writeUInt16LE(20, 4); // version
+    header.writeUInt16LE(0, 6); // flags
+    header.writeUInt16LE(8, 8); // deflate
+    header.writeUInt32LE(compressed.length, 18); // compressed size
+    header.writeUInt32LE(Buffer.byteLength(xml, 'utf-8'), 22); // uncompressed size
+    header.writeUInt16LE(entryName.length, 26); // filename length
+    header.writeUInt16LE(0, 28); // extra length
+    const zipBuffer = Buffer.concat([header, entryName, compressed]);
+
+    const extracted = extractTextFromDocxBuffer(
+      zipBuffer,
+      'reisekosten.docx'
+    );
+    expect(extracted).toContain('Reisekostenrichtlinie 2026 & Freigaben');
+    expect(extracted).toContain(
+      'Ausgaben über 10.000 € benötigen die Freigabe des CFO.'
+    );
   });
 });

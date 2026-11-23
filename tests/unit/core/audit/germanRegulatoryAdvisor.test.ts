@@ -146,4 +146,26 @@ describe('German Regulatory & Betriebsrat Advisory (DACH Pre-Decision Check)', (
     expect(pageSource).toContain('germanAdvisory');
     expect(pageSource).toContain('handleFillKnowledgeGap');
   });
+
+  it('respects Company Profile switches (hasBetriebsrat: false & nis2Applicable: false) to prevent false alarms', () => {
+    const advisory = evaluateGermanRegulatoryAdvisory({
+      decisionProposal:
+        'Introduce remote work policy and disable MFA on internal staging servers for faster developer access.',
+      matchedParents: [],
+      companyProfile: {
+        hasBetriebsrat: false,
+        nis2Applicable: false,
+      },
+    });
+
+    const betrvg = advisory.checks.find((c) => c.framework === 'BETRVG');
+    const nis2 = advisory.checks.find((c) => c.framework === 'NIS2');
+
+    expect(betrvg?.status).toBe('NOT_TRIGGERED');
+    expect(advisory.betriebsratInvolvementRequired).toBe(false);
+    expect(betrvg?.findingDe).toContain('Unternehmensprofil');
+
+    expect(nis2?.status).toBe('NOT_TRIGGERED');
+    expect(nis2?.findingDe).toContain('Unternehmensprofil');
+  });
 });

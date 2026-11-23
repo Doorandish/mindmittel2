@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DEMO_TENANT } from '@/core/tenancy/tenantModel';
+import {
+  DEFAULT_COMPLIANCE_PROFILE,
+  DEMO_TENANT,
+} from '@/core/tenancy/tenantModel';
 import {
   OPEN_DEMO_USER_ACCESS,
   type TenantDepartmentItem,
@@ -74,6 +77,9 @@ export async function GET(request: NextRequest) {
       slug: tenant.slug,
       companyName: tenant.companyName,
       logoDataUrl: tenant.logoDataUrl ?? null,
+      complianceProfile: tenant.complianceProfile ?? {
+        ...DEFAULT_COMPLIANCE_PROFILE,
+      },
       dbName: tenant.dbName,
       authMode: tenant.authMode,
       isDemo: tenant.isDemo,

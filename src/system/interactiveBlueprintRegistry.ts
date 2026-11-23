@@ -297,11 +297,11 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
           'src/app/api/brain/extract/route.ts & src/core/rag/multimodalExtractor.ts → classifyMultimodalInput()',
       },
       {
-        stepTitleFa: '۲. خواندن مستقیم و فوق‌سریع فایل‌های متنی و پاورپوینت بدون نیاز به AI',
+        stepTitleFa: '۲. خواندن مستقیم و فوق‌سریع فایل‌های متنی، Word (.docx) و پاورپوینت بدون نیاز به AI',
         detailFa:
-          'فایل‌های متنی ساده (و فایل‌های `.docx` که فعلاً از مسیر متن ساده خوانده می‌شوند) همان لحظه در سرور خوانده می‌شوند. برای فایل‌های `.pptx` یک پارسر اختصاصی (`extractTextFromPptxBuffer`) نوشته شده که فایل فشرده ZIP پاورپوینت را باز می‌کند و متن تمام اسلایدها و یادداشت‌ها (`<a:t>`) را مستقیم و رایگان بیرون می‌کشد. برای PDF نیز یک پارسر بومی (`extractTextFromPdfBuffer`) به عنوان پشتیبان آفلاین وجود دارد.',
+          'فایل‌های متنی ساده همان لحظه در سرور خوانده می‌شوند. برای فایل‌های **Word (`.docx`)** پارسر اختصاصی `extractTextFromDocxBuffer` آرشیو فشرده ZIP را باز کرده و پاراگراف‌ها (`<w:p>`) و متن‌های (`<w:t>`) داخل `word/document.xml`، هدرها و پاورقی‌ها را با حفظ کامل حروف آلمانی استخراج می‌کند. برای `.pptx` نیز پارسر اختصاصی `extractTextFromPptxBuffer` اسلایدها (`<a:t>`) را مستقیم و رایگان استخراج می‌نماید.',
         codeRef:
-          'src/core/rag/multimodalExtractor.ts → extractTextFromPptxBuffer(), extractTextFromPdfBuffer(), extractTextFromPlainBuffer()',
+          'src/core/rag/multimodalExtractor.ts → extractTextFromDocxBuffer(), extractTextFromPptxBuffer(), extractTextFromPdfBuffer()',
       },
       {
         stepTitleFa: '۳. استفاده از هوش مصنوعی چندرسانه‌ای برای PDF، عکس و صدا',
@@ -577,11 +577,11 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
       'در شرکت‌های آلمانی (Mittelstand)، ممکن است یک تصمیم با قوانین داخلی خودِ شرکت هیچ تضادی نداشته باشد، اما با قانون کار آلمان یا قوانین حفاظت از داده تداخل جدی داشته باشد! این ماژول مثل یک **مهر تایید نهایی حقوقی** عمداً **بعد از پایان کار هوش مصنوعی** اجرا می‌شود تا مدل هوش مصنوعی هرگز نتواند یک ریسک قانونی را سهواً نادیده بگیرد.',
     internalMechanicsFa: [
       {
-        stepTitleFa: '۱. بررسی هم‌زمان ۴ قانون کلیدی آلمان و اتحادیه اروپا',
+        stepTitleFa: '۱. بررسی هم‌زمان ۴ قانون کلیدی آلمان و اروپا (با رعایت تنظیمات پروفایل شرکت)',
         detailFa:
-          'تابع `evaluateGermanRegulatoryAdvisory` تصمیم مدیر را در برابر ۴ چارچوب قانونی می‌سنجد: **BetrVG** (آیا پایش کارکنان، ساعت کار، دورکاری یا تعدیل نیرو مطرح است که نیاز به تایید شورای کار / Betriebsrat دارد؟)، **DSGVO / BDSG** (آیا داده شخصی به خارج اروپا می‌رود یا نیاز به ارزیابی DPIA دارد؟)، **EU AI Act** (آیا هوش مصنوعی در استخدام یا ارزیابی کارکنان به‌کار رفته؟) و **NIS-2** (آیا امنیت سایبری مثل MFA یا فایروال تضعیف می‌شود؟).',
+          'تابع `evaluateGermanRegulatoryAdvisory` تصمیم مدیر را در برابر ۴ چارچوب قانونی می‌سنجد: **BetrVG** (نیاز به تایید Betriebsrat)، **DSGVO / BDSG**، **EU AI Act** و **NIS-2**. اگر ادمین شرکت در تب **Company Profile** مشخص کرده باشد که شرکت فاقد `Betriebsrat` است (`hasBetriebsrat: false`) یا مشمول `NIS-2` نیست (`nis2Applicable: false`)، بررسی مربوطه به‌صورت خودکار و شفاف رد می‌شود تا هیچ هشدار دروغینی تولید نشود.',
         codeRef:
-          'src/core/audit/germanRegulatoryAdvisor.ts → evaluateGermanRegulatoryAdvisory()',
+          'src/core/audit/germanRegulatoryAdvisor.ts → evaluateGermanRegulatoryAdvisory(companyProfile)',
       },
       {
         stepTitleFa: '۲. کشف جای خالی در قوانین شرکت (Knowledge Gap Detection)',

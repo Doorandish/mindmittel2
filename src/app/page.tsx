@@ -58,6 +58,11 @@ import {
   type TenantUserAccessProfile,
 } from '@/core/auth/rbac';
 import { TeamAccessPanel } from '@/components/governance/TeamAccessPanel';
+import { CompanyProfilePanel } from '@/components/governance/CompanyProfilePanel';
+import {
+  DEFAULT_COMPLIANCE_PROFILE,
+  type TenantComplianceProfile,
+} from '@/core/tenancy/tenantModel';
 
 interface StoredBrainDocumentSummary {
   parentId: string;
@@ -160,6 +165,7 @@ export default function HomePage() {
     slug: string;
     companyName: string;
     logoDataUrl?: string | null;
+    complianceProfile?: TenantComplianceProfile;
     dbName: string;
     authMode: 'otp' | 'open';
     isDemo: boolean;
@@ -3183,7 +3189,7 @@ export default function HomePage() {
                       </span>
                       <input
                         type="file"
-                        accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.webp,.ppt,.pptx,.mp3,.wav,.webm,.ogg,.m4a"
+                        accept=".txt,.md,.csv,.json,.pdf,.docx,.png,.jpg,.jpeg,.webp,.ppt,.pptx,.mp3,.wav,.webm,.ogg,.m4a"
                         className="hidden"
                         onChange={(e) => {
                           const selected = e.target.files?.[0];
@@ -4111,6 +4117,31 @@ export default function HomePage() {
                 }
               }}
               onPendingCountChanged={setPendingUsersCount}
+            />
+          )}
+
+          {/* SECTION 5: COMPANY PROFILE (Regulatory Applicability & Branding — Admin Only) */}
+          {workspaceSubTab === 'company-profile' && canAccessTeamTab && (
+            <CompanyProfilePanel
+              locale={locale}
+              companyName={tenantInfo?.companyName}
+              isDemo={Boolean(tenantInfo?.isDemo)}
+              companyLogoUrl={tenantInfo?.logoDataUrl ?? null}
+              complianceProfile={
+                tenantInfo?.complianceProfile ?? {
+                  ...DEFAULT_COMPLIANCE_PROFILE,
+                }
+              }
+              onComplianceProfileChanged={(nextProfile) => {
+                setTenantInfo((prev) =>
+                  prev ? { ...prev, complianceProfile: nextProfile } : prev
+                );
+              }}
+              onLogoChanged={(nextLogo) => {
+                setTenantInfo((prev) =>
+                  prev ? { ...prev, logoDataUrl: nextLogo } : prev
+                );
+              }}
             />
           )}
         </div>

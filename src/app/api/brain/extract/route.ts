@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   classifyMultimodalInput,
+  extractTextFromDocxBuffer,
   extractTextFromPlainBuffer,
   extractTextFromPptxBuffer,
   validateMultimodalFileSize,
@@ -97,6 +98,25 @@ export async function POST(request: NextRequest) {
               extractedText: slideText,
               suggestedTitle: file.name.replace(/\.[^.]+$/, ''),
               mode: 'native_pptx_xml_parser',
+            },
+          };
+        }
+
+        // 1c. Native OpenXML Word Parser for Microsoft Word (.docx) files
+        if (classification.category === 'docx') {
+          const docText = extractTextFromDocxBuffer(buffer, file.name);
+          systemLogger.info(
+            'rag.multimodal',
+            `Extracted Word document text from [${file.name}] (${buffer.byteLength} bytes)`
+          );
+          return {
+            body: {
+              ok: true,
+              category: classification.category,
+              fileName: file.name,
+              extractedText: docText,
+              suggestedTitle: file.name.replace(/\.[^.]+$/, ''),
+              mode: 'native_docx_xml_parser',
             },
           };
         }

@@ -359,21 +359,58 @@ function evaluateNis2(text: string): GermanRegulatoryCheck {
   };
 }
 
+export interface CompanyComplianceProfileInput {
+  hasBetriebsrat?: boolean;
+  nis2Applicable?: boolean;
+}
+
 /**
  * Screens a proposed decision against BetrVG, DSGVO, EU AI Act and NIS-2,
+ * respecting optional company-level applicability toggles (`hasBetriebsrat`, `nis2Applicable`),
  * and measures Company Brain coverage for the decision topic.
  */
 export function evaluateGermanRegulatoryAdvisory(params: {
   decisionProposal: string;
   matchedParents: readonly MatchedParentContextInput[];
+  companyProfile?: CompanyComplianceProfileInput;
 }): GermanRegulatoryAdvisory {
   const text = params.decisionProposal.trim();
+  const hasBetriebsrat = params.companyProfile?.hasBetriebsrat ?? true;
+  const nis2Applicable = params.companyProfile?.nis2Applicable ?? true;
+
+  const betrvgCheck: GermanRegulatoryCheck = hasBetriebsrat
+    ? evaluateBetrVG(text)
+    : {
+        framework: 'BETRVG',
+        label: 'Betriebsrat — Works Council Co-Determination',
+        legalReference: 'BetrVG §87, §90, §111',
+        status: 'NOT_TRIGGERED',
+        matchedSignals: [],
+        findingEn:
+          'Skipped based on Company Profile: No Works Council (Betriebsrat) is configured for this organization.',
+        findingDe:
+          'Gemäß Unternehmensprofil übersprungen: Für dieses Unternehmen ist kein Betriebsrat hinterlegt.',
+      };
+
+  const nis2Check: GermanRegulatoryCheck = nis2Applicable
+    ? evaluateNis2(text)
+    : {
+        framework: 'NIS2',
+        label: 'NIS-2 — Cybersecurity & Supply Chain',
+        legalReference: 'NIS-2 Directive Art. 20, 21 · BSIG (NIS2UmsuCG)',
+        status: 'NOT_TRIGGERED',
+        matchedSignals: [],
+        findingEn:
+          'Skipped based on Company Profile: This organization is marked outside NIS-2 regulatory scope.',
+        findingDe:
+          'Gemäß Unternehmensprofil übersprungen: Dieses Unternehmen fällt laut Profil nicht unter die NIS-2-Pflicht.',
+      };
 
   const checks: GermanRegulatoryCheck[] = [
-    evaluateBetrVG(text),
+    betrvgCheck,
     evaluateDSGVO(text),
     evaluateEuAiAct(text),
-    evaluateNis2(text),
+    nis2Check,
   ];
 
   const { overlappingTerms, bestMatchTitle } = computeTopicOverlap(

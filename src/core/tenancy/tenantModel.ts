@@ -4,11 +4,23 @@ import { RESERVED_SUBDOMAINS } from './hostResolver';
 export type TenantStatus = 'active' | 'suspended';
 export type TenantAuthMode = 'otp' | 'open';
 
+export interface TenantComplianceProfile {
+  hasBetriebsrat: boolean;
+  nis2Applicable: boolean;
+}
+
+export const DEFAULT_COMPLIANCE_PROFILE: Readonly<TenantComplianceProfile> =
+  Object.freeze({
+    hasBetriebsrat: true,
+    nis2Applicable: true,
+  });
+
 /** Fully resolved tenant (secrets decrypted). Never sent to the browser. */
 export interface ResolvedTenant {
   slug: string;
   companyName: string;
   logoDataUrl?: string | null;
+  complianceProfile?: TenantComplianceProfile;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails: string[];
@@ -27,6 +39,7 @@ export const DEMO_TENANT: ResolvedTenant = Object.freeze({
   slug: DEMO_TENANT_SLUG,
   companyName: 'MindMittel Live Demo',
   logoDataUrl: null,
+  complianceProfile: { ...DEFAULT_COMPLIANCE_PROFILE },
   allowedEmailDomains: [],
   allowedEmails: [],
   adminEmails: [],

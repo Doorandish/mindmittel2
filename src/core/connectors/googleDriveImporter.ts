@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type { DocumentSourceType } from '@/core/rag/chunker';
 import {
+  extractTextFromDocxBuffer,
   extractTextFromPdfBuffer,
   extractTextFromPptxBuffer,
 } from '@/core/rag/multimodalExtractor';
@@ -419,8 +420,11 @@ export async function fetchLiveGoogleDrivePayload(params: {
           const isPptx =
             file.mimeType?.includes('presentation') ||
             file.name.toLowerCase().endsWith('.pptx');
+          const isDocx =
+            file.mimeType?.includes('wordprocessingml') ||
+            file.name.toLowerCase().endsWith('.docx');
 
-          if (isPdf || isPptx) {
+          if (isPdf || isPptx || isDocx) {
             const arrBuf = await dlRes.arrayBuffer();
             const buf = Buffer.from(arrBuf);
 
@@ -470,7 +474,9 @@ export async function fetchLiveGoogleDrivePayload(params: {
             if (!fileText) {
               fileText = isPdf
                 ? extractTextFromPdfBuffer(buf, file.name)
-                : extractTextFromPptxBuffer(buf, file.name);
+                : isDocx
+                  ? extractTextFromDocxBuffer(buf, file.name)
+                  : extractTextFromPptxBuffer(buf, file.name);
             }
           } else {
             fileText = await dlRes.text();

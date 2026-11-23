@@ -1,5 +1,6 @@
 import {
   buildTenantConnectionString,
+  DEFAULT_COMPLIANCE_PROFILE,
   DEMO_TENANT,
   DEMO_TENANT_SLUG,
   maskConnectionString,
@@ -11,6 +12,7 @@ import {
   parseOptionalMongoUri,
   parseTenantInput,
   type ResolvedTenant,
+  type TenantComplianceProfile,
   type TenantInputRaw,
   type TenantStatus,
 } from '@/core/tenancy/tenantModel';
@@ -23,6 +25,7 @@ export interface StoredTenantRecord {
   slug: string;
   companyName: string;
   logoDataUrl?: string | null;
+  complianceProfile?: TenantComplianceProfile;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails?: string[];
@@ -39,6 +42,7 @@ export interface AdminTenantView {
   slug: string;
   companyName: string;
   logoDataUrl: string | null;
+  complianceProfile: TenantComplianceProfile;
   allowedEmailDomains: string[];
   allowedEmails: string[];
   adminEmails: string[];
@@ -56,6 +60,7 @@ export interface TenantUpdateInput {
   companyName?: string;
   logoDataUrl?: string | null;
   clearLogo?: boolean;
+  complianceProfile?: Partial<TenantComplianceProfile>;
   allowedEmailDomains?: string[] | string;
   allowedEmails?: string[] | string;
   adminEmails?: string[] | string;
@@ -70,6 +75,34 @@ export interface TenantUpdateInput {
 declare global {
   // eslint-disable-next-line no-var
   var __mindmittelTenantMemoryStore: Map<string, StoredTenantRecord> | undefined;
+  // eslint-disable-next-line no-var
+  var __mindmittelDemoComplianceProfile: TenantComplianceProfile | undefined;
+}
+
+function getDemoComplianceProfile(): TenantComplianceProfile {
+  return (
+    globalThis.__mindmittelDemoComplianceProfile ?? {
+      ...DEFAULT_COMPLIANCE_PROFILE,
+    }
+  );
+}
+
+export function updateDemoComplianceProfile(
+  patch: Partial<TenantComplianceProfile>
+): TenantComplianceProfile {
+  const current = getDemoComplianceProfile();
+  const next: TenantComplianceProfile = {
+    hasBetriebsrat:
+      typeof patch.hasBetriebsrat === 'boolean'
+        ? patch.hasBetriebsrat
+        : current.hasBetriebsrat,
+    nis2Applicable:
+      typeof patch.nis2Applicable === 'boolean'
+        ? patch.nis2Applicable
+        : current.nis2Applicable,
+  };
+  globalThis.__mindmittelDemoComplianceProfile = next;
+  return next;
 }
 
 function getMemoryStore(): Map<string, StoredTenantRecord> {
@@ -95,11 +128,27 @@ function safeDecrypt(ciphertext: string | null | undefined): string | null {
   }
 }
 
+function resolveComplianceProfile(
+  profile?: Partial<TenantComplianceProfile>
+): TenantComplianceProfile {
+  return {
+    hasBetriebsrat:
+      typeof profile?.hasBetriebsrat === 'boolean'
+        ? profile.hasBetriebsrat
+        : DEFAULT_COMPLIANCE_PROFILE.hasBetriebsrat,
+    nis2Applicable:
+      typeof profile?.nis2Applicable === 'boolean'
+        ? profile.nis2Applicable
+        : DEFAULT_COMPLIANCE_PROFILE.nis2Applicable,
+  };
+}
+
 function toResolvedTenant(record: StoredTenantRecord): ResolvedTenant {
   return {
     slug: record.slug,
     companyName: record.companyName,
     logoDataUrl: record.logoDataUrl ?? null,
+    complianceProfile: resolveComplianceProfile(record.complianceProfile),
     allowedEmailDomains: record.allowedEmailDomains ?? [],
     allowedEmails: record.allowedEmails ?? [],
     adminEmails: record.adminEmails ?? [],
@@ -125,6 +174,7 @@ function toAdminView(record: StoredTenantRecord): AdminTenantView {
     slug: record.slug,
     companyName: record.companyName,
     logoDataUrl: record.logoDataUrl ?? null,
+    complianceProfile: resolveComplianceProfile(record.complianceProfile),
     allowedEmailDomains: record.allowedEmailDomains ?? [],
     allowedEmails: record.allowedEmails ?? [],
     adminEmails: record.adminEmails ?? [],
@@ -141,6 +191,7 @@ function toAdminView(record: StoredTenantRecord): AdminTenantView {
 
 export function resetTenantRepositoryForTests(): void {
   getMemoryStore().clear();
+  globalThis.__mindmittelDemoComplianceProfile = undefined;
 }
 
 export async function resolveTenantBySlug(
@@ -148,7 +199,12 @@ export async function resolveTenantBySlug(
 ): Promise<ResolvedTenant | null> {
   const slug = rawSlug.trim().toLowerCase();
   if (!slug) return null;
-  if (slug === DEMO_TENANT_SLUG) return DEMO_TENANT;
+  if (slug === DEMO_TENANT_SLUG) {
+    return {
+      ...DEMO_TENANT,
+      complianceProfile: getDemoComplianceProfile(),
+    };
+  }
 
   const mem = getMemoryStore();
 
@@ -311,10 +367,18 @@ export async function updateTenant(
     logoDataUrl = parseOptionalLogoDataUrl(patch.logoDataUrl);
   }
 
+  const complianceProfile = patch.complianceProfile
+    ? resolveComplianceProfile({
+        ...resolveComplianceProfile(current.complianceProfile),
+        ...patch.complianceProfile,
+      })
+    : resolveComplianceProfile(current.complianceProfile);
+
   const updated: StoredTenantRecord = {
     ...current,
     companyName,
     logoDataUrl,
+    complianceProfile,
     allowedEmailDomains: policy.allowedEmailDomains,
     allowedEmails: policy.allowedEmails,
     adminEmails: policy.adminEmails,
