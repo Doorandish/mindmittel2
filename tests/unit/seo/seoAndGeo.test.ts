@@ -88,4 +88,22 @@ describe('Landing Page SEO & Generative Engine Optimization (GEO)', () => {
     expect(serializedJsonLd).toContain('Organization');
     expect(serializedJsonLd).toContain('FAQPage');
   });
+
+  it('ships an optimized WebP hero executive audit visual wired into the marketing page Hero', () => {
+    const heroImagePath = path.join(
+      repoRoot,
+      'public/images/hero-executive-audit.webp'
+    );
+    expect(fs.existsSync(heroImagePath)).toBe(true);
+    const stats = fs.statSync(heroImagePath);
+    expect(stats.size).toBeGreaterThan(10_000);
+    expect(stats.size).toBeLessThan(120_000);
+
+    const marketingContent = fs.readFileSync(
+      path.join(repoRoot, 'src/app/marketing/page.tsx'),
+      'utf8'
+    );
+    expect(marketingContent).toContain('/images/hero-executive-audit.webp');
+    expect(marketingContent).toContain('fetchPriority="high"');
+  });
 });

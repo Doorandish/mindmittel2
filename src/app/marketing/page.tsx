@@ -633,160 +633,28 @@ export default function MarketingLandingPage() {
               </div>
             </div>
 
-            {/* Right 5 Columns: Animated Light Architecture Flow Diagram */}
-            <div className="lg:col-span-5 w-full">
-              <div
-                className="bg-[#F8FAFC] border border-slate-200/90 rounded-2xl p-5 shadow-lg relative overflow-hidden"
-                style={{
-                  backgroundImage:
-                    'radial-gradient(rgba(148,163,184,0.22) 1px, transparent 1px)',
-                  backgroundSize: '18px 18px',
-                }}
-              >
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200/90">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#006c4a] pulsing-dot" />
-                    <span className="text-[11px] tracking-wider font-semibold text-slate-600 uppercase font-mono">
-                      {copy.diagram.header}
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[#006c4a] font-mono text-[10px] font-semibold">
-                    {copy.diagram.badge}
-                  </span>
-                </div>
-
-                {/* Top Sources Row */}
-                <div className="mt-3.5">
-                  <div className="text-[10px] font-mono font-semibold text-slate-500 tracking-wider uppercase mb-2">
-                    {copy.diagram.sourcesLabel}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <FileText className="w-4 h-4 text-[#004ac6]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] pulsing-dot" />
-                      </div>
-                      <span className="text-[11.5px] font-semibold text-[#131b2e] leading-tight">
-                        {copy.diagram.src1Title}
-                      </span>
-                      <span className="text-[10px] text-[#434655] font-mono">
-                        {copy.diagram.src1Sub}
-                      </span>
-                    </div>
-
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <MessageSquare className="w-4 h-4 text-[#004ac6]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] pulsing-dot" />
-                      </div>
-                      <span className="text-[11.5px] font-semibold text-[#131b2e] leading-tight">
-                        {copy.diagram.src2Title}
-                      </span>
-                      <span className="text-[10px] text-[#434655] font-mono">
-                        {copy.diagram.src2Sub}
-                      </span>
-                    </div>
-
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <CloudCog className="w-4 h-4 text-[#004ac6]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb] pulsing-dot" />
-                      </div>
-                      <span className="text-[11.5px] font-semibold text-[#131b2e] leading-tight">
-                        {copy.diagram.src3Title}
-                      </span>
-                      <span className="text-[10px] text-[#434655] font-mono">
-                        {copy.diagram.src3Sub}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Animated Curved Dashed Connectors */}
-                <div className="relative py-1">
-                  <svg className="w-full h-12" fill="none" viewBox="0 0 380 48">
-                    <path
-                      className="flow-line"
-                      d="M 65 2 C 65 24, 190 20, 190 44"
-                    />
-                    <path className="flow-line" d="M 190 2 L 190 44" />
-                    <path
-                      className="flow-line"
-                      d="M 315 2 C 315 24, 190 20, 190 44"
-                    />
-                    <circle cx="65" cy="4" fill="#2563eb" r="3" />
-                    <circle cx="190" cy="4" fill="#2563eb" r="3" />
-                    <circle cx="315" cy="4" fill="#2563eb" r="3" />
-                    <circle cx="190" cy="44" fill="#059669" r="4" />
-                  </svg>
-                </div>
-
-                {/* Isolated Company Environment Container */}
-                <div className="rounded-xl p-3.5 border border-blue-200/90 bg-blue-50/60 relative">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <Shield className="w-3.5 h-3.5 text-[#004ac6] shrink-0" />
-                    <span className="font-mono text-[10px] uppercase font-bold tracking-wide text-[#004ac6]">
-                      {copy.diagram.zoneLabel}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-11 gap-2 items-center">
-                    <div className="sm:col-span-5 bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <Cpu className="w-3.5 h-3.5 text-[#004ac6]" />
-                        <span className="text-[11.5px] font-bold text-[#131b2e]">
-                          {copy.diagram.engineTitle}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-[#434655] leading-snug">
-                        {copy.diagram.engineSub}
-                      </p>
-                    </div>
-
-                    <div className="hidden sm:flex sm:col-span-1 items-center justify-center">
-                      <svg className="w-6 h-4" fill="none" viewBox="0 0 24 12">
-                        <path
-                          className="flow-line-horizontal"
-                          d="M 0 6 L 22 6"
-                        />
-                      </svg>
-                    </div>
-
-                    <div className="sm:col-span-5 bg-white p-2.5 rounded-lg border border-emerald-300 shadow-sm flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[11.5px] font-bold text-[#131b2e] flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#006c4a] shrink-0" />
-                          <span>{copy.diagram.auditTitle}</span>
-                        </span>
-                      </div>
-                      <span className="self-start px-1.5 py-0.5 rounded bg-[#85f8c4] text-[#002114] font-mono text-[8.5px] font-bold">
-                        {copy.diagram.auditBadge}
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        <span className="px-1.5 py-0.5 rounded bg-[#eaedff] text-[#434655] font-mono text-[9px]">
-                          {copy.diagram.pill1}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-[#eaedff] text-[#434655] font-mono text-[9px]">
-                          {copy.diagram.pill2}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-[#eaedff] text-[#434655] font-mono text-[9px]">
-                          {copy.diagram.pill3}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Status Bar */}
-                <div className="mt-3 p-2.5 rounded-lg bg-white border border-emerald-200 shadow-sm flex items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-1.5 font-medium text-[#131b2e]">
-                    <span className="w-2 h-2 rounded-full bg-[#006c4a] pulsing-dot shrink-0" />
-                    <span>{copy.diagram.footerText}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded bg-[#85f8c4] text-[#002114] font-mono text-[10px] font-bold shrink-0">
-                    {copy.diagram.footerBadge}
-                  </span>
-                </div>
+            {/* Right 5 Columns: Optimized Executive Audit Visual */}
+            <div className="lg:col-span-5 w-full flex items-center justify-center">
+              <div className="relative w-full max-w-[480px] lg:max-w-[540px] mx-auto">
+                <img
+                  src="/images/hero-executive-audit.webp"
+                  alt={
+                    locale === 'de'
+                      ? 'MindMittel Live Vorstandsprüfung: Risiko-Score 42/100, BetrVG-Warnung, DSGVO & EU AI Act Prüfung mit Quellenbelegen aus PDF, DOCX, Drive, Slack, Teams, Notion, Confluence, Zoom und Meet'
+                      : 'MindMittel Live Executive Audit: Risk Score 42/100, BetrVG alert, GDPR & EU AI Act verification with source citations from PDF, DOCX, Drive, Slack, Teams, Notion, Confluence, Zoom and Meet'
+                  }
+                  width={1024}
+                  height={1024}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="w-full h-auto block select-none"
+                  style={{
+                    maskImage:
+                      'radial-gradient(ellipse 92% 92% at 50% 50%, black 78%, transparent 100%)',
+                    WebkitMaskImage:
+                      'radial-gradient(ellipse 92% 92% at 50% 50%, black 78%, transparent 100%)',
+                  }}
+                />
               </div>
             </div>
           </div>
