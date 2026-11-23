@@ -59,6 +59,8 @@ import {
 } from '@/core/auth/rbac';
 import { TeamAccessPanel } from '@/components/governance/TeamAccessPanel';
 import { CompanyProfilePanel } from '@/components/governance/CompanyProfilePanel';
+import { ConnectorGuideModal } from '@/components/connectors/ConnectorGuideModal';
+import { getConnectorSetupGuide } from '@/core/connectors/connectorGuides';
 import {
   DEFAULT_COMPLIANCE_PROFILE,
   type TenantComplianceProfile,
@@ -246,6 +248,9 @@ export default function HomePage() {
   // Enterprise Connectors Hub State (Chat, Knowledge Management, Online Meetings)
   const [connectors, setConnectors] = useState<EnterpriseConnectorItem[]>([]);
   const [activeConfigConnectorId, setActiveConfigConnectorId] = useState<
+    string | null
+  >(null);
+  const [activeGuideConnectorId, setActiveGuideConnectorId] = useState<
     string | null
   >(null);
   const [connectorApiSecret, setConnectorApiSecret] = useState<string>('');
@@ -3969,30 +3974,47 @@ export default function HomePage() {
                             </div>
 
                             <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 text-[12px]">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (isConfigOpen) {
-                                    setActiveConfigConnectorId(null);
-                                  } else {
-                                    setActiveConfigConnectorId(conn.id);
-                                    setConnectorTargetScope(conn.targetScope);
-                                    setConnectorApiSecret('');
+                              <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isConfigOpen) {
+                                      setActiveConfigConnectorId(null);
+                                    } else {
+                                      setActiveConfigConnectorId(conn.id);
+                                      setConnectorTargetScope(conn.targetScope);
+                                      setConnectorApiSecret('');
+                                    }
+                                  }}
+                                  className="font-medium text-slate-600 hover:text-blue-600 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                  <span>
+                                    {conn.configured
+                                      ? locale === 'de'
+                                        ? 'Zugangsdaten aktualisieren'
+                                        : 'Update Credentials'
+                                      : locale === 'de'
+                                      ? 'Zugangsdaten eingeben'
+                                      : 'Enter Auth Credentials'}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setActiveGuideConnectorId(conn.id)
                                   }
-                                }}
-                                className="font-medium text-slate-600 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
-                              >
-                                <KeyRound className="w-3.5 h-3.5" />
-                                <span>
-                                  {conn.configured
-                                    ? locale === 'de'
-                                      ? 'Zugangsdaten aktualisieren'
-                                      : 'Update Credentials'
-                                    : locale === 'de'
-                                    ? 'Zugangsdaten eingeben'
-                                    : 'Enter Auth Credentials'}
-                                </span>
-                              </button>
+                                  className="font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors cursor-pointer"
+                                >
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                  <span>
+                                    {locale === 'de'
+                                      ? 'Verbindungsanleitung'
+                                      : 'Connection Guide'}
+                                  </span>
+                                </button>
+                              </div>
 
                               {conn.enabled && (
                                 <button
@@ -4096,6 +4118,31 @@ export default function HomePage() {
                   </div>
                 );
               })}
+
+              {/* Interactive Bilingual Connector Setup Guide Modal */}
+              {activeGuideConnectorId &&
+                (() => {
+                  const targetConn = connectors.find(
+                    (c) => c.id === activeGuideConnectorId
+                  );
+                  const targetGuide = getConnectorSetupGuide(
+                    activeGuideConnectorId
+                  );
+                  if (!targetConn || !targetGuide) return null;
+                  return (
+                    <ConnectorGuideModal
+                      connector={targetConn}
+                      guide={targetGuide}
+                      locale={locale}
+                      onClose={() => setActiveGuideConnectorId(null)}
+                      onOpenCredentials={(c) => {
+                        setActiveConfigConnectorId(c.id);
+                        setConnectorTargetScope(c.targetScope);
+                        setConnectorApiSecret('');
+                      }}
+                    />
+                  );
+                })()}
             </div>
           )}
 

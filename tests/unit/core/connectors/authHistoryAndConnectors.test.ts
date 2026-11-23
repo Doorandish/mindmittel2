@@ -12,6 +12,7 @@ import {
   buildConnectorSyncDocument,
   fetchLiveConnectorPayloadOrFallback,
 } from '@/core/connectors/connectorRegistry';
+import { getConnectorSetupGuide } from '@/core/connectors/connectorGuides';
 
 describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise Connectors', () => {
   const rootDir = path.resolve(__dirname, '../../../../');
@@ -155,5 +156,28 @@ describe('Milestone 3: Email Auth Attribution, Audit History Ledger & Enterprise
     expect(pageSource).not.toContain("workspaceSubTab === 'system'");
     expect(systemPageSource).toContain('/api/admin/session');
     expect(systemPageSource).not.toContain('/api/brain/documents');
+  });
+
+  it('provides a complete bilingual (EN/DE) Connection Setup Guide for every registered enterprise connector and wires ConnectorGuideModal into the Connectors UI', () => {
+    const allConnectors = createInitialConnectorsState();
+    for (const conn of allConnectors) {
+      const guide = getConnectorSetupGuide(conn.id);
+      expect(guide).toBeDefined();
+      expect(guide?.portalUrl).toMatch(/^https:\/\//);
+      expect(guide?.requiredScopes.length).toBeGreaterThanOrEqual(1);
+      expect(guide?.stepsEn.length).toBeGreaterThanOrEqual(4);
+      expect(guide?.stepsDe.length).toBeGreaterThanOrEqual(4);
+      expect(guide?.tokenExample.length).toBeGreaterThan(3);
+      expect(guide?.scopeExample.length).toBeGreaterThan(2);
+      expect(guide?.securityNoteEn.length).toBeGreaterThan(15);
+      expect(guide?.securityNoteDe.length).toBeGreaterThan(15);
+    }
+
+    const pageSource = fs.readFileSync(
+      path.join(rootDir, 'src/app/page.tsx'),
+      'utf-8'
+    );
+    expect(pageSource).toContain('ConnectorGuideModal');
+    expect(pageSource).toContain('activeGuideConnectorId');
   });
 });

@@ -275,6 +275,7 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
     sourceFiles: [
       'src/app/api/connectors/route.ts',
       'src/core/connectors/connectorRegistry.ts',
+      'src/core/connectors/connectorGuides.ts',
       'src/core/connectors/googleDriveImporter.ts',
     ],
   },
