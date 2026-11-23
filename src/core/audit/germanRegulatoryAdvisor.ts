@@ -2,6 +2,10 @@ import type {
   ExecutiveAuditReport,
   MatchedParentContextInput,
 } from '@/core/audit/decisionEvaluator';
+import {
+  retrieveRelevantGermanLegalArticles,
+  type RetrievedGermanLegalArticle,
+} from '@/core/audit/germanLegalCorpus';
 
 /**
  * German Regulatory & Betriebsrat Advisory (DACH Pre-Decision Check).
@@ -46,6 +50,8 @@ export interface GermanRegulatoryAdvisory {
   checks: GermanRegulatoryCheck[];
   betriebsratInvolvementRequired: boolean;
   knowledgeCoverage: CompanyBrainKnowledgeCoverage;
+  /** Matched statutory articles from the curated German/EU Legal RAG corpus. */
+  matchedLegalArticles?: RetrievedGermanLegalArticle[];
   disclaimerEn: string;
   disclaimerDe: string;
 }
@@ -127,6 +133,12 @@ const AI_USAGE_RULE: SignalRule = {
   label: 'Use of an AI system',
   pattern:
     /(\bai\b|artificial intelligence|machine learning|\bllm\b|chatbot|\bgpt|copilot|generative|neural|\bki\b|künstliche intelligenz|kuenstliche intelligenz|sprachmodell)/i,
+};
+
+const AI_PROHIBITED_RULE: SignalRule = {
+  label: 'Art. 5 — prohibited AI practice (e.g., workplace emotion recognition / social scoring)',
+  pattern:
+    /(emotion recognition|emotion analysis|mood tracking|social scoring|emotionserkennung|stimmungsanalyse|stimmungserkennung|gefühlsanalyse|sozialkredit)/i,
 };
 
 const AI_HIGH_RISK_RULE: SignalRule = {
@@ -288,18 +300,19 @@ function evaluateDSGVO(text: string): GermanRegulatoryCheck {
 }
 
 function evaluateEuAiAct(text: string): GermanRegulatoryCheck {
-  const usesAi = AI_USAGE_RULE.pattern.test(text);
+  const prohibited = AI_PROHIBITED_RULE.pattern.test(text);
+  const usesAi = prohibited || AI_USAGE_RULE.pattern.test(text);
   const highRisk = usesAi && AI_HIGH_RISK_RULE.pattern.test(text);
   const transparency = usesAi && AI_TRANSPARENCY_RULE.pattern.test(text);
   const status: RegulatoryCheckStatus = !usesAi
     ? 'NOT_TRIGGERED'
-    : highRisk
+    : prohibited || highRisk
     ? 'TRIGGERED'
     : 'REVIEW';
 
   const signals = usesAi
     ? [
-        AI_USAGE_RULE.label,
+        ...(prohibited ? [AI_PROHIBITED_RULE.label] : [AI_USAGE_RULE.label]),
         ...(highRisk ? [AI_HIGH_RISK_RULE.label] : []),
         ...(transparency ? [AI_TRANSPARENCY_RULE.label] : []),
       ]
@@ -308,17 +321,21 @@ function evaluateEuAiAct(text: string): GermanRegulatoryCheck {
   return {
     framework: 'EU_AI_ACT',
     label: 'EU AI Act — Artificial Intelligence Regulation',
-    legalReference: 'EU AI Act Art. 4, 26, 50 · Annex III',
+    legalReference: 'EU AI Act Art. 4, 5, 26, 50 · Annex III',
     status,
     matchedSignals: signals,
     findingEn:
-      status === 'TRIGGERED'
+      prohibited
+        ? 'PROHIBITED AI PRACTICE (Art. 5 EU AI Act, e.g. workplace emotion recognition). Must NOT be deployed in the EU (fines up to €35M or 7% global turnover).'
+        : status === 'TRIGGERED'
         ? 'High-risk AI use case (employment context). As a deployer you need human oversight, logging, staff information and a risk assessment before go-live.'
         : status === 'REVIEW'
         ? 'AI system in use. Ensure AI literacy of affected staff (Art. 4) and transparency towards users where AI interacts with people or generates content (Art. 50).'
         : 'No AI system usage detected.',
     findingDe:
-      status === 'TRIGGERED'
+      prohibited
+        ? 'VERBOTENE KI-PRAKTIK (Art. 5 EU AI Act, z. B. Emotionserkennung am Arbeitsplatz). Darf in der EU nicht eingesetzt werden (Bußgeld bis 35 Mio. € oder 7 % Weltjahresumsatz).'
+        : status === 'TRIGGERED'
         ? 'Hochrisiko-KI-Anwendung (Beschäftigungskontext). Als Betreiber sind menschliche Aufsicht, Protokollierung, Information der Beschäftigten und Risikobewertung vor dem Einsatz erforderlich.'
         : status === 'REVIEW'
         ? 'KI-System im Einsatz. KI-Kompetenz der Beschäftigten sicherstellen (Art. 4) und Transparenz gegenüber Nutzern gewährleisten (Art. 50).'
@@ -445,16 +462,23 @@ export function evaluateGermanRegulatoryAdvisory(params: {
         : 'Zu diesem Thema existiert noch keine interne Richtlinie. Die Empfehlung stützt sich nur auf gesetzliche Grundlagen — halten Sie Ihren finalen Beschluss im Company Brain fest.',
   };
 
+  const matchedLegalArticles = retrieveRelevantGermanLegalArticles({
+    decisionProposal: text,
+    companyProfile: params.companyProfile,
+    maxArticles: 4,
+  });
+
   return {
     checks,
     betriebsratInvolvementRequired: checks.some(
       (c) => c.framework === 'BETRVG' && c.status === 'TRIGGERED'
     ),
     knowledgeCoverage,
+    matchedLegalArticles,
     disclaimerEn:
-      'Automated pre-decision advisory signal based on keyword and policy analysis. It does not replace legal counsel.',
+      'Automated pre-decision compliance screening based on curated German/EU statutory baselines and internal policies. Does not replace formal legal counsel (keine Rechtsberatung i.S.d. RDG).',
     disclaimerDe:
-      'Automatisierter Vorab-Hinweis auf Basis von Schlagwort- und Richtlinienanalyse. Ersetzt keine Rechtsberatung.',
+      'Automatisierte Compliance-Vorabprüfung auf Basis kuratierter deutscher/europäischer Gesetzesgrundlagen und interner Richtlinien. Ersetzt keine individuelle Rechtsberatung (i.S.d. RDG).',
   };
 }
 

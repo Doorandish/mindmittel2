@@ -66,6 +66,26 @@ ${activeStatutoryChecks
 No German statutory triggers (BetrVG, DSGVO, EU AI Act, NIS-2) were flagged for this proposal.
 </statutory_pre_screen>`;
 
+  const matchedLegalArticles = germanAdvisory?.matchedLegalArticles ?? [];
+
+  const statutoryArticlesBlock =
+    matchedLegalArticles.length > 0
+      ? `
+<german_statutory_articles count="${matchedLegalArticles.length}">
+The following curated German/EU statutory provisions were retrieved by the Legal RAG engine. Cite their exact paragraph numbers, required German legal artifacts, and statutory sanction risks where relevant:
+${matchedLegalArticles
+  .map(
+    (a, idx) =>
+      `[Statute ${idx + 1} | ${a.citation} | Severity: ${a.severity}]
+Title: ${locale === 'de' ? a.titleDe : a.titleEn}
+Substance: ${a.legalTextSummaryDe}
+Required Legal Artifact: ${locale === 'de' ? a.requiredArtifactDe : a.requiredArtifactEn}
+Sanction / Risk: ${locale === 'de' ? a.sanctionRiskDe : a.sanctionRiskEn}`
+  )
+  .join('\n\n')}
+</german_statutory_articles>`
+      : '';
+
   return `ROLE & AUDIENCE:
 You are the MindMittel Executive Governance & DACH Compliance Audit Engine.
 Your reader is a busy German Mittelstand CEO, CFO, or Department Head who needs a decisive, crystal-clear 45-second board brief BEFORE signing off on a management decision.
@@ -96,7 +116,7 @@ ${decisionProposal}
 </proposed_decision>
 
 ${documentsBlock}
-${statutoryBlock}
+${statutoryBlock}${statutoryArticlesBlock}
 
 OUTPUT CONTRACT:
 Return ONLY valid JSON matching this exact schema (no markdown fences, no commentary outside JSON):

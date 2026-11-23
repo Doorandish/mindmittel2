@@ -371,6 +371,7 @@ export const DOCUMENTED_CORE_MODULES: readonly DocumentedCoreModuleSpec[] = [
     moduleName: 'Hybrid Decision Evaluator & Deterministic DACH Regulatory Advisor',
     sourceFiles: [
       'src/core/audit/auditPromptBuilder.ts',
+      'src/core/audit/germanLegalCorpus.ts',
       'src/core/audit/decisionEvaluator.ts',
       'src/core/audit/germanRegulatoryAdvisor.ts',
     ],

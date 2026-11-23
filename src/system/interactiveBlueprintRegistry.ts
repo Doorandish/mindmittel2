@@ -577,11 +577,11 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
       'در شرکت‌های آلمانی (Mittelstand)، ممکن است یک تصمیم با قوانین داخلی خودِ شرکت هیچ تضادی نداشته باشد، اما با قانون کار آلمان یا قوانین حفاظت از داده تداخل جدی داشته باشد! این ماژول مثل یک **مهر تایید نهایی حقوقی** عمداً **بعد از پایان کار هوش مصنوعی** اجرا می‌شود تا مدل هوش مصنوعی هرگز نتواند یک ریسک قانونی را سهواً نادیده بگیرد.',
     internalMechanicsFa: [
       {
-        stepTitleFa: '۱. بررسی هم‌زمان ۴ قانون کلیدی آلمان و اروپا (با رعایت تنظیمات پروفایل شرکت)',
+        stepTitleFa: '۱. بازیابی مواد واقعی قوانین آلمان (Legal RAG) + رعایت پروفایل شرکت',
         detailFa:
-          'تابع `evaluateGermanRegulatoryAdvisory` تصمیم مدیر را در برابر ۴ چارچوب قانونی می‌سنجد: **BetrVG** (نیاز به تایید Betriebsrat)، **DSGVO / BDSG**، **EU AI Act** و **NIS-2**. اگر ادمین شرکت در تب **Company Profile** مشخص کرده باشد که شرکت فاقد `Betriebsrat` است (`hasBetriebsrat: false`) یا مشمول `NIS-2` نیست (`nis2Applicable: false`)، بررسی مربوطه به‌صورت خودکار و شفاف رد می‌شود تا هیچ هشدار دروغینی تولید نشود.',
+          'علاوه بر الگوهای قطعی، ماژول `germanLegalCorpus.ts` شامل **۲۰ ماده کلیدی و مستند قوانین آلمان و اروپا** (از جمله `BetrVG §87/99/111` به همراه رای دیوان کار `BAG` درباره قابلیت بالقوه پایش، `DSGVO Art. 6/9/22/28/35/44`، `EU AI Act Art. 4/5/26/50` شامل ممنوعیت تشخیص احساسات در محیط کار با جریمه تا ۳۵ میلیون یورو، و `NIS-2 / BSIG §30/32/38`) را با بازیابی ترکیبی (`retrieveRelevantGermanLegalArticles`) استخراج کرده و همراه با نام سند حقوقی الزامی (`Betriebsvereinbarung`، `AVV`، `DSFA`) به پرامپت ممیزی تزریق می‌کند. در صورت غیرفعال بودن `Betriebsrat` یا `NIS-2` در **Company Profile**، مواد مربوطه به‌صورت خودکار حذف می‌شوند.',
         codeRef:
-          'src/core/audit/germanRegulatoryAdvisor.ts → evaluateGermanRegulatoryAdvisory(companyProfile)',
+          'src/core/audit/germanLegalCorpus.ts → retrieveRelevantGermanLegalArticles() & src/core/audit/germanRegulatoryAdvisor.ts → evaluateGermanRegulatoryAdvisory()',
       },
       {
         stepTitleFa: '۲. کشف جای خالی در قوانین شرکت (Knowledge Gap Detection)',
@@ -603,6 +603,7 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
       'گزارش نهایی ممهور به هشدارهای قانونی و لیست اسناد مستثنی‌شده برای ذخیره در دیتابیس و ارسال به کاربر',
     ],
     sourceFiles: [
+      'src/core/audit/germanLegalCorpus.ts',
       'src/core/audit/germanRegulatoryAdvisor.ts',
       'src/app/api/brain/audit/route.ts',
     ],
