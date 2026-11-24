@@ -22,6 +22,9 @@ import { systemLogger } from '@/infrastructure/logging/logger';
 
 export const dynamic = 'force-dynamic';
 
+/** Hard ceiling (6.5s) on live Gemini micro-chat so Heroku 30s H12 HTML timeouts can never occur. */
+const CLARIFY_FAST_BUDGET_MS = 6_500;
+
 async function runGeminiClarification(params: {
   messages: ClarificationChatMessage[];
   locale: 'en' | 'de';
@@ -64,33 +67,40 @@ Return ONLY valid JSON:
 }`;
 
   try {
-    const { output } = await geminiModelSelector.executeWithFallback(
-      'fast',
-      async (modelId) => {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-          modelId
-        )}:generateContent?key=${encodeURIComponent(apiKey)}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.15,
-              responseMimeType: 'application/json',
-            },
-          }),
-          signal: AbortSignal.timeout(12_000),
-        });
-        if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
-        const data = (await res.json()) as {
-          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-        };
-        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!raw) return null;
-        return JSON.parse(raw) as ClarificationReplyResult;
-      }
+    const workPromise = (async (): Promise<ClarificationReplyResult | null> => {
+      const selection = await geminiModelSelector
+        .selectModel('fast')
+        .catch(() => null);
+      const modelId = selection?.selectedModel.modelId ?? 'gemini-2.5-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        modelId
+      )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.15,
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: AbortSignal.timeout(5_500),
+      });
+      if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!raw) return null;
+      return JSON.parse(raw) as ClarificationReplyResult;
+    })();
+
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), CLARIFY_FAST_BUDGET_MS)
     );
+
+    const output = await Promise.race([workPromise, timeoutPromise]);
 
     if (!output || typeof output.assistantReply !== 'string') return null;
     if (output.readyToSubmit && output.draftPrecedent) {
@@ -161,7 +171,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   return withTenantApi(request, async ({ tenant, session }) => {
-    const body = (await request.json()) as {
+    try {
+      const body = (await request.json()) as {
       mode?: 'helpful' | 'clarify' | 'submit_precedent';
       locale?: 'en' | 'de';
       auditId?: string;
@@ -285,10 +296,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, precedent: created });
     }
 
-    return NextResponse.json(
-      { ok: false, error: 'Unsupported feedback mode.' },
-      { status: 400 }
-    );
+      return NextResponse.json(
+        { ok: false, error: 'Unsupported feedback mode.' },
+        { status: 400 }
+      );
+    } catch (err) {
+      systemLogger.error(
+        'learningLoop.post',
+        'Unhandled error in POST /api/brain/feedback',
+        { error: err instanceof Error ? err.message : String(err) }
+      );
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Feedback request failed unexpectedly.',
+        },
+        { status: 500 }
+      );
+    }
   });
 }
 

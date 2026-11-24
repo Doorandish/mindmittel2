@@ -1,4 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { NextRequest } from 'next/server';
+import { POST as feedbackPost } from '@/app/api/brain/feedback/route';
 import {
   aggregatePlatformTelemetry,
   buildDeterministicClarificationReply,
@@ -227,5 +231,51 @@ describe('Safe Learning Loop & Zero-Leak Telemetry (Functional Core)', () => {
     expect(prompt).toContain('admin@acme.de');
     expect(prompt).toContain('2027-12-31');
     expect(prompt).toContain('NEVER suppress or erase mandatory German statutory');
+  });
+
+  it('POST /api/brain/feedback returns valid JSON on demo.mindmittel.de and guards against Heroku H12 HTML timeouts', async () => {
+    const req = new NextRequest('https://demo.mindmittel.de/api/brain/feedback', {
+      method: 'POST',
+      headers: {
+        host: 'demo.mindmittel.de',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        mode: 'clarify',
+        locale: 'en',
+        auditProposal: 'Rollout M365 update',
+        messages: [
+          {
+            role: 'user',
+            text: 'We already have a Works Council agreement for M365',
+          },
+        ],
+      }),
+    });
+
+    const res = await feedbackPost(req);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type') || '').toContain('application/json');
+    const json = (await res.json()) as {
+      ok: boolean;
+      assistantReply: string;
+      quickChips: string[];
+    };
+    expect(json.ok).toBe(true);
+    expect(json.assistantReply.length).toBeGreaterThan(10);
+
+    // Ensure AuditFeedbackBar safely parses responses without crashing on HTML pages
+    const barSource = fs.readFileSync(
+      path.join(process.cwd(), 'src/components/audit/AuditFeedbackBar.tsx'),
+      'utf8'
+    );
+    expect(barSource).toContain('readJsonSafely');
+
+    // Ensure feedback route enforces a strict fast budget (<10s) so Heroku never triggers H12 HTML 503
+    const routeSource = fs.readFileSync(
+      path.join(process.cwd(), 'src/app/api/brain/feedback/route.ts'),
+      'utf8'
+    );
+    expect(routeSource).toContain('CLARIFY_FAST_BUDGET_MS');
   });
 });

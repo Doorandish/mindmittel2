@@ -29,6 +29,21 @@ interface AuditFeedbackBarProps {
   onPrecedentSubmitted?: () => void;
 }
 
+async function readJsonSafely(
+  res: Response,
+  isDe: boolean
+): Promise<Record<string, unknown>> {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      isDe
+        ? `Server antwortete unerwartet (HTTP ${res.status}). Bitte versuchen Sie es in wenigen Sekunden erneut.`
+        : `Unexpected server response (HTTP ${res.status}). Please retry in a few seconds.`
+    );
+  }
+  return (await res.json()) as Record<string, unknown>;
+}
+
 export function AuditFeedbackBar({
   locale,
   auditId,
@@ -105,17 +120,24 @@ export function AuditFeedbackBar({
           messages: nextMessages,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely(res, isDe);
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Clarification request failed.');
+        throw new Error(
+          (typeof data.error === 'string' && data.error) ||
+            'Clarification request failed.'
+        );
       }
       setMessages([
         ...nextMessages,
-        { role: 'assistant', text: data.assistantReply },
+        { role: 'assistant', text: String(data.assistantReply || '') },
       ]);
-      setQuickChips(Array.isArray(data.quickChips) ? data.quickChips : []);
+      setQuickChips(
+        Array.isArray(data.quickChips)
+          ? data.quickChips.map((c) => String(c))
+          : []
+      );
       if (data.readyToSubmit && data.draftPrecedent) {
-        setDraft(data.draftPrecedent);
+        setDraft(data.draftPrecedent as DraftCompanyPrecedent);
       }
     } catch (err) {
       setErrorMsg(
@@ -144,9 +166,12 @@ export function AuditFeedbackBar({
           draftPrecedent: draft,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely(res, isDe);
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Failed to submit precedent.');
+        throw new Error(
+          (typeof data.error === 'string' && data.error) ||
+            'Failed to submit precedent.'
+        );
       }
       setSubmittedPending(true);
       onPrecedentSubmitted?.();
