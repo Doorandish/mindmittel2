@@ -193,6 +193,30 @@ export const DOCUMENTED_API_ROUTES: readonly DocumentedApiRouteSpec[] = [
       'استریم ضربان قلب برای جلوگیری از تایم‌اوت ۳۰ ثانیه‌ای هروکو، Circuit Breaker ۱۵ دقیقه‌ای مدل‌ها و موتور قطعی پشتیبان (Heuristic Evaluator) در صورت قطعی کامل هوش مصنوعی.',
   },
   {
+    endpoint: '/api/brain/feedback',
+    methods: ['GET', 'POST', 'PATCH'],
+    sourceFile: 'src/app/api/brain/feedback/route.ts',
+    zoneScope: 'tenant',
+    technicalSummaryFa:
+      'حلقه یادگیری ایمن (Safe Learning Loop) مبتنی بر اصل چهار چشم: ثبت ۱-کلیکه بازخورد مفید، میکرو-چت هوشمند ۱ تا ۲ نوبتی (با پروفایل fast جمنای + پشتیبان قطعی) جهت تکمیل تاریخ انقضا و دامنه شمول، ذخیره رویه‌های پیشنهادی با وضعیت Pending در دیتابیس جداگانه شرکت، و تایید/ویرایش/رد/غیرفعال‌سازی همراه با تولید بردار ۷۶۸ بُعدی صرفاً توسط ادمین شرکت.',
+    nonTechnicalSummaryFa:
+      'مکانیزم آموزش مداوم سیستم توسط مدیران شرکت: هر تصمیم‌گیرنده می‌تواند بازخورد یا استثنای داخلی شرکت را ثبت کند تا پس از تایید ادمین شرکت (با لاگ کامل و تاریخ اعتبار) در ممیزی‌های بعدی لحاظ شود.',
+    errorProtectionFa:
+      'قفل نقش Company Admin برای فعال‌سازی رویه‌ها (جلوگیری از مسموم‌سازی حافظه)، فیلتر خودکار رویه‌های منقضی‌شده، عدم امکان لغو قوانین آمره آلمان، و ارسال صرفاً تله‌متری بدون متن محرمانه به پنل مالک محصول.',
+  },
+  {
+    endpoint: '/api/admin/feedback-telemetry',
+    methods: ['GET'],
+    sourceFile: 'src/app/api/admin/feedback-telemetry/route.ts',
+    zoneScope: 'admin',
+    technicalSummaryFa:
+      'درگاه تله‌متری کیفی موتور ممیزی برای مالک محصول (محافظت‌شده با withOwnerApi): ارائه آمار تجمیعی رضایت، نرخ خطا به تفکیک لایه قانونی (BetrVG/DSGVO/EU AI Act/NIS-2) و کدهای عیب‌یابی فنی با فیلتر بر اساس شرکت.',
+    nonTechnicalSummaryFa:
+      'داشبورد کیفیت‌سنجی موتور ممیزی برای مالک محصول جهت کشف نقاط ضعف فنی بدون دسترسی به هیچ متن یا راز تجاری شرکت‌ها.',
+    errorProtectionFa:
+      'پاک‌سازی ساختاری (sanitizeTelemetryRecord) که در سطح کد تضمین می‌کند هیچ متن آزادی از تصمیمات مشتریان وارد دیتابیس مرکزی نشود (DSGVO Privacy-by-Architecture).',
+  },
+  {
     endpoint: '/api/brain/documents',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     sourceFile: 'src/app/api/brain/documents/route.ts',

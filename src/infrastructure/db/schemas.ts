@@ -17,6 +17,8 @@ export const COLLECTIONS = {
   TENANTS: 'tenants',
   OTP_CHALLENGES: 'otp_challenges',
   TENANT_DEPARTMENTS: 'tenant_departments',
+  COMPANY_PRECEDENTS: 'company_precedents',
+  PLATFORM_FEEDBACK_TELEMETRY: 'platform_feedback_telemetry',
 } as const;
 
 /**

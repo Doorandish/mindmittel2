@@ -14,6 +14,7 @@ import {
 import type { SupportedLocale } from '@/i18n/dictionaries';
 import type { TenantComplianceProfile } from '@/core/tenancy/tenantModel';
 import { readAndResizeCompanyLogo } from '@/lib/logoUpload';
+import { CompanyPrecedentsManager } from '@/components/governance/CompanyPrecedentsManager';
 
 interface CompanyProfilePanelProps {
   locale: SupportedLocale;
@@ -389,6 +390,9 @@ export function CompanyProfilePanel({
           </div>
         </div>
       )}
+
+      {/* Company Admin Approval Queue & Learning Loop Audit Log */}
+      <CompanyPrecedentsManager locale={locale} />
     </div>
   );
 }

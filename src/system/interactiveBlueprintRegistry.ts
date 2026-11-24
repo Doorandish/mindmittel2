@@ -549,21 +549,32 @@ export const BLUEPRINT_MODULES: readonly BlueprintModuleSpec[] = [
       {
         stepTitleFa: '۲. مرحله دوم: پرامپت مهندسی‌شده سطح مدیرعامل (ضدتوهم، ضدتزریق و با مقیاس نمره)',
         detailFa:
-          'تابع `buildExecutiveAuditPrompt` پرامپت تخصصی ممیزی را با استاندارد ۴۵ ثانیه‌ای خوانش مدیرعامل می‌سازد: ورودی‌ها داخل تگ‌های XML (`<proposed_decision>` و `<company_brain_documents>`) ایزوله می‌شوند تا از تزریق پرامپت (Prompt Injection) جلوگیری شود؛ در صورت نبود سند مرتبط، قانون صریح ضدتوهم (`status="EMPTY"`) مانع اختراع بند ساختگی می‌شود؛ مقیاس دقیق نمره (`10-44` تعارض، `45-79` مشروط، `80-99` تایید) و هشدارهای پیش‌غربالگری قوانین آلمان در پرامپت تزریق شده و نقشه راه ۳ مرحله‌ای با تعیین دقیق مسئول هر گام (`[Role] Action — Deliverable`) تولید می‌گردد.',
+          'تابع `buildExecutiveAuditPrompt` پرامپت تخصصی ممیزی را با استاندارد ۴۵ ثانیه‌ای خوانش مدیرعامل می‌سازد: ورودی‌ها داخل تگ‌های XML (`<proposed_decision>`، `<company_brain_documents>` و `<company_precedents>`) ایزوله می‌شوند تا از تزریق پرامپت جلوگیری شود؛ در صورت نبود سند مرتبط، قانون صریح ضدتوهم (`status="EMPTY"`) مانع اختراع بند ساختگی می‌شود؛ مقیاس دقیق نمره (`10-44` تعارض، `45-79` مشروط، `80-99` تایید) و هشدارهای پیش‌غربالگری قوانین آلمان در پرامپت تزریق می‌گردد.',
         codeRef:
           'src/core/audit/auditPromptBuilder.ts → buildExecutiveAuditPrompt() & src/app/api/brain/audit/route.ts → callGeminiAuditSynthesis()',
       },
+      {
+        stepTitleFa: '۳. حلقه یادگیری ایمن و رویه‌های تاییدشده شرکت (Safe Learning Loop)',
+        detailFa:
+          'تصمیم‌گیرندگان از طریق `/api/brain/feedback` (میکرو-چت ۱ تا ۲ نوبتی با دریافت تاریخ اعتبار و دامنه شمول) استثناها و بازخوردهای شرکتی را به‌صورت `pending` ثبت می‌کنند. تنها پس از تایید `Company Admin` (با لاگ کامل حسابرسی و قابلیت غیرفعال‌سازی)، رویه با بردار ۷۶۸ بُعدی فعال شده و حداکثر ۳ رویه منقضی‌نشده مرتبط وارد بلوک `<company_precedents>` می‌شوند — بدون اینکه هرگز قانون آمره آلمان را لغو کنند. تله‌متری بدون متن محرمانه نیز از طریق `/api/admin/feedback-telemetry` به پنل مالک محصول گزارش می‌شود.',
+        codeRef:
+          'src/core/audit/learningLoop.ts & src/infrastructure/audit/learningLoopRepository.ts',
+      },
     ],
     inputsFa: [
-      'متن تصمیم پیشنهادی مدیر + زبان انتخابی (`EN` / `DE`) + اسناد والد مرتبط از Zone 2 + سیگنال‌های پیش‌غربالگری قوانین آلمان',
+      'متن تصمیم پیشنهادی مدیر + زبان انتخابی (`EN` / `DE`) + اسناد والد مرتبط از Zone 2 + رویه‌های تاییدشده و منقضی‌نشده شرکت + سیگنال‌های پیش‌غربالگری قوانین آلمان',
     ],
     outputsFa: [
-      'گزارش ارزیابی اولیه (`ExecutiveAuditReport`) برای عبور اجباری از گارد تنزل حکم قوانین آلمان',
+      'گزارش ارزیابی اولیه (`ExecutiveAuditReport`) برای عبور اجباری از گارد تنزل حکم قوانین آلمان + تله‌متری کیفی بدون متن محرمانه',
     ],
     sourceFiles: [
       'src/app/api/brain/audit/route.ts',
+      'src/app/api/brain/feedback/route.ts',
+      'src/app/api/admin/feedback-telemetry/route.ts',
       'src/core/audit/auditPromptBuilder.ts',
       'src/core/audit/decisionEvaluator.ts',
+      'src/core/audit/learningLoop.ts',
+      'src/infrastructure/audit/learningLoopRepository.ts',
     ],
   },
   {

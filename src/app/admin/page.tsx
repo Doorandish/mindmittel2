@@ -25,6 +25,7 @@ import { buildZoneUrl } from '@/core/tenancy/hostResolver';
 import { deriveTenantDbName } from '@/core/tenancy/tenantModel';
 import type { AdminTenantView } from '@/infrastructure/tenancy/tenantRepository';
 import { readAndResizeCompanyLogo } from '@/lib/logoUpload';
+import { AdminTelemetryPanel } from '@/components/admin/AdminTelemetryPanel';
 
 export default function SuperAdminConsolePage() {
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
@@ -937,6 +938,11 @@ export default function SuperAdminConsolePage() {
           </div>
         </div>
       </main>
+
+      {/* Product Owner Zero-Leak Audit Engine Quality Telemetry Panel */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <AdminTelemetryPanel />
+      </div>
 
       {/* Strict Typed-Slug Confirmation Modal for Deleting a Tenant */}
       {deleteTargetSlug && (

@@ -21,6 +21,8 @@ import {
   type GermanRegulatoryAdvisory,
 } from '@/core/audit/germanRegulatoryAdvisor';
 import { buildExecutiveAuditPrompt } from '@/core/audit/auditPromptBuilder';
+import type { MatchedPrecedentPromptInput } from '@/core/audit/learningLoop';
+import { searchActiveTenantPrecedents } from '@/infrastructure/audit/learningLoopRepository';
 import { systemLogger } from '@/infrastructure/logging/logger';
 import { withTenantApi } from '@/infrastructure/http/tenantRequestGuard';
 import { runWithHeartbeatStream } from '@/infrastructure/http/streamingResponse';
@@ -37,6 +39,7 @@ async function callGeminiAuditSynthesis(params: {
   decisionProposal: string;
   matchedParents: readonly MatchedParentContextInput[];
   germanAdvisory: GermanRegulatoryAdvisory;
+  matchedPrecedents: readonly MatchedPrecedentPromptInput[];
   modelId: string;
   locale: 'en' | 'de';
 }): Promise<Partial<ExecutiveAuditReport> | null> {
@@ -48,6 +51,7 @@ async function callGeminiAuditSynthesis(params: {
     matchedParents: params.matchedParents,
     locale: params.locale,
     germanAdvisory: params.germanAdvisory,
+    matchedPrecedents: params.matchedPrecedents,
   });
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
@@ -144,23 +148,45 @@ export async function POST(request: NextRequest) {
       );
       const hasGeminiKey = Boolean(resolveGeminiApiKey());
 
-      // 1 & 2. Retrieve matching Parent documents (strictly scoped by RBAC allowedDepartments), resolve optimal Gemini model, and fetch excluded doc metadata in parallel
-      const [rawMatchedParents, modelSelection, allDocsForDisclosure] =
-        await Promise.all([
-          searchBrainByVectorSimilarity({
-            query: decisionProposal,
-            departmentFilter: body.departmentFilter,
-            allowedDepartments: effectiveAllowedDepts,
-            topK: 3,
-            excludedParentIds,
-          }),
-          hasGeminiKey
-            ? geminiModelSelector.selectModel(inferredProfile).catch(() => null)
-            : Promise.resolve(null),
-          excludedParentIds && excludedParentIds.length > 0
-            ? listBrainDocuments()
-            : Promise.resolve([]),
-        ]);
+      // 1 & 2. Retrieve matching Parent documents, active approved company precedents, optimal Gemini model, and excluded doc metadata in parallel
+      const [
+        rawMatchedParents,
+        modelSelection,
+        allDocsForDisclosure,
+        activePrecedents,
+      ] = await Promise.all([
+        searchBrainByVectorSimilarity({
+          query: decisionProposal,
+          departmentFilter: body.departmentFilter,
+          allowedDepartments: effectiveAllowedDepts,
+          topK: 3,
+          excludedParentIds,
+        }),
+        hasGeminiKey
+          ? geminiModelSelector.selectModel(inferredProfile).catch(() => null)
+          : Promise.resolve(null),
+        excludedParentIds && excludedParentIds.length > 0
+          ? listBrainDocuments()
+          : Promise.resolve([]),
+        searchActiveTenantPrecedents({
+          tenantSlug: tenant.slug,
+          queryText: decisionProposal,
+          allowedDepartments:
+            effectiveAllowedDepts === 'all' || !effectiveAllowedDepts
+              ? '*'
+              : effectiveAllowedDepts,
+          maxCount: 3,
+        }).catch(() => []),
+      ]);
+
+      const matchedPrecedentsForPrompt: MatchedPrecedentPromptInput[] =
+        activePrecedents.map((p) => ({
+          title: p.title,
+          ruleSummary: p.ruleSummary,
+          department: p.department,
+          approvedByEmail: p.reviewedByEmail ?? p.submittedByEmail,
+          validUntil: p.validUntil,
+        }));
 
       const matchedParents = filterRelevantCitations(rawMatchedParents);
       const selectedModelId =
@@ -195,6 +221,7 @@ export async function POST(request: NextRequest) {
                   decisionProposal,
                   matchedParents,
                   germanAdvisory,
+                  matchedPrecedents: matchedPrecedentsForPrompt,
                   modelId,
                   locale,
                 })

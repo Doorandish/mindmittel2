@@ -61,6 +61,7 @@ import { TeamAccessPanel } from '@/components/governance/TeamAccessPanel';
 import { CompanyProfilePanel } from '@/components/governance/CompanyProfilePanel';
 import { ConnectorGuideModal } from '@/components/connectors/ConnectorGuideModal';
 import { getConnectorSetupGuide } from '@/core/connectors/connectorGuides';
+import { AuditFeedbackBar } from '@/components/audit/AuditFeedbackBar';
 import {
   DEFAULT_COMPLIANCE_PROFILE,
   type TenantComplianceProfile,
@@ -2967,6 +2968,20 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
+
+                    <AuditFeedbackBar
+                      key={auditReport.evaluatedAt}
+                      locale={locale}
+                      auditProposal={decisionProposal}
+                      verdict={auditReport.verdict}
+                      alignmentScore={auditReport.alignmentScore}
+                      selectedModelId={auditReport.selectedModelId}
+                      defaultDepartment={
+                        auditDepartmentFilter === 'ALL'
+                          ? '*'
+                          : auditDepartmentFilter
+                      }
+                    />
                   </div>
                 )}
               </div>
