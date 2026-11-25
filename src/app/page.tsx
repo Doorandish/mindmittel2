@@ -4166,13 +4166,6 @@ export default function HomePage() {
             <TeamAccessPanel
               locale={locale}
               currentUserEmail={userEmail}
-              companyName={tenantInfo?.companyName}
-              companyLogoUrl={tenantInfo?.logoDataUrl ?? null}
-              onLogoChanged={(nextLogo) => {
-                setTenantInfo((prev) =>
-                  prev ? { ...prev, logoDataUrl: nextLogo } : prev
-                );
-              }}
               onDepartmentsChanged={(nextDepts) => {
                 if (nextDepts.length > 0) {
                   setTenantDepartments(nextDepts);

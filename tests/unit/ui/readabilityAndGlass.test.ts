@@ -297,4 +297,22 @@ describe('Crisp Enterprise Light Theme, V1-Inspired Landing Page & Overflow Prot
     expect(marketingSource).toContain('Kein KI-Training');
     expect(marketingSource).toContain('Zero AI Training');
   });
+
+  it('keeps Company Logo & Branding exclusively inside CompanyProfilePanel and removes all dead logo code from TeamAccessPanel', () => {
+    const teamAccessSource = fs.readFileSync(
+      path.join(rootDir, 'src/components/governance/TeamAccessPanel.tsx'),
+      'utf-8'
+    );
+    const companyProfileSource = fs.readFileSync(
+      path.join(rootDir, 'src/components/governance/CompanyProfilePanel.tsx'),
+      'utf-8'
+    );
+
+    expect(teamAccessSource).not.toContain('Company Logo & Branding');
+    expect(teamAccessSource).not.toContain('readAndResizeCompanyLogo');
+    expect(teamAccessSource).not.toContain('companyLogoUrl');
+    expect(teamAccessSource).not.toContain('onLogoChanged');
+    expect(teamAccessSource).not.toContain('isSavingLogo');
+    expect(companyProfileSource).toContain('readAndResizeCompanyLogo');
+  });
 });

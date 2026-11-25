@@ -5,13 +5,11 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  ImageIcon,
   Loader2,
   Plus,
   RefreshCw,
   Shield,
   Trash2,
-  Upload,
   Users,
 } from 'lucide-react';
 import {
@@ -21,7 +19,6 @@ import {
   type TenantUserRole,
 } from '@/core/auth/rbac';
 import type { SupportedLocale } from '@/i18n/dictionaries';
-import { readAndResizeCompanyLogo } from '@/lib/logoUpload';
 
 interface DepartmentWithCount extends TenantDepartmentItem {
   documentCount: number;
@@ -30,9 +27,6 @@ interface DepartmentWithCount extends TenantDepartmentItem {
 interface TeamAccessPanelProps {
   locale: SupportedLocale;
   currentUserEmail: string;
-  companyName?: string;
-  companyLogoUrl?: string | null;
-  onLogoChanged?: (nextLogoUrl: string | null) => void;
   onDepartmentsChanged: (departments: TenantDepartmentItem[]) => void;
   onPendingCountChanged?: (count: number) => void;
 }
@@ -40,13 +34,9 @@ interface TeamAccessPanelProps {
 export function TeamAccessPanel({
   locale,
   currentUserEmail,
-  companyName,
-  companyLogoUrl,
-  onLogoChanged,
   onDepartmentsChanged,
   onPendingCountChanged,
 }: TeamAccessPanelProps) {
-  const [isSavingLogo, setIsSavingLogo] = useState<boolean>(false);
   const [users, setUsers] = useState<TenantUserAccessProfile[]>([]);
   const [departments, setDepartments] = useState<DepartmentWithCount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -627,147 +617,6 @@ export function TeamAccessPanel({
               ? 'Anti-Lockout-Schutz aktiv: Der letzte aktive Company Admin kann nicht herabgestuft werden.'
               : 'Anti-Lockout Guard active: The last active Company Admin cannot be demoted.'}
           </span>
-        </div>
-      </div>
-
-      {/* Section 3: Company Logo & White-Label Branding */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-4">
-        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
-            <ImageIcon className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-base font-extrabold text-slate-900">
-              {locale === 'de'
-                ? 'Unternehmenslogo & Branding'
-                : 'Company Logo & Branding'}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {locale === 'de'
-                ? 'Wird in der linken Seitenleiste, auf der OTP-Anmeldeseite und auf exportierten PDF-Berichten angezeigt (PNG, JPG oder WEBP).'
-                : 'Displayed in the left sidebar, OTP login screen, and exported A4 PDF executive reports (PNG, JPG, or WEBP).'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center p-2 overflow-hidden">
-              <img
-                src={companyLogoUrl || '/images/mindmittel-logo.svg'}
-                alt={companyName ? `${companyName} Logo` : 'Company Logo'}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-slate-900">
-                {companyName || 'Workspace'}
-              </div>
-              <div className="text-xs text-slate-500">
-                {companyLogoUrl
-                  ? locale === 'de'
-                    ? 'Benutzerdefiniertes Unternehmenslogo aktiv'
-                    : 'Custom company logo active'
-                  : locale === 'de'
-                  ? 'Standard-MindMittel-Logo aktiv'
-                  : 'Default MindMittel logo active'}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors">
-              <Upload className="w-3.5 h-3.5" />
-              <span>
-                {isSavingLogo
-                  ? '...'
-                  : locale === 'de'
-                  ? 'Logo hochladen'
-                  : 'Upload Logo'}
-              </span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                disabled={isSavingLogo}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = '';
-                  if (!file) return;
-                  setIsSavingLogo(true);
-                  setFeedback(null);
-                  try {
-                    const dataUrl = await readAndResizeCompanyLogo(file);
-                    const res = await fetch('/api/tenant/governance', {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ logoDataUrl: dataUrl }),
-                    });
-                    const data = await res.json();
-                    if (data.ok) {
-                      onLogoChanged?.(data.logoDataUrl ?? dataUrl);
-                      setFeedback({
-                        type: 'ok',
-                        message:
-                          locale === 'de'
-                            ? '✓ Unternehmenslogo erfolgreich gespeichert.'
-                            : '✓ Company logo updated successfully.',
-                      });
-                    } else {
-                      setFeedback({
-                        type: 'err',
-                        message: data.error ?? 'Failed to update logo.',
-                      });
-                    }
-                  } catch (err) {
-                    setFeedback({
-                      type: 'err',
-                      message:
-                        err instanceof Error
-                          ? err.message
-                          : 'Logo upload failed.',
-                    });
-                  } finally {
-                    setIsSavingLogo(false);
-                  }
-                }}
-              />
-            </label>
-
-            {companyLogoUrl && (
-              <button
-                type="button"
-                disabled={isSavingLogo}
-                onClick={async () => {
-                  setIsSavingLogo(true);
-                  setFeedback(null);
-                  try {
-                    const res = await fetch('/api/tenant/governance', {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ clearLogo: true }),
-                    });
-                    const data = await res.json();
-                    if (data.ok) {
-                      onLogoChanged?.(null);
-                      setFeedback({
-                        type: 'ok',
-                        message:
-                          locale === 'de'
-                            ? '✓ Unternehmenslogo entfernt (Standardlogo wiederhergestellt).'
-                            : '✓ Company logo removed (default logo restored).',
-                      });
-                    }
-                  } finally {
-                    setIsSavingLogo(false);
-                  }
-                }}
-                className="px-3 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-semibold transition-colors"
-              >
-                {locale === 'de' ? 'Entfernen' : 'Remove'}
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>
